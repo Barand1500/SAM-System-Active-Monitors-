@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { ActivityLogProvider } from './context/ActivityLogContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
+import ToastContainer from './components/ToastContainer';
+import { OfflineIndicator } from './components/MobileNavigation';
 
 // Ana App içeriği
 const AppContent = () => {
@@ -36,12 +41,26 @@ const AppContent = () => {
   return <RegisterPage onSwitchToLogin={() => setAuthMode('login')} />;
 };
 
+// Toast Container Wrapper
+const ToastWrapper = () => {
+  const { isDark } = useTheme();
+  return <ToastContainer isDark={isDark} />;
+};
+
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <LanguageProvider>
+        <NotificationProvider>
+          <ActivityLogProvider>
+            <AuthProvider>
+              <OfflineIndicator />
+              <AppContent />
+              <ToastWrapper />
+            </AuthProvider>
+          </ActivityLogProvider>
+        </NotificationProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

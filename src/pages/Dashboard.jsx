@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { tasks, users, announcements, notifications, departments } from '../data/mockData';
+import { users as initialUsers, announcements as initialAnnouncements, notifications, departments } from '../data/mockData';
 import { 
   LayoutDashboard,
   Users,
@@ -31,7 +31,16 @@ import {
   CalendarDays,
   Timer,
   FileText,
-  Palmtree
+  Palmtree,
+  X,
+  Edit,
+  Trash2,
+  MoreVertical,
+  Pin,
+  Send,
+  Mail,
+  Phone,
+  User
 } from 'lucide-react';
 
 // Yeni bileşenleri import et
@@ -41,15 +50,108 @@ import CalendarView from '../components/CalendarView';
 import ReportsPage from '../components/ReportsPage';
 import LeaveRequestSystem from '../components/LeaveRequestSystem';
 import TaskDetailModal from '../components/TaskDetailModal';
+import NotificationCenter from '../components/NotificationCenter';
+
+// LocalStorage helpers
+const loadFromStorage = (key, defaultValue) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const saveToStorage = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+// Başlangıç görevleri
+const initialTasks = [
+  {
+    id: 1,
+    title: 'Kullanıcı giriş sayfası tasarımı',
+    description: 'Modern ve kullanıcı dostu bir giriş sayfası tasarlanacak',
+    status: 'completed',
+    priority: 'high',
+    assignedTo: { id: 5, firstName: 'Zeynep', lastName: 'Arslan', position: 'UI/UX Designer', department: 'Tasarım' },
+    assignedBy: { id: 1, firstName: 'Ahmet', lastName: 'Yılmaz' },
+    department: 'Tasarım',
+    dueDate: '2024-02-10',
+    createdAt: '2024-02-01',
+    completedAt: '2024-02-09',
+    estimatedHours: 8,
+    actualHours: 6,
+    tags: ['UI', 'Tasarım']
+  },
+  {
+    id: 2,
+    title: 'API entegrasyonu',
+    description: 'Backend servisleri ile frontend bağlantısı kurulacak',
+    status: 'in_progress',
+    priority: 'high',
+    assignedTo: { id: 4, firstName: 'Ali', lastName: 'Öztürk', position: 'Backend Developer', department: 'Yazılım' },
+    assignedBy: { id: 2, firstName: 'Mehmet', lastName: 'Kaya' },
+    department: 'Yazılım',
+    dueDate: '2024-02-15',
+    createdAt: '2024-02-05',
+    completedAt: null,
+    estimatedHours: 20,
+    actualHours: 12,
+    tags: ['Backend', 'API']
+  },
+  {
+    id: 3,
+    title: 'Dashboard komponenti',
+    description: 'Ana dashboard ekranı için React komponenti geliştirilecek',
+    status: 'in_progress',
+    priority: 'medium',
+    assignedTo: { id: 3, firstName: 'Ayşe', lastName: 'Demir', position: 'Frontend Developer', department: 'Yazılım' },
+    assignedBy: { id: 2, firstName: 'Mehmet', lastName: 'Kaya' },
+    department: 'Yazılım',
+    dueDate: '2024-02-18',
+    createdAt: '2024-02-08',
+    completedAt: null,
+    estimatedHours: 16,
+    actualHours: 8,
+    tags: ['Frontend', 'React']
+  }
+];
 
 // Ana Dashboard bileşeni
 const Dashboard = () => {
   const { user, company, logout, isBoss, isManager } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  
+  // Ana state'ler - LocalStorage ile senkronize
+  const [tasks, setTasks] = useState(() => loadFromStorage('app_tasks', initialTasks));
+  const [employees, setEmployees] = useState(() => loadFromStorage('app_employees', initialUsers));
+  const [announcementsList, setAnnouncementsList] = useState(() => loadFromStorage('app_announcements', initialAnnouncements));
+  
+  // Modal state'leri
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+
+  // LocalStorage'a kaydet
+  useEffect(() => {
+    saveToStorage('app_tasks', tasks);
+  }, [tasks]);
+
+  useEffect(() => {
+    saveToStorage('app_employees', employees);
+  }, [employees]);
+
+  useEffect(() => {
+    saveToStorage('app_announcements', announcementsList);
+  }, [announcementsList]);
 
   const canManage = isBoss || isManager;
 
@@ -74,6 +176,82 @@ const Dashboard = () => {
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
+  };
+
+  // CRUD Fonksiyonları
+  const addTask = (taskData) => {
+    const newTask = {
+      ...taskData,
+      id: Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+      assignedBy: { id: user.id, firstName: user.firstName, lastName: user.lastName },
+      completedAt: null,
+      actualHours: 0
+    };
+    setTasks(prev => [newTask, ...prev]);
+  };
+
+  const updateTask = (taskId, updates) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+  };
+
+  const deleteTask = (taskId) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const addEmployee = (empData) => {
+    const newEmployee = {
+      ...empData,
+      id: Date.now(),
+      companyId: company?.id || 1,
+      status: 'active',
+      avatar: null
+    };
+    setEmployees(prev => [...prev, newEmployee]);
+  };
+
+  const updateEmployee = (empId, updates) => {
+    setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updates } : e));
+  };
+
+  const deleteEmployee = (empId) => {
+    setEmployees(prev => prev.filter(e => e.id !== empId));
+  };
+
+  const addAnnouncement = (annData) => {
+    const newAnn = {
+      ...annData,
+      id: Date.now(),
+      createdAt: new Date().toISOString().split('T')[0],
+      createdBy: { id: user.id, firstName: user.firstName, lastName: user.lastName }
+    };
+    setAnnouncementsList(prev => [newAnn, ...prev]);
+  };
+
+  const updateAnnouncement = (annId, updates) => {
+    setAnnouncementsList(prev => prev.map(a => a.id === annId ? { ...a, ...updates } : a));
+  };
+
+  const deleteAnnouncement = (annId) => {
+    setAnnouncementsList(prev => prev.filter(a => a.id !== annId));
+  };
+
+  // Görev Ekleme Modal
+  const openTaskModal = (task = null) => {
+    setEditingTask(task);
+    setShowTaskModal(true);
+  };
+
+  // Çalışan Ekleme Modal
+  const openEmployeeModal = (emp = null) => {
+    setEditingEmployee(emp);
+    setShowEmployeeModal(true);
+  };
+
+  // Duyuru Ekleme Modal
+  const openAnnouncementModal = (ann = null) => {
+    setEditingAnnouncement(ann);
+    setShowAnnouncementModal(true);
   };
 
   return (
@@ -124,41 +302,7 @@ const Dashboard = () => {
               </div>
 
               {/* Bildirimler */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className={`relative p-2.5 rounded-xl transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}`}
-                >
-                  <Bell size={20} className={isDark ? 'text-slate-300' : 'text-slate-600'} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {showNotifications && (
-                  <div className={`absolute right-0 top-full mt-2 w-80 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-2xl shadow-2xl border overflow-hidden z-50`}>
-                    <div className={`p-4 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
-                      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Bildirimler</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.map(notif => (
-                        <div 
-                          key={notif.id} 
-                          className={`p-4 border-b transition-colors cursor-pointer
-                                    ${isDark ? 'border-slate-700 hover:bg-slate-700' : 'border-slate-50 hover:bg-slate-50'}
-                                    ${!notif.isRead ? (isDark ? 'bg-indigo-900/20' : 'bg-indigo-50/50') : ''}`}
-                        >
-                          <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{notif.title}</p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{notif.content}</p>
-                          <p className={`text-xs mt-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{notif.createdAt}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <NotificationCenter isDark={isDark} />
 
               {/* Kullanıcı Menüsü */}
               <div className="relative">
@@ -232,34 +376,49 @@ const Dashboard = () => {
           </div>
 
           {canManage && activeTab === 'tasks' && (
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
-                             hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
-                             shadow-lg shadow-indigo-500/25 transition-all">
+            <button 
+              onClick={() => openTaskModal()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
+                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
+                       shadow-lg shadow-indigo-500/25 transition-all">
               <Plus size={18} />
               Yeni Görev
             </button>
           )}
 
           {canManage && activeTab === 'employees' && (
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
-                             hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
-                             shadow-lg shadow-indigo-500/25 transition-all">
+            <button 
+              onClick={() => openEmployeeModal()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
+                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
+                       shadow-lg shadow-indigo-500/25 transition-all">
               <UserPlus size={18} />
-              Çalışan Davet Et
+              Çalışan Ekle
+            </button>
+          )}
+
+          {canManage && activeTab === 'announcements' && (
+            <button 
+              onClick={() => openAnnouncementModal()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
+                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
+                       shadow-lg shadow-indigo-500/25 transition-all">
+              <Megaphone size={18} />
+              Yeni Duyuru
             </button>
           )}
         </div>
 
         {/* İçerik */}
-        {activeTab === 'overview' && <OverviewTab canManage={canManage} isDark={isDark} />}
-        {activeTab === 'tasks' && <TasksTab canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} />}
-        {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} />}
-        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} />}
+        {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} />}
+        {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} />}
+        {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
+        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} />}
         {activeTab === 'timetracker' && <TimeTracker user={user} isDark={isDark} />}
-        {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={users} isDark={isDark} />}
-        {activeTab === 'employees' && canManage && <EmployeesTab isDark={isDark} />}
+        {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={employees} isDark={isDark} />}
+        {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} />}
         {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} isDark={isDark} />}
-        {activeTab === 'announcements' && <AnnouncementsTab canManage={canManage} isDark={isDark} />}
+        {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} />}
         {activeTab === 'settings' && <SettingsTab isDark={isDark} />}
       </div>
 
@@ -268,8 +427,66 @@ const Dashboard = () => {
         <TaskDetailModal 
           task={selectedTask}
           onClose={() => setSelectedTask(null)}
-          onUpdate={(updatedTask) => console.log('Task updated:', updatedTask)}
+          onUpdate={(updatedTask) => {
+            updateTask(selectedTask.id, updatedTask);
+            setSelectedTask(null);
+          }}
           user={user}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Görev Ekleme/Düzenleme Modal */}
+      {showTaskModal && (
+        <TaskFormModal 
+          task={editingTask}
+          employees={employees}
+          onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
+          onSave={(data) => {
+            if (editingTask) {
+              updateTask(editingTask.id, data);
+            } else {
+              addTask(data);
+            }
+            setShowTaskModal(false);
+            setEditingTask(null);
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Çalışan Ekleme/Düzenleme Modal */}
+      {showEmployeeModal && (
+        <EmployeeFormModal 
+          employee={editingEmployee}
+          onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); }}
+          onSave={(data) => {
+            if (editingEmployee) {
+              updateEmployee(editingEmployee.id, data);
+            } else {
+              addEmployee(data);
+            }
+            setShowEmployeeModal(false);
+            setEditingEmployee(null);
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Duyuru Ekleme/Düzenleme Modal */}
+      {showAnnouncementModal && (
+        <AnnouncementFormModal 
+          announcement={editingAnnouncement}
+          onClose={() => { setShowAnnouncementModal(false); setEditingAnnouncement(null); }}
+          onSave={(data) => {
+            if (editingAnnouncement) {
+              updateAnnouncement(editingAnnouncement.id, data);
+            } else {
+              addAnnouncement(data);
+            }
+            setShowAnnouncementModal(false);
+            setEditingAnnouncement(null);
+          }}
           isDark={isDark}
         />
       )}
@@ -285,11 +502,493 @@ const Dashboard = () => {
   );
 };
 
-// Genel Bakış Tab
-const OverviewTab = ({ canManage, isDark }) => {
-  const { user } = useAuth();
-  
+// ===== GÖREV FORM MODAL =====
+const TaskFormModal = ({ task, employees, onClose, onSave, isDark }) => {
+  const [form, setForm] = useState({
+    title: task?.title || '',
+    description: task?.description || '',
+    priority: task?.priority || 'medium',
+    status: task?.status || 'pending',
+    department: task?.department || 'Yazılım',
+    dueDate: task?.dueDate || '',
+    assignedTo: task?.assignedTo || null,
+    estimatedHours: task?.estimatedHours || 0,
+    tags: task?.tags || []
+  });
+
+  const activeEmployees = employees.filter(e => e.role !== 'boss' && e.status === 'active');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    onSave(form);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col`}>
+        <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between`}>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            {task ? 'Görevi Düzenle' : 'Yeni Görev Oluştur'}
+          </h2>
+          <button onClick={onClose} className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
+            <X size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
+          <div className="space-y-5">
+            {/* Başlık */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Görev Başlığı *
+              </label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Görev başlığını girin..."
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                required
+              />
+            </div>
+
+            {/* Açıklama */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Açıklama
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Görev açıklaması..."
+                rows={3}
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none`}
+              />
+            </div>
+
+            {/* 2 Kolon */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Öncelik */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Öncelik
+                </label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  <option value="low">Düşük</option>
+                  <option value="medium">Orta</option>
+                  <option value="high">Yüksek</option>
+                  <option value="urgent">Acil</option>
+                </select>
+              </div>
+
+              {/* Durum */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Durum
+                </label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  <option value="pending">Bekliyor</option>
+                  <option value="in_progress">Devam Ediyor</option>
+                  <option value="review">İncelemede</option>
+                  <option value="completed">Tamamlandı</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 2 Kolon */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Departman */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Departman
+                </label>
+                <select
+                  value={form.department}
+                  onChange={(e) => setForm(prev => ({ ...prev, department: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  {departments.map(d => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Teslim Tarihi */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Teslim Tarihi
+                </label>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                />
+              </div>
+            </div>
+
+            {/* Çalışan Ata */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Görevi Ata
+              </label>
+              <select
+                value={form.assignedTo?.id || ''}
+                onChange={(e) => {
+                  const emp = activeEmployees.find(emp => emp.id === parseInt(e.target.value));
+                  setForm(prev => ({ 
+                    ...prev, 
+                    assignedTo: emp ? { id: emp.id, firstName: emp.firstName, lastName: emp.lastName, position: emp.position, department: emp.department } : null 
+                  }));
+                }}
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+              >
+                <option value="">Atanmadı</option>
+                {activeEmployees.map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName} - {emp.position}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tahmini Süre */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Tahmini Süre (Saat)
+              </label>
+              <input
+                type="number"
+                value={form.estimatedHours}
+                onChange={(e) => setForm(prev => ({ ...prev, estimatedHours: parseInt(e.target.value) || 0 }))}
+                min="0"
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+              />
+            </div>
+          </div>
+        </form>
+
+        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
+                     hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25"
+          >
+            {task ? 'Güncelle' : 'Oluştur'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== ÇALIŞAN FORM MODAL =====
+const EmployeeFormModal = ({ employee, onClose, onSave, isDark }) => {
+  const [form, setForm] = useState({
+    firstName: employee?.firstName || '',
+    lastName: employee?.lastName || '',
+    email: employee?.email || '',
+    phone: employee?.phone || '',
+    role: employee?.role || 'employee',
+    department: employee?.department || 'Yazılım',
+    position: employee?.position || '',
+    status: employee?.status || 'active'
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return;
+    onSave(form);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col`}>
+        <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between`}>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            {employee ? 'Çalışanı Düzenle' : 'Yeni Çalışan Ekle'}
+          </h2>
+          <button onClick={onClose} className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
+            <X size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
+          <div className="space-y-5">
+            {/* Ad Soyad */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Ad *
+                </label>
+                <input
+                  type="text"
+                  value={form.firstName}
+                  onChange={(e) => setForm(prev => ({ ...prev, firstName: e.target.value }))}
+                  placeholder="Ad"
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Soyad *
+                </label>
+                <input
+                  type="text"
+                  value={form.lastName}
+                  onChange={(e) => setForm(prev => ({ ...prev, lastName: e.target.value }))}
+                  placeholder="Soyad"
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* E-posta ve Telefon */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  E-posta *
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="ornek@sirket.com"
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Telefon
+                </label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+90 5XX XXX XXXX"
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                />
+              </div>
+            </div>
+
+            {/* Rol ve Departman */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Rol
+                </label>
+                <select
+                  value={form.role}
+                  onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  <option value="employee">Çalışan</option>
+                  <option value="manager">Yönetici</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Departman
+                </label>
+                <select
+                  value={form.department}
+                  onChange={(e) => setForm(prev => ({ ...prev, department: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  {departments.map(d => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Pozisyon ve Durum */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Pozisyon
+                </label>
+                <input
+                  type="text"
+                  value={form.position}
+                  onChange={(e) => setForm(prev => ({ ...prev, position: e.target.value }))}
+                  placeholder="Frontend Developer"
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Durum
+                </label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value }))}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                >
+                  <option value="active">Aktif</option>
+                  <option value="on_leave">İzinli</option>
+                  <option value="inactive">Pasif</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
+                     hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25"
+          >
+            {employee ? 'Güncelle' : 'Ekle'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== DUYURU FORM MODAL =====
+const AnnouncementFormModal = ({ announcement, onClose, onSave, isDark }) => {
+  const [form, setForm] = useState({
+    title: announcement?.title || '',
+    content: announcement?.content || '',
+    priority: announcement?.priority || 'normal',
+    isPinned: announcement?.isPinned || false
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.content.trim()) return;
+    onSave(form);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl`}>
+        <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between`}>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            {announcement ? 'Duyuruyu Düzenle' : 'Yeni Duyuru'}
+          </h2>
+          <button onClick={onClose} className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
+            <X size={20} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-5">
+            {/* Başlık */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Başlık *
+              </label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Duyuru başlığı..."
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+                required
+              />
+            </div>
+
+            {/* İçerik */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                İçerik *
+              </label>
+              <textarea
+                value={form.content}
+                onChange={(e) => setForm(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Duyuru içeriği..."
+                rows={4}
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none`}
+                required
+              />
+            </div>
+
+            {/* Öncelik */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Öncelik
+              </label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm(prev => ({ ...prev, priority: e.target.value }))}
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
+              >
+                <option value="normal">Normal</option>
+                <option value="important">Önemli</option>
+                <option value="urgent">Acil</option>
+              </select>
+            </div>
+
+            {/* Sabitle */}
+            <label className={`flex items-center gap-3 cursor-pointer ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              <input
+                type="checkbox"
+                checked={form.isPinned}
+                onChange={(e) => setForm(prev => ({ ...prev, isPinned: e.target.checked }))}
+                className="w-5 h-5 rounded border-2 text-indigo-500 focus:ring-indigo-500"
+              />
+              <Pin size={16} />
+              <span className="text-sm font-medium">Duyuruyu Sabitle</span>
+            </label>
+          </div>
+        </form>
+
+        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
+                     hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25"
+          >
+            {announcement ? 'Güncelle' : 'Yayınla'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== GENEL BAKIŞ TAB =====
+const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) => {
   const myTasks = tasks.filter(t => t.assignedTo?.id === user?.id);
+  const displayTasks = canManage ? tasks : myTasks;
+
   const stats = canManage ? [
     { label: 'Toplam Görev', value: tasks.length, icon: ClipboardList, color: 'from-indigo-500 to-purple-500', bg: isDark ? 'bg-indigo-900/30' : 'bg-indigo-50' },
     { label: 'Devam Eden', value: tasks.filter(t => t.status === 'in_progress').length, icon: TrendingUp, color: 'from-blue-500 to-cyan-500', bg: isDark ? 'bg-blue-900/30' : 'bg-blue-50' },
@@ -302,7 +1001,7 @@ const OverviewTab = ({ canManage, isDark }) => {
     { label: 'Tamamlanan', value: myTasks.filter(t => t.status === 'completed').length, icon: CheckCircle2, color: 'from-emerald-500 to-teal-500', bg: isDark ? 'bg-emerald-900/30' : 'bg-emerald-50' },
   ];
 
-  const recentTasks = canManage ? tasks.slice(0, 5) : myTasks.slice(0, 5);
+  const recentTasks = displayTasks.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -314,10 +1013,19 @@ const OverviewTab = ({ canManage, isDark }) => {
           <h2 className="text-2xl font-bold mb-2">Hoş geldin, {user?.firstName}! 👋</h2>
           <p className="text-white/80">
             {canManage 
-              ? 'Bugün şirketinizde 3 aktif görev var. İşleri takip etmeye devam edin.'
+              ? `Bugün şirketinizde ${tasks.filter(t => t.status !== 'completed').length} aktif görev var.`
               : `Bugün ${myTasks.filter(t => t.status !== 'completed').length} tamamlanmamış göreviniz var.`
             }
           </p>
+          {canManage && (
+            <button 
+              onClick={onAddTask}
+              className="mt-4 px-5 py-2.5 bg-white/20 hover:bg-white/30 rounded-xl font-semibold transition-colors flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Hızlı Görev Ekle
+            </button>
+          )}
         </div>
       </div>
 
@@ -344,10 +1052,15 @@ const OverviewTab = ({ canManage, isDark }) => {
         <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-2xl border ${isDark ? 'border-slate-700/60' : 'border-slate-200/60'} overflow-hidden`}>
           <div className={`p-5 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between`}>
             <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Son Görevler</h3>
-            <button className="text-sm text-indigo-500 font-medium hover:text-indigo-600">Tümünü Gör</button>
+            {tasks.length === 0 && canManage && (
+              <button onClick={onAddTask} className="text-sm text-indigo-500 font-medium hover:text-indigo-600 flex items-center gap-1">
+                <Plus size={14} />
+                Ekle
+              </button>
+            )}
           </div>
           <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
-            {recentTasks.map(task => (
+            {recentTasks.length > 0 ? recentTasks.map(task => (
               <div key={task.id} className={`p-4 ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'} transition-colors cursor-pointer`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -359,7 +1072,12 @@ const OverviewTab = ({ canManage, isDark }) => {
                   <StatusBadge status={task.status} />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="p-8 text-center">
+                <ClipboardList size={32} className={`mx-auto mb-2 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Henüz görev yok</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -370,7 +1088,8 @@ const OverviewTab = ({ canManage, isDark }) => {
             <Calendar size={18} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
           </div>
           <div className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-slate-100'}`}>
-            {tasks.filter(t => t.dueDate && t.status !== 'completed').slice(0, 4).map(task => (
+            {displayTasks.filter(t => t.dueDate && t.status !== 'completed').slice(0, 4).length > 0 ? 
+              displayTasks.filter(t => t.dueDate && t.status !== 'completed').slice(0, 4).map(task => (
               <div key={task.id} className={`p-4 ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'} transition-colors cursor-pointer`}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -383,7 +1102,12 @@ const OverviewTab = ({ canManage, isDark }) => {
                   <PriorityBadge priority={task.priority} />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="p-8 text-center">
+                <Calendar size={32} className={`mx-auto mb-2 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+                <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Yaklaşan teslim yok</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -395,6 +1119,7 @@ const OverviewTab = ({ canManage, isDark }) => {
           <div className="grid md:grid-cols-3 gap-4">
             {departments.map(dept => {
               const deptTasks = tasks.filter(t => t.department === dept.name);
+              const deptEmployees = employees.filter(e => e.department === dept.name);
               return (
                 <div key={dept.id} className={`${isDark ? 'bg-slate-700/50' : 'bg-slate-50'} rounded-xl p-4`}>
                   <div className="flex items-center gap-3 mb-3">
@@ -403,7 +1128,7 @@ const OverviewTab = ({ canManage, isDark }) => {
                   </div>
                   <div className="flex items-baseline justify-between">
                     <span className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{deptTasks.length}</span>
-                    <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{dept.employeeCount} çalışan</span>
+                    <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{deptEmployees.length} çalışan</span>
                   </div>
                 </div>
               );
@@ -415,12 +1140,10 @@ const OverviewTab = ({ canManage, isDark }) => {
   );
 };
 
-// Görevler Tab
-const TasksTab = ({ canManage, isDark, onTaskClick }) => {
-  const { user } = useAuth();
+// ===== GÖREVLER TAB =====
+const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTask, onDeleteTask, onEditTask, user }) => {
   const [filter, setFilter] = useState('all');
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [showMenu, setShowMenu] = useState(null);
 
   const displayTasks = canManage 
     ? tasks 
@@ -429,6 +1152,14 @@ const TasksTab = ({ canManage, isDark, onTaskClick }) => {
   const filteredTasks = filter === 'all' 
     ? displayTasks 
     : displayTasks.filter(t => t.status === filter);
+
+  const handleStatusChange = (taskId, newStatus) => {
+    onUpdateTask(taskId, { 
+      status: newStatus,
+      completedAt: newStatus === 'completed' ? new Date().toISOString().split('T')[0] : null
+    });
+    setShowMenu(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -459,11 +1190,10 @@ const TasksTab = ({ canManage, isDark, onTaskClick }) => {
         {filteredTasks.map(task => (
           <div 
             key={task.id} 
-            onClick={() => onTaskClick && onTaskClick(task)}
-            className={`${isDark ? 'bg-slate-800 border-slate-700/60 hover:bg-slate-700/50' : 'bg-white border-slate-200/60 hover:shadow-lg'} rounded-2xl border p-5 transition-all cursor-pointer`}
+            className={`${isDark ? 'bg-slate-800 border-slate-700/60 hover:bg-slate-700/50' : 'bg-white border-slate-200/60 hover:shadow-lg'} rounded-2xl border p-5 transition-all`}
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
+              <div className="flex-1 cursor-pointer" onClick={() => onTaskClick && onTaskClick(task)}>
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{task.title}</h3>
                   <PriorityBadge priority={task.priority} />
@@ -496,13 +1226,55 @@ const TasksTab = ({ canManage, isDark, onTaskClick }) => {
 
               <div className="flex items-center gap-2">
                 <StatusBadge status={task.status} />
-                {canManage && !task.assignedTo && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setShowAssignModal(true); }}
-                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
-                  >
-                    Ata
-                  </button>
+                
+                {canManage && (
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowMenu(showMenu === task.id ? null : task.id)}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}
+                    >
+                      <MoreVertical size={18} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                    </button>
+                    
+                    {showMenu === task.id && (
+                      <div className={`absolute right-0 top-full mt-1 ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-200'} border rounded-xl shadow-xl py-1 z-10 min-w-[160px]`}>
+                        <button
+                          onClick={() => { onEditTask(task); setShowMenu(null); }}
+                          className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          <Edit size={14} />
+                          Düzenle
+                        </button>
+                        <div className={`border-t ${isDark ? 'border-slate-600' : 'border-slate-100'} my-1`} />
+                        <button
+                          onClick={() => handleStatusChange(task.id, 'pending')}
+                          className={`w-full px-4 py-2 text-left text-sm ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          Bekliyor
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(task.id, 'in_progress')}
+                          className={`w-full px-4 py-2 text-left text-sm ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          Devam Ediyor
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(task.id, 'completed')}
+                          className={`w-full px-4 py-2 text-left text-sm ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          Tamamlandı
+                        </button>
+                        <div className={`border-t ${isDark ? 'border-slate-600' : 'border-slate-100'} my-1`} />
+                        <button
+                          onClick={() => { onDeleteTask(task.id); setShowMenu(null); }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                        >
+                          <Trash2 size={14} />
+                          Sil
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -516,128 +1288,195 @@ const TasksTab = ({ canManage, isDark, onTaskClick }) => {
             <ClipboardList size={28} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
           </div>
           <h3 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Görev Bulunamadı</h3>
-          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Bu filtreye uygun görev bulunmuyor.</p>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {canManage ? 'Yeni bir görev oluşturmak için "Yeni Görev" butonuna tıklayın.' : 'Bu filtreye uygun görev bulunmuyor.'}
+          </p>
         </div>
-      )}
-
-      {/* Atama Modal */}
-      {showAssignModal && (
-        <AssignModal 
-          task={selectedTask} 
-          onClose={() => { setShowAssignModal(false); setSelectedTask(null); }}
-          isDark={isDark}
-        />
       )}
     </div>
   );
 };
 
-// Çalışanlar Tab (Sadece Patron)
-const EmployeesTab = ({ isDark }) => {
-  const employees = users.filter(u => u.role !== 'boss');
+// ===== ÇALIŞANLAR TAB =====
+const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete }) => {
+  const displayEmployees = employees.filter(u => u.role !== 'boss');
 
   return (
     <div className="space-y-6">
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {employees.map(emp => {
-          const empTasks = tasks.filter(t => t.assignedTo?.id === emp.id);
-          const completedTasks = empTasks.filter(t => t.status === 'completed').length;
-          
-          return (
-            <div key={emp.id} className={`${isDark ? 'bg-slate-800 border-slate-700/60 hover:bg-slate-700/50' : 'bg-white border-slate-200/60 hover:shadow-lg'} rounded-2xl border p-5 transition-all`}>
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-semibold">
-                  {emp.firstName[0]}{emp.lastName[0]}
+      {displayEmployees.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayEmployees.map(emp => {
+            const empTasks = tasks.filter(t => t.assignedTo?.id === emp.id);
+            const completedTasks = empTasks.filter(t => t.status === 'completed').length;
+            
+            return (
+              <div key={emp.id} className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-5 transition-all`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-semibold">
+                      {emp.firstName[0]}{emp.lastName[0]}
+                    </div>
+                    <div>
+                      <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{emp.firstName} {emp.lastName}</h3>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{emp.position || 'Pozisyon belirtilmedi'}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium
+                                        ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 
+                                          emp.status === 'on_leave' ? 'bg-amber-100 text-amber-700' : 
+                                          'bg-slate-100 text-slate-600'}`}>
+                          {emp.status === 'active' ? 'Aktif' : emp.status === 'on_leave' ? 'İzinli' : 'Pasif'}
+                        </span>
+                        <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{emp.department}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => onEdit(emp)}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} transition-colors`}
+                    >
+                      <Edit size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(emp.id)}
+                      className={`p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors`}
+                    >
+                      <Trash2 size={16} className="text-red-500" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{emp.firstName} {emp.lastName}</h3>
-                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{emp.position}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                                    ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 
-                                      emp.status === 'on_leave' ? 'bg-amber-100 text-amber-700' : 
-                                      'bg-slate-100 text-slate-600'}`}>
-                      {emp.status === 'active' ? 'Aktif' : emp.status === 'on_leave' ? 'İzinli' : 'Pasif'}
-                    </span>
-                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{emp.department}</span>
+
+                <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                  <div className="flex items-center gap-4 text-sm mb-3">
+                    <div className={`flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <Mail size={14} />
+                      <span className="truncate">{emp.email}</span>
+                    </div>
+                  </div>
+                  {emp.phone && (
+                    <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <Phone size={14} />
+                      <span>{emp.phone}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} grid grid-cols-3 gap-2 text-center`}>
+                  <div>
+                    <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{empTasks.length}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Toplam</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-blue-500">{empTasks.filter(t => t.status === 'in_progress').length}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Aktif</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-500">{completedTasks}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Biten</p>
                   </div>
                 </div>
               </div>
-
-              <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} grid grid-cols-3 gap-2 text-center`}>
-                <div>
-                  <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{empTasks.length}</p>
-                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Toplam</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-blue-500">{empTasks.filter(t => t.status === 'in_progress').length}</p>
-                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Aktif</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-emerald-500">{completedTasks}</p>
-                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Biten</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className={`w-16 h-16 ${isDark ? 'bg-slate-700' : 'bg-slate-100'} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+            <Users size={28} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
+          </div>
+          <h3 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Çalışan Bulunamadı</h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Yeni çalışan eklemek için "Çalışan Ekle" butonuna tıklayın.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
 
-// Duyurular Tab
-const AnnouncementsTab = ({ canManage, isDark }) => {
+// ===== DUYURULAR TAB =====
+const AnnouncementsTab = ({ announcements, canManage, isDark, onEdit, onDelete, onUpdate }) => {
+  const sortedAnnouncements = [...announcements].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
   return (
     <div className="space-y-4">
-      {canManage && (
-        <button className={`w-full p-4 rounded-2xl border-2 border-dashed transition-all flex items-center justify-center gap-2
-                         ${isDark 
-                           ? 'bg-slate-800/50 border-slate-700 hover:border-indigo-500 text-slate-400 hover:text-indigo-400' 
-                           : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 text-slate-500 hover:text-indigo-600'}`}>
-          <Plus size={20} />
-          Yeni Duyuru Ekle
-        </button>
-      )}
-
-      {announcements.map(ann => (
+      {sortedAnnouncements.length > 0 ? sortedAnnouncements.map(ann => (
         <div key={ann.id} className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-2xl border overflow-hidden
                                     ${ann.isPinned ? 'border-amber-500/50' : (isDark ? 'border-slate-700/60' : 'border-slate-200/60')}`}>
           {ann.isPinned && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 px-4 py-2 border-b border-amber-100 dark:border-amber-800 flex items-center gap-2">
-              <Target size={14} className="text-amber-600" />
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Sabitlenmiş Duyuru</span>
+            <div className={`${isDark ? 'bg-amber-900/30' : 'bg-amber-50'} px-4 py-2 border-b ${isDark ? 'border-amber-800' : 'border-amber-100'} flex items-center gap-2`}>
+              <Pin size={14} className="text-amber-600" />
+              <span className={`text-xs font-medium ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>Sabitlenmiş Duyuru</span>
             </div>
           )}
           <div className="p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="flex-1">
                 <h3 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>{ann.title}</h3>
                 <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{ann.content}</p>
               </div>
-              {ann.priority === 'urgent' && (
-                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium">Acil</span>
-              )}
-              {ann.priority === 'important' && (
-                <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium">Önemli</span>
-              )}
+              <div className="flex items-center gap-2">
+                {ann.priority === 'urgent' && (
+                  <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium">Acil</span>
+                )}
+                {ann.priority === 'important' && (
+                  <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium">Önemli</span>
+                )}
+                {canManage && (
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => onUpdate(ann.id, { isPinned: !ann.isPinned })}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} transition-colors`}
+                    >
+                      <Pin size={16} className={ann.isPinned ? 'text-amber-500' : (isDark ? 'text-slate-400' : 'text-slate-500')} />
+                    </button>
+                    <button 
+                      onClick={() => onEdit(ann)}
+                      className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'} transition-colors`}
+                    >
+                      <Edit size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(ann.id)}
+                      className={`p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors`}
+                    >
+                      <Trash2 size={16} className="text-red-500" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center gap-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <div className="w-6 h-6 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg flex items-center justify-center text-white text-xs">
-                {ann.createdBy.firstName[0]}{ann.createdBy.lastName[0]}
+                {ann.createdBy?.firstName?.[0]}{ann.createdBy?.lastName?.[0]}
               </div>
-              <span>{ann.createdBy.firstName} {ann.createdBy.lastName}</span>
+              <span>{ann.createdBy?.firstName} {ann.createdBy?.lastName}</span>
               <span>•</span>
               <span>{ann.createdAt}</span>
             </div>
           </div>
         </div>
-      ))}
+      )) : (
+        <div className="text-center py-12">
+          <div className={`w-16 h-16 ${isDark ? 'bg-slate-700' : 'bg-slate-100'} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+            <Megaphone size={28} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
+          </div>
+          <h3 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Duyuru Bulunamadı</h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {canManage ? 'Yeni duyuru eklemek için "Yeni Duyuru" butonuna tıklayın.' : 'Henüz duyuru yayınlanmamış.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
 
-// Ayarlar Tab
+// ===== AYARLAR TAB =====
 const SettingsTab = ({ isDark }) => {
   const { user, company } = useAuth();
 
@@ -701,62 +1540,7 @@ const SettingsTab = ({ isDark }) => {
   );
 };
 
-// Görev Atama Modal
-const AssignModal = ({ task, onClose, isDark }) => {
-  const employees = users.filter(u => u.role === 'employee' && u.status === 'active');
-  const [selected, setSelected] = useState(null);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-3xl w-full max-w-md overflow-hidden shadow-2xl`}>
-        <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
-          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Görev Ata</h2>
-          <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{task?.title}</p>
-        </div>
-
-        <div className="p-6 max-h-80 overflow-y-auto">
-          <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Görevi atamak istediğiniz çalışanı seçin:</p>
-          <div className="space-y-2">
-            {employees.map(emp => (
-              <button
-                key={emp.id}
-                onClick={() => setSelected(emp.id)}
-                className={`w-full p-3 rounded-xl border-2 transition-all flex items-center gap-3 text-left
-                          ${selected === emp.id 
-                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30' 
-                            : (isDark ? 'border-slate-700 hover:border-slate-600' : 'border-slate-200 hover:border-slate-300')}`}
-              >
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-medium">
-                  {emp.firstName[0]}{emp.lastName[0]}
-                </div>
-                <div>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{emp.firstName} {emp.lastName}</p>
-                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{emp.position} • {emp.department}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
-          <button
-            onClick={onClose}
-            className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
-          >
-            İptal
-          </button>
-          <button
-            disabled={!selected}
-            className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
-                     hover:from-indigo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Ata
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// ===== YARDIMCI COMPONENTLER =====
 
 // Durum Badge
 const StatusBadge = ({ status }) => {
