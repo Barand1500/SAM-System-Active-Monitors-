@@ -2388,8 +2388,122 @@ const AnnouncementsTab = ({ announcements, canManage, isDark, onEdit, onDelete, 
 };
 
 // ===== AYARLAR TAB =====
+const PRESET_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981',
+  '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7',
+  '#d946ef', '#ec4899', '#f43f5e', '#64748b', '#78716c', '#0f172a'
+];
+
+const ColorPicker = ({ value, onChange, isDark }) => {
+  const [showPicker, setShowPicker] = useState(false);
+  const [customColor, setCustomColor] = useState(value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowPicker(!showPicker)}
+        className={`w-11 h-11 rounded-xl border-2 transition-all hover:scale-105 ${isDark ? 'border-slate-600' : 'border-slate-200'}`}
+        style={{ backgroundColor: value }}
+        title="Renk seçin"
+      />
+      {showPicker && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+          <div className={`absolute right-0 top-full mt-2 z-50 p-4 rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} style={{ width: '240px' }}>
+            <p className={`text-xs font-semibold mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Hazır Renkler</p>
+            <div className="grid grid-cols-10 gap-1.5 mb-3">
+              {PRESET_COLORS.map(color => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => { onChange(color); setCustomColor(color); }}
+                  className={`w-5 h-5 rounded-md transition-all hover:scale-125 ${value === color ? 'ring-2 ring-offset-1 ring-indigo-500' : ''}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <div className={`pt-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+              <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Özel Renk</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={customColor}
+                  onChange={(e) => { setCustomColor(e.target.value); onChange(e.target.value); }}
+                  className="w-8 h-8 rounded-lg cursor-pointer border-0"
+                />
+                <input
+                  type="text"
+                  value={customColor}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setCustomColor(v);
+                    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v);
+                  }}
+                  className={`flex-1 text-xs font-mono px-2.5 py-1.5 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  maxLength={7}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPicker(false)}
+              className="w-full mt-3 py-1.5 bg-indigo-500 text-white text-xs font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+            >
+              Tamam
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const SettingsTab = ({ isDark, isBoss }) => {
-  const { user, company } = useAuth();
+  const { user, company, updateCompany } = useAuth();
+
+  // Company editing
+  const [companyName, setCompanyName] = useState(company?.name || '');
+  const [companyCode, setCompanyCode] = useState(company?.companyCode || '');
+  const [companyDesc, setCompanyDesc] = useState(company?.description || '');
+  const [companyIndustry, setCompanyIndustry] = useState(company?.industry || '');
+  const [companyPhone, setCompanyPhone] = useState(company?.phone || '');
+  const [companyAddress, setCompanyAddress] = useState(company?.address || '');
+  const [codeError, setCodeError] = useState('');
+  const [companySaved, setCompanySaved] = useState(false);
+
+  // Company code validation
+  const validateCompanyCode = (code) => {
+    if (!code) return 'Şirket kodu boş bırakılamaz';
+    if (code.length < 6) return 'Şirket kodu en az 6 karakter olmalıdır';
+    if (code.length > 12) return 'Şirket kodu en fazla 12 karakter olabilir';
+    if (!/^[A-Z0-9]+$/.test(code)) return 'Sadece büyük harf (A-Z) ve rakam (0-9) kullanılabilir';
+    if (!/[A-Z]/.test(code)) return 'En az bir büyük harf içermelidir';
+    if (!/[0-9]/.test(code)) return 'En az bir rakam içermelidir';
+    return '';
+  };
+
+  const handleCodeChange = (val) => {
+    const upper = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    setCompanyCode(upper);
+    setCodeError(validateCompanyCode(upper));
+    setCompanySaved(false);
+  };
+
+  const saveCompanyInfo = () => {
+    const err = validateCompanyCode(companyCode);
+    if (err) { setCodeError(err); return; }
+    updateCompany({
+      name: companyName.trim(),
+      companyCode,
+      description: companyDesc.trim(),
+      industry: companyIndustry.trim(),
+      phone: companyPhone.trim(),
+      address: companyAddress.trim()
+    });
+    setCompanySaved(true);
+    setTimeout(() => setCompanySaved(false), 2500);
+  };
 
   // Department Management
   const [deptList, setDeptList] = useState(() => loadFromStorage('sam_departments', departments));
@@ -2483,19 +2597,123 @@ const SettingsTab = ({ isDark, isBoss }) => {
 
       {/* Şirket Bilgileri */}
       <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
-        <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Şirket Bilgileri</h3>
-        <div className="space-y-3 text-sm">
-          <div className={`flex justify-between py-2 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
-            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Şirket Adı</span>
-            <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{company?.name}</span>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Şirket Bilgileri</h3>
+          {companySaved && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700">
+              <CheckCircle2 size={14} /> Kaydedildi
+            </span>
+          )}
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket Adı</label>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => { setCompanyName(e.target.value); setCompanySaved(false); }}
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-2.5`}
+              />
+            </div>
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Sektör</label>
+              <input
+                type="text"
+                value={companyIndustry}
+                onChange={(e) => { setCompanyIndustry(e.target.value); setCompanySaved(false); }}
+                placeholder="Teknoloji, Finans, Sağlık..."
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5`}
+              />
+            </div>
           </div>
-          <div className={`flex justify-between py-2 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
-            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Şirket Kodu</span>
-            <code className="text-indigo-500 font-mono font-medium">{company?.companyCode}</code>
+
+          {/* Şirket Kodu */}
+          <div>
+            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket Kodu</label>
+            <input
+              type="text"
+              value={companyCode}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              maxLength={12}
+              className={`w-full font-mono text-lg tracking-widest font-bold ${
+                codeError
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-emerald-400 focus:ring-emerald-500'
+              } ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-800'} border-2 rounded-xl px-4 py-3 focus:ring-2 focus:border-transparent`}
+            />
+            {/* Uyarı kutusu */}
+            <div className={`mt-2.5 flex items-start gap-2.5 p-3 rounded-xl ${
+              codeError
+                ? isDark ? 'bg-red-500/10 border border-red-500/30' : 'bg-red-50 border border-red-200'
+                : isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
+            }`}>
+              <AlertTriangle size={18} className={`shrink-0 mt-0.5 ${codeError ? 'text-red-500' : 'text-amber-500'}`} />
+              <div>
+                {codeError ? (
+                  <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>{codeError}</p>
+                ) : (
+                  <p className={`text-sm font-medium ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                    Dikkat! Bu alan çok önemlidir
+                  </p>
+                )}
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Şirket kodu, çalışanların giriş yapması için kullanılır. Değiştirirseniz tüm çalışanlara yeni kodu bildirmeniz gerekir.
+                </p>
+                <div className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  <span>• 6-12 karakter</span>
+                  <span>• Sadece A-Z ve 0-9</span>
+                  <span>• En az 1 harf + 1 rakam</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between py-2">
-            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Rolünüz</span>
-            <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{user?.position}</span>
+
+          <div>
+            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Açıklama</label>
+            <textarea
+              value={companyDesc}
+              onChange={(e) => { setCompanyDesc(e.target.value); setCompanySaved(false); }}
+              rows={2}
+              placeholder="Şirket hakkında kısa bilgi..."
+              className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 resize-none`}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Telefon</label>
+              <input
+                type="tel"
+                value={companyPhone}
+                onChange={(e) => { setCompanyPhone(e.target.value); setCompanySaved(false); }}
+                placeholder="+90 212 555 0000"
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5`}
+              />
+            </div>
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Adres</label>
+              <input
+                type="text"
+                value={companyAddress}
+                onChange={(e) => { setCompanyAddress(e.target.value); setCompanySaved(false); }}
+                placeholder="İstanbul, Türkiye"
+                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5`}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-2">
+            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              Rol: <span className="font-medium">{user?.position}</span>
+            </span>
+            <button
+              onClick={saveCompanyInfo}
+              disabled={!!codeError}
+              className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Şirket Bilgilerini Kaydet
+            </button>
           </div>
         </div>
       </div>
@@ -2525,13 +2743,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
                 className={`flex-1 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
                 onKeyDown={(e) => e.key === 'Enter' && addDepartment()}
               />
-              <input
-                type="color"
-                value={newDeptColor}
-                onChange={(e) => setNewDeptColor(e.target.value)}
-                className="w-11 h-11 rounded-xl border-2 cursor-pointer"
-                title="Renk seçin"
-              />
+              <ColorPicker value={newDeptColor} onChange={setNewDeptColor} isDark={isDark} />
               <button
                 onClick={addDepartment}
                 className="px-4 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
@@ -2557,12 +2769,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
                         }}
                         autoFocus
                       />
-                      <input
-                        type="color"
-                        defaultValue={dept.color}
-                        onChange={(e) => updateDepartment(dept.id, { color: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
-                      />
+                      <ColorPicker value={dept.color} onChange={(c) => updateDepartment(dept.id, { color: c })} isDark={isDark} />
                     </div>
                   ) : (
                     <>
@@ -2607,13 +2814,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
                 className={`flex-1 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
                 onKeyDown={(e) => e.key === 'Enter' && addPriority()}
               />
-              <input
-                type="color"
-                value={newPriorityColor}
-                onChange={(e) => setNewPriorityColor(e.target.value)}
-                className="w-11 h-11 rounded-xl border-2 cursor-pointer"
-                title="Renk seçin"
-              />
+              <ColorPicker value={newPriorityColor} onChange={setNewPriorityColor} isDark={isDark} />
               <button
                 onClick={addPriority}
                 className="px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors flex items-center gap-1"
@@ -2639,12 +2840,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
                         }}
                         autoFocus
                       />
-                      <input
-                        type="color"
-                        defaultValue={priority.color}
-                        onChange={(e) => updatePriority(priority.id, { color: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
-                      />
+                      <ColorPicker value={priority.color} onChange={(c) => updatePriority(priority.id, { color: c })} isDark={isDark} />
                     </div>
                   ) : (
                     <>

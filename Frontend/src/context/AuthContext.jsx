@@ -143,6 +143,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('currentCompany');
   };
 
+  // Şirket bilgilerini güncelle
+  const updateCompany = (updates) => {
+    setCurrentCompany(prev => {
+      const updated = { ...prev, ...updates };
+      localStorage.setItem('currentCompany', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Şirket kodu oluştur
   const generateCompanyCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -163,6 +172,7 @@ export const AuthProvider = ({ children }) => {
     isEmployee: user?.role === 'employee',
     login,
     logout,
+    updateCompany,
     registerCompany,
     joinCompany
   };
