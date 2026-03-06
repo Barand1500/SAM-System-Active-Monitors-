@@ -1,20 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
 
 // ─── Güvenlik ───────────────────────────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false, // React SPA için kapatıldı, ileride özelleştir
+  contentSecurityPolicy: false,
 }));
 
 // ─── CORS (sadece development'ta gerekli, prod'da same-origin) ───────────────
@@ -33,7 +27,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
-// import routes from './routes/index.js';  // ← routes hazır olunca aç
+// const routes = require('./routes/index');  // ← routes hazır olunca aç
 // app.use('/api', routes);
 
 // ─── Production: Frontend build dosyalarını sun ───────────────────────────────
@@ -47,4 +41,4 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-export default app;
+module.exports = app;

@@ -3,7 +3,7 @@ require('dotenv').config();
 const logger = require('../utils/logger');
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'fromdb',
+  process.env.DB_NAME || 'sam_db',
   process.env.DB_USER || 'root',
   process.env.DB_PASSWORD || '',
   {
