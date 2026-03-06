@@ -57,7 +57,9 @@ import {
   Zap,
   Tag,
   Languages,
-  Code
+  Code,
+  Layers,
+  XCircle
 } from 'lucide-react';
 
 // Yeni bileşenleri import et
@@ -177,6 +179,7 @@ const Dashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Genel Bakış', icon: LayoutDashboard },
     { id: 'tasks', label: canManage ? 'Tüm Görevler' : 'Görevlerim', icon: ClipboardList },
+    ...(!canManage ? [{ id: 'pool', label: 'Havuz', icon: Layers }] : []),
     { id: 'kanban', label: 'Kanban', icon: Kanban },
     { id: 'calendar', label: 'Takvim', icon: CalendarDays },
     ...(!isBoss ? [{ id: 'timetracker', label: 'Mesai', icon: Timer }] : []),
@@ -216,6 +219,18 @@ const Dashboard = () => {
 
   const deleteTask = (taskId) => {
     setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const leaveTask = (taskId) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: null, taskType: 'group', status: 'pending' } : t));
+  };
+
+  const claimTask = (taskId) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? {
+      ...t,
+      assignedTo: { id: user.id, firstName: user.firstName, lastName: user.lastName, position: user.position, department: user.department },
+      taskType: 'single'
+    } : t));
   };
 
   const addEmployee = (empData) => {
@@ -431,15 +446,16 @@ const Dashboard = () => {
 
         {/* İçerik */}
         {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} />}
-        {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} />}
+        {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} onLeaveTask={leaveTask} />}
+        {activeTab === 'pool' && !canManage && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
-        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={(date) => openTaskModal(null, date)} />}
+        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={canManage ? (date) => openTaskModal(null, date) : undefined} />}
         {activeTab === 'timetracker' && <TimeTracker user={user} isDark={isDark} />}
         {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={employees} isDark={isDark} departments={departments} />}
         {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} />}
-        {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} isDark={isDark} />}
+        {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
-        {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} />}
+        {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} canManage={canManage} />}
       </div>
 
       {/* Görev Detay Modal */}
@@ -453,6 +469,7 @@ const Dashboard = () => {
           }}
           user={user}
           isDark={isDark}
+          canManage={canManage}
         />
       )}
 
@@ -2012,7 +2029,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
 };
 
 // ===== GÖREVLER TAB =====
-const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTask, onDeleteTask, onEditTask, user }) => {
+const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTask, onDeleteTask, onEditTask, user, onLeaveTask }) => {
   const [filter, setFilter] = useState('all');
   const [showMenu, setShowMenu] = useState(null);
 
@@ -2098,6 +2115,17 @@ const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTa
               <div className="flex items-center gap-2">
                 <StatusBadge status={task.status} />
                 
+                {!canManage && task.status !== 'completed' && (
+                  <button 
+                    onClick={() => onLeaveTask && onLeaveTask(task.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors
+                              ${isDark ? 'bg-red-900/20 text-red-400 hover:bg-red-900/40' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                  >
+                    <LogOut size={14} />
+                    Görevden Ayrıl
+                  </button>
+                )}
+
                 {canManage && (
                   <div className="relative">
                     <button 
@@ -2161,6 +2189,81 @@ const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTa
           <h3 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Görev Bulunamadı</h3>
           <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             {canManage ? 'Yeni bir görev oluşturmak için "Yeni Görev" butonuna tıklayın.' : 'Bu filtreye uygun görev bulunmuyor.'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== HAVUZ TAB =====
+const PoolTab = ({ tasks, user, isDark, onClaimTask, onTaskClick }) => {
+  const poolTasks = tasks.filter(t => 
+    t.taskType === 'group' && 
+    (!t.assignedTo || (Array.isArray(t.assignedTo) && t.assignedTo.length === 0))
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Görev Havuzu</h2>
+        <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          Açık olan çoğul görevleri buradan üstlenebilirsiniz
+        </p>
+      </div>
+
+      <div className="grid gap-4">
+        {poolTasks.map(task => (
+          <div 
+            key={task.id} 
+            className={`${isDark ? 'bg-slate-800 border-slate-700/60 hover:bg-slate-700/50' : 'bg-white border-slate-200/60 hover:shadow-lg'} rounded-2xl border p-5 transition-all`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 cursor-pointer" onClick={() => onTaskClick?.(task)}>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{task.title}</h3>
+                  <PriorityBadge priority={task.priority} />
+                  <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Çoğul</span>
+                </div>
+                <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{task.description}</p>
+                <div className="flex items-center gap-4 text-sm">
+                  {task.dueDate && (
+                    <div className={`flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <Calendar size={14} />
+                      {task.dueDate}
+                    </div>
+                  )}
+                  {task.department && (
+                    <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>{task.department}</span>
+                  )}
+                  {task.assignedBy && (
+                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Oluşturan: {task.assignedBy.firstName} {task.assignedBy.lastName}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => onClaimTask(task.id)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 
+                         text-white font-medium rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all text-sm"
+              >
+                <UserPlus size={16} />
+                Üstlen
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {poolTasks.length === 0 && (
+        <div className="text-center py-12">
+          <div className={`w-16 h-16 ${isDark ? 'bg-slate-700' : 'bg-slate-100'} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+            <Layers size={28} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
+          </div>
+          <h3 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>Havuz Boş</h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Şu an üstlenebileceğiniz görev bulunmuyor.
           </p>
         </div>
       )}
@@ -2459,8 +2562,8 @@ const ColorPicker = ({ value, onChange, isDark }) => {
   );
 };
 
-const SettingsTab = ({ isDark, isBoss }) => {
-  const { user, company, updateCompany } = useAuth();
+const SettingsTab = ({ isDark, isBoss, canManage }) => {
+  const { user, company, updateCompany, checkCompanyCodeAvailability } = useAuth();
 
   // Company editing
   const [companyName, setCompanyName] = useState(company?.name || '');
@@ -2471,6 +2574,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
   const [companyAddress, setCompanyAddress] = useState(company?.address || '');
   const [codeError, setCodeError] = useState('');
   const [companySaved, setCompanySaved] = useState(false);
+  const [codeAvailability, setCodeAvailability] = useState(null); // null | 'checking' | 'available' | 'taken'
 
   // Company code validation
   const validateCompanyCode = (code) => {
@@ -2483,6 +2587,25 @@ const SettingsTab = ({ isDark, isBoss }) => {
     return '';
   };
 
+  // Debounced availability check
+  useEffect(() => {
+    if (!companyCode || validateCompanyCode(companyCode)) {
+      setCodeAvailability(null);
+      return;
+    }
+    // Mevcut kodla aynıysa kontrol etme
+    if (companyCode === company?.companyCode) {
+      setCodeAvailability(null);
+      return;
+    }
+    setCodeAvailability('checking');
+    const timer = setTimeout(() => {
+      const result = checkCompanyCodeAvailability(companyCode);
+      setCodeAvailability(result.available ? 'available' : 'taken');
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [companyCode]);
+
   const handleCodeChange = (val) => {
     const upper = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
     setCompanyCode(upper);
@@ -2493,6 +2616,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
   const saveCompanyInfo = () => {
     const err = validateCompanyCode(companyCode);
     if (err) { setCodeError(err); return; }
+    if (codeAvailability === 'taken') return;
     updateCompany({
       name: companyName.trim(),
       companyCode,
@@ -2595,7 +2719,8 @@ const SettingsTab = ({ isDark, isBoss }) => {
         </div>
       </div>
 
-      {/* Şirket Bilgileri */}
+      {/* Şirket Bilgileri - Sadece Boss */}
+      {isBoss && (
       <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
         <div className="flex items-center justify-between mb-5">
           <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Şirket Bilgileri</h3>
@@ -2631,20 +2756,49 @@ const SettingsTab = ({ isDark, isBoss }) => {
           {/* Şirket Kodu */}
           <div>
             <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket Kodu</label>
-            <input
-              type="text"
-              value={companyCode}
-              onChange={(e) => handleCodeChange(e.target.value)}
-              maxLength={12}
-              className={`w-full font-mono text-lg tracking-widest font-bold ${
-                codeError
-                  ? 'border-red-500 focus:ring-red-500'
-                  : 'border-emerald-400 focus:ring-emerald-500'
-              } ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-800'} border-2 rounded-xl px-4 py-3 focus:ring-2 focus:border-transparent`}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={companyCode}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                maxLength={12}
+                className={`w-full font-mono text-lg tracking-widest font-bold pr-12 ${
+                  codeError || codeAvailability === 'taken'
+                    ? 'border-red-500 focus:ring-red-500'
+                    : codeAvailability === 'available'
+                      ? 'border-emerald-400 focus:ring-emerald-500'
+                      : 'border-slate-300 focus:ring-indigo-500'
+                } ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-800'} border-2 rounded-xl px-4 py-3 focus:ring-2 focus:border-transparent`}
+              />
+              {/* Müsaitlik göstergesi */}
+              {!codeError && companyCode !== company?.companyCode && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {codeAvailability === 'checking' && (
+                    <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {codeAvailability === 'available' && (
+                    <CheckCircle2 size={20} className="text-emerald-500" />
+                  )}
+                  {codeAvailability === 'taken' && (
+                    <XCircle size={20} className="text-red-500" />
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Müsaitlik mesajı */}
+            {codeAvailability === 'available' && !codeError && (
+              <p className={`mt-1.5 text-xs font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                ✓ Bu şirket kodu müsait
+              </p>
+            )}
+            {codeAvailability === 'taken' && !codeError && (
+              <p className={`mt-1.5 text-xs font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                ✗ Bu şirket kodu başka bir şirket tarafından kullanılıyor
+              </p>
+            )}
             {/* Uyarı kutusu */}
             <div className={`mt-2.5 flex items-start gap-2.5 p-3 rounded-xl ${
-              codeError
+              codeError || codeAvailability === 'taken'
                 ? isDark ? 'bg-red-500/10 border border-red-500/30' : 'bg-red-50 border border-red-200'
                 : isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
             }`}>
@@ -2709,7 +2863,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
             </span>
             <button
               onClick={saveCompanyInfo}
-              disabled={!!codeError}
+              disabled={!!codeError || codeAvailability === 'taken' || codeAvailability === 'checking'}
               className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Şirket Bilgilerini Kaydet
@@ -2717,6 +2871,7 @@ const SettingsTab = ({ isDark, isBoss }) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Admin Paneli - Sadece Boss */}
       {isBoss && (

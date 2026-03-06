@@ -98,6 +98,10 @@ export const AuthProvider = ({ children }) => {
         setCurrentCompany(newCompany);
         localStorage.setItem('currentUser', JSON.stringify(newUser));
         localStorage.setItem('currentCompany', JSON.stringify(newCompany));
+        // Kayıt defterine ekle
+        const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
+        registry[newCompanyCode] = newCompany.id;
+        localStorage.setItem('sam_company_registry', JSON.stringify(registry));
         resolve({ user: newUser, company: newCompany });
       }, 1000);
     });
@@ -146,10 +150,38 @@ export const AuthProvider = ({ children }) => {
   // Şirket bilgilerini güncelle
   const updateCompany = (updates) => {
     setCurrentCompany(prev => {
+      const oldCode = prev?.companyCode;
       const updated = { ...prev, ...updates };
       localStorage.setItem('currentCompany', JSON.stringify(updated));
+
+      // Şirket kodu değiştiyse kayıt defterini güncelle
+      if (updates.companyCode && updates.companyCode !== oldCode) {
+        const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
+        if (oldCode && registry[oldCode] === updated.id) {
+          delete registry[oldCode];
+        }
+        registry[updates.companyCode] = updated.id;
+        localStorage.setItem('sam_company_registry', JSON.stringify(registry));
+      }
+
       return updated;
     });
+  };
+
+  // Şirket kodu müsaitlik kontrolü
+  const checkCompanyCodeAvailability = (code) => {
+    if (!code) return { available: false, reason: 'empty' };
+    const upperCode = code.toUpperCase();
+    // Mevcut şirketin kendi kodu ise müsait say
+    if (currentCompany?.companyCode === upperCode) return { available: true };
+    // Mock verideki şirket kodu
+    if (company.companyCode === upperCode) return { available: false, reason: 'taken' };
+    // Kayıt defterindeki diğer şirketler
+    const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
+    if (registry[upperCode] && registry[upperCode] !== currentCompany?.id) {
+      return { available: false, reason: 'taken' };
+    }
+    return { available: true };
   };
 
   // Şirket kodu oluştur
@@ -174,7 +206,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateCompany,
     registerCompany,
-    joinCompany
+    joinCompany,
+    checkCompanyCodeAvailability
   };
 
   return (

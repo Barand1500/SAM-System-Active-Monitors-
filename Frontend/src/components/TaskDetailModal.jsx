@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   X, 
   Calendar,
@@ -15,15 +15,24 @@ import {
   AlertCircle,
   ChevronRight,
   History,
-  MoreVertical
+  MoreVertical,
+  Timer,
+  Play
 } from 'lucide-react';
 
-const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark }) => {
+const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = true }) => {
   const [activeTab, setActiveTab] = useState('details'); // details, comments, activity
   const [newComment, setNewComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState(task);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Canlı sayaç için timer
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Mock alt görevler
   const [subtasks, setSubtasks] = useState([
@@ -136,12 +145,14 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark }) => {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setIsEditing(!isEditing)}
-                className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
-              >
-                <Edit3 size={18} />
-              </button>
+              {canManage && (
+                <button 
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                >
+                  <Edit3 size={18} />
+                </button>
+              )}
               <button 
                 onClick={onClose}
                 className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
@@ -363,36 +374,167 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark }) => {
 
           {activeTab === 'activity' && (
             <div className="space-y-4">
-              {activities.map((activity, index) => (
-                <div key={activity.id} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      activity.type === 'created' ? 'bg-emerald-100 text-emerald-600' :
-                      activity.type === 'assigned' ? 'bg-blue-100 text-blue-600' :
-                      activity.type === 'status' ? 'bg-purple-100 text-purple-600' :
-                      activity.type === 'comment' ? 'bg-amber-100 text-amber-600' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {activity.type === 'created' && <Flag size={14} />}
-                      {activity.type === 'assigned' && <User size={14} />}
-                      {activity.type === 'status' && <Clock size={14} />}
-                      {activity.type === 'comment' && <MessageSquare size={14} />}
-                      {activity.type === 'subtask' && <CheckSquare size={14} />}
+              {/* Canlı Sayaç - Görev Süresi */}
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-indigo-50'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-indigo-900/50' : 'bg-indigo-100'} flex items-center justify-center`}>
+                      <Timer size={20} className="text-indigo-500" />
                     </div>
-                    {index < activities.length - 1 && (
-                      <div className={`w-px h-12 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>Görev Sayacı</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Oluşturulmadan bu yana geçen süre</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-2xl font-bold font-mono ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                      {(() => {
+                        const created = new Date(activities[0]?.date || task.createdAt);
+                        const diffMs = currentTime - created;
+                        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+                        if (days > 0) return `${days}g ${hours}s ${mins}dk ${secs}sn`;
+                        if (hours > 0) return `${hours}s ${mins}dk ${secs}sn`;
+                        return `${mins}dk ${secs}sn`;
+                      })()}
+                    </p>
+                    {task.status !== 'completed' && (
+                      <div className="flex items-center gap-1 justify-end mt-1">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className={`text-xs font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Aktif</span>
+                      </div>
                     )}
                   </div>
-                  <div className="pb-8">
-                    <p className={isDark ? 'text-slate-300' : 'text-slate-600'}>
-                      <span className="font-medium">{activity.user}</span> {activity.detail}
-                    </p>
-                    <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {formatDate(activity.date)}
+                </div>
+                {/* Özet bilgi kartları */}
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div className={`p-2.5 rounded-lg text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Toplam Aktivite</p>
+                    <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{activities.length}</p>
+                  </div>
+                  <div className={`p-2.5 rounded-lg text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Katkıda Bulunan</p>
+                    <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{[...new Set(activities.map(a => a.user))].length}</p>
+                  </div>
+                  <div className={`p-2.5 rounded-lg text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Son Güncelleme</p>
+                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      {(() => {
+                        const last = activities[activities.length - 1];
+                        if (!last) return '-';
+                        const diffMs = currentTime - new Date(last.date);
+                        const mins = Math.floor(diffMs / (1000 * 60));
+                        const hrs = Math.floor(mins / 60);
+                        const days = Math.floor(hrs / 24);
+                        if (days > 0) return `${days} gün önce`;
+                        if (hrs > 0) return `${hrs}s önce`;
+                        if (mins > 0) return `${mins}dk önce`;
+                        return 'Az önce';
+                      })()}
                     </p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Aktivite Zaman Çizelgesi */}
+              <div>
+                <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Detaylı Aktivite Geçmişi
+                </h4>
+              </div>
+              {activities.map((activity, index) => {
+                const elapsed = index > 0 ? (() => {
+                  const prev = new Date(activities[index - 1].date);
+                  const curr = new Date(activity.date);
+                  const diffMs = curr - prev;
+                  const mins = Math.floor(diffMs / (1000 * 60));
+                  const hrs = Math.floor(mins / 60);
+                  const days = Math.floor(hrs / 24);
+                  if (days > 0) return `${days} gün ${hrs % 24} saat sonra`;
+                  if (hrs > 0) return `${hrs} saat ${mins % 60} dk sonra`;
+                  return `${mins} dk sonra`;
+                })() : null;
+
+                const activityTypeLabel = {
+                  created: 'Görev Oluşturma',
+                  assigned: 'Görev Atama',
+                  status: 'Durum Değişikliği',
+                  comment: 'Yorum',
+                  subtask: 'Alt Görev'
+                };
+
+                return (
+                  <div key={activity.id}>
+                    {elapsed && (
+                      <div className={`flex items-center gap-2 ml-4 mb-2 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>
+                        <div className="w-px h-3 bg-current" />
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+                          ⏱ {elapsed}
+                        </span>
+                        <div className="w-px h-3 bg-current" />
+                      </div>
+                    )}
+                    <div className={`flex gap-4 p-3 rounded-xl ${isDark ? 'hover:bg-slate-900/30' : 'hover:bg-slate-50'} transition-colors`}>
+                      <div className="flex flex-col items-center">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          activity.type === 'created' ? 'bg-emerald-100 text-emerald-600' :
+                          activity.type === 'assigned' ? 'bg-blue-100 text-blue-600' :
+                          activity.type === 'status' ? 'bg-purple-100 text-purple-600' :
+                          activity.type === 'comment' ? 'bg-amber-100 text-amber-600' :
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {activity.type === 'created' && <Flag size={16} />}
+                          {activity.type === 'assigned' && <User size={16} />}
+                          {activity.type === 'status' && <Clock size={16} />}
+                          {activity.type === 'comment' && <MessageSquare size={16} />}
+                          {activity.type === 'subtask' && <CheckSquare size={16} />}
+                        </div>
+                        {index < activities.length - 1 && (
+                          <div className={`w-px h-6 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />
+                        )}
+                      </div>
+                      <div className="pb-2 flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                                activity.type === 'created' ? 'bg-emerald-100 text-emerald-700' :
+                                activity.type === 'assigned' ? 'bg-blue-100 text-blue-700' :
+                                activity.type === 'status' ? 'bg-purple-100 text-purple-700' :
+                                activity.type === 'comment' ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-100 text-slate-700'
+                              }`}>
+                                {activityTypeLabel[activity.type] || activity.type}
+                              </span>
+                            </div>
+                            <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                              <span className="font-semibold">{activity.user}</span>{' '}
+                              <span>{activity.detail}</span>
+                            </p>
+                          </div>
+                          <span className={`text-xs shrink-0 ml-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {(() => {
+                              const diffMs = currentTime - new Date(activity.date);
+                              const mins = Math.floor(diffMs / (1000 * 60));
+                              const hrs = Math.floor(mins / 60);
+                              const days = Math.floor(hrs / 24);
+                              if (days > 0) return `${days} gün önce`;
+                              if (hrs > 0) return `${hrs}s önce`;
+                              if (mins > 0) return `${mins}dk önce`;
+                              return 'Az önce';
+                            })()}
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                          {formatDate(activity.date)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
