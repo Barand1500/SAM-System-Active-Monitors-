@@ -202,14 +202,41 @@ export const AuthProvider = ({ children }) => {
     return `${prefix}${year}${suffix}`;
   };
 
+  // Multi-role desteği: roles dizisi varsa onu kullan, yoksa tekil role'den türet
+  const getUserRoles = (u) => {
+    if (!u) return [];
+    if (Array.isArray(u.roles) && u.roles.length > 0) return u.roles;
+    return u.role ? [u.role] : ['employee'];
+  };
+
+  const userRoles = getUserRoles(user);
+
+  // Kullanıcıya rol ata (sadece patron yapabilir)
+  const updateUserRoles = (targetUserId, newRoles) => {
+    if (!userRoles.includes('boss')) return; // sadece patron
+    const employees = JSON.parse(localStorage.getItem('app_employees') || '[]');
+    const updated = employees.map(emp =>
+      emp.id === targetUserId ? { ...emp, roles: newRoles, role: newRoles[0] || 'employee' } : emp
+    );
+    localStorage.setItem('app_employees', JSON.stringify(updated));
+    // Eğer kendi rollerimizi güncelliyorsak
+    if (user?.id === targetUserId) {
+      const updatedUser = { ...user, roles: newRoles, role: newRoles[0] || 'employee' };
+      setUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    }
+  };
+
   const value = {
     user,
     company: currentCompany,
     isLoading,
     isAuthenticated: !!user,
-    isBoss: user?.role === 'boss',
-    isManager: user?.role === 'manager',
-    isEmployee: user?.role === 'employee',
+    isBoss: userRoles.includes('boss'),
+    isManager: userRoles.includes('manager'),
+    isEmployee: userRoles.includes('employee'),
+    userRoles,
+    updateUserRoles,
     login,
     logout,
     updateCompany,

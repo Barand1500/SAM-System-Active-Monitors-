@@ -60,7 +60,10 @@ import {
   Code,
   Layers,
   XCircle,
-  Headphones
+  Headphones,
+  FolderOpen,
+  Vote,
+  Contact
 } from 'lucide-react';
 
 // Yeni bileşenleri import et
@@ -72,6 +75,9 @@ import LeaveRequestSystem from '../components/LeaveRequestSystem';
 import TaskDetailModal from '../components/TaskDetailModal';
 import NotificationCenter from '../components/NotificationCenter';
 import SupportSystem from '../components/SupportSystem';
+import CustomerCRM from '../components/CustomerCRM';
+import FileSharing from '../components/FileSharing';
+import SurveySystem from '../components/SurveySystem';
 
 // LocalStorage helpers
 const loadFromStorage = (key, defaultValue) => {
@@ -141,7 +147,7 @@ const initialTasks = [
 
 // Ana Dashboard bileşeni
 const Dashboard = () => {
-  const { user, company, logout, isBoss, isManager } = useAuth();
+  const { user, company, logout, isBoss, isManager, isEmployee, userRoles } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -189,6 +195,9 @@ const Dashboard = () => {
     ...(canManage ? [{ id: 'employees', label: 'Çalışanlar', icon: Users }] : []),
     { id: 'leaves', label: 'İzinler', icon: Palmtree },
     { id: 'support', label: 'Destek', icon: Headphones },
+    ...(canManage ? [{ id: 'crm', label: 'Müşteriler', icon: Contact }] : []),
+    { id: 'files', label: 'Dosyalar', icon: FolderOpen },
+    { id: 'surveys', label: 'Anketler', icon: Vote },
     { id: 'announcements', label: 'Duyurular', icon: Megaphone },
     { id: 'settings', label: 'Ayarlar', icon: Settings },
   ];
@@ -458,6 +467,9 @@ const Dashboard = () => {
         {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} />}
         {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'support' && <SupportSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
+        {activeTab === 'crm' && canManage && <CustomerCRM user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
+        {activeTab === 'files' && <FileSharing user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
+        {activeTab === 'surveys' && <SurveySystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
         {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} canManage={canManage} />}
       </div>
@@ -1178,6 +1190,7 @@ const EmployeeFormModal = ({ employee, onClose, onSave, isDark }) => {
     email: employee?.email || '',
     phone: employee?.phone || '',
     role: employee?.role || 'employee',
+    roles: employee?.roles || (employee?.role ? [employee.role] : ['employee']),
     department: employee?.department || 'Yazılım',
     position: employee?.position || '',
     status: employee?.status || 'active',
@@ -1308,16 +1321,41 @@ const EmployeeFormModal = ({ employee, onClose, onSave, isDark }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                  Rol
+                  Roller
                 </label>
-                <select
-                  value={form.role}
-                  onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value }))}
-                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
-                >
-                  <option value="employee">Çalışan</option>
-                  <option value="manager">Yönetici</option>
-                </select>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { value: 'manager', label: 'Yönetici', icon: '👔' },
+                    { value: 'employee', label: 'Çalışan', icon: '👤' },
+                  ].map(roleOpt => {
+                    const isChecked = form.roles.includes(roleOpt.value);
+                    return (
+                      <label key={roleOpt.value}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer border transition-all ${
+                          isChecked
+                            ? (isDark ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-400 bg-indigo-50')
+                            : (isDark ? 'border-slate-600 hover:border-slate-500' : 'border-slate-200 hover:border-slate-300')
+                        }`}>
+                        <input type="checkbox" checked={isChecked}
+                          onChange={() => {
+                            setForm(prev => {
+                              let newRoles;
+                              if (isChecked) {
+                                newRoles = prev.roles.filter(r => r !== roleOpt.value);
+                                if (newRoles.length === 0) newRoles = ['employee'];
+                              } else {
+                                newRoles = [...prev.roles, roleOpt.value];
+                              }
+                              return { ...prev, roles: newRoles, role: newRoles[0] };
+                            });
+                          }}
+                          className="w-4 h-4 rounded accent-indigo-600" />
+                        <span className="text-sm">{roleOpt.icon}</span>
+                        <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{roleOpt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -2307,13 +2345,20 @@ const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd })
                     <div>
                       <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{emp.firstName} {emp.lastName}</h3>
                       <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{emp.position || 'Pozisyon belirtilmedi'}</p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium
                                         ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 
                                           emp.status === 'on_leave' ? 'bg-amber-100 text-amber-700' : 
                                           'bg-slate-100 text-slate-600'}`}>
                           {emp.status === 'active' ? 'Aktif' : emp.status === 'on_leave' ? 'İzinli' : 'Pasif'}
                         </span>
+                        {(emp.roles || [emp.role]).filter(Boolean).map(r => (
+                          <span key={r} className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            r === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {r === 'manager' ? 'Yönetici' : r === 'boss' ? 'Patron' : 'Çalışan'}
+                          </span>
+                        ))}
                         <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{emp.department}</span>
                       </div>
                     </div>
