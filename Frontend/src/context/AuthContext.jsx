@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         // Şirket kodu oluştur
-        const newCompanyCode = generateCompanyCode();
+        const newCompanyCode = generateCompanyCode(companyData.name);
         
         const newCompany = {
           id: Date.now(),
@@ -184,14 +184,22 @@ export const AuthProvider = ({ children }) => {
     return { available: true };
   };
 
-  // Şirket kodu oluştur
-  const generateCompanyCode = () => {
+  // Şirket kodu oluştur (Yapısal: Kısaltma + Yıl + Özel Kod)
+  const generateCompanyCode = (companyName) => {
+    // Şirket adından kısaltma (ilk 3 büyük harf)
+    const letters = (companyName || 'SAM').toUpperCase()
+      .replace(/[^A-ZÇĞİÖŞÜ]/g, '')
+      .replace(/[ÇĞİÖŞÜ]/g, c => ({ 'Ç':'C','Ğ':'G','İ':'I','Ö':'O','Ş':'S','Ü':'U' })[c] || '');
+    const prefix = letters.slice(0, 3) || 'SAM';
+    // Yıl
+    const year = new Date().getFullYear().toString();
+    // Rastgele 2 karakterlik özel kod
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    let suffix = '';
+    for (let i = 0; i < 2; i++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return code;
+    return `${prefix}${year}${suffix}`;
   };
 
   const value = {

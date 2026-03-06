@@ -304,6 +304,92 @@ export const notifications = [
   }
 ];
 
+// Destek Talepleri
+export const supportTickets = [
+  {
+    id: 1,
+    callerName: 'Ali Vural',
+    callerPhone: '+90 532 999 1122',
+    callerCompany: 'Mega Holding A.Ş.',
+    subject: 'Fatura sistemi hata veriyor',
+    description: 'Müşteri fatura oluştururken sistem 500 hatası veriyor. Son 2 gündür devam ediyor. Acil çözüm talep ediyor.',
+    priority: 'high',
+    category: 'technical',
+    status: 'new',
+    createdBy: { id: 3, firstName: 'Ayşe', lastName: 'Demir' },
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    assignee: null,
+    assignedAt: null,
+    helpers: [],
+    viewers: [{ userId: 3, viewedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString() }],
+    history: [
+      { type: 'created', userId: 3, userName: 'Ayşe Demir', at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() }
+    ],
+    notes: [],
+    resolution: null,
+    resolvedAt: null
+  },
+  {
+    id: 2,
+    callerName: 'Selin Koç',
+    callerPhone: '+90 545 333 4455',
+    callerCompany: 'DataSoft Bilişim',
+    subject: 'Raporlama modülü çalışmıyor',
+    description: 'Aylık rapor oluşturulamıyor. Excel export butonu tıklanınca sayfa donuyor. Chrome ve Firefox\'ta denedik aynı sorun.',
+    priority: 'medium',
+    category: 'technical',
+    status: 'assigned',
+    createdBy: { id: 4, firstName: 'Can', lastName: 'Özkan' },
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    assignee: { id: 5, firstName: 'Zeynep', lastName: 'Arslan', assignedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString() },
+    assignedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+    helpers: [{ id: 4, firstName: 'Can', lastName: 'Özkan', joinedAt: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString() }],
+    viewers: [
+      { userId: 4, viewedAt: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString() },
+      { userId: 5, viewedAt: new Date(Date.now() - 21 * 60 * 60 * 1000).toISOString() },
+      { userId: 2, viewedAt: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString() }
+    ],
+    history: [
+      { type: 'created', userId: 4, userName: 'Can Özkan', at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
+      { type: 'viewed', userId: 5, userName: 'Zeynep Arslan', at: new Date(Date.now() - 21 * 60 * 60 * 1000).toISOString() },
+      { type: 'assigned', userId: 5, userName: 'Zeynep Arslan', at: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString() },
+      { type: 'helper_joined', userId: 4, userName: 'Can Özkan', at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString() }
+    ],
+    notes: [
+      { id: 1, userId: 5, userName: 'Zeynep Arslan', text: 'Sorunu inceliyorum, veritabanı bağlantısı ile ilgili olabilir.', at: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString() }
+    ],
+    resolution: null,
+    resolvedAt: null
+  },
+  {
+    id: 3,
+    callerName: 'Burak Şen',
+    callerPhone: '+90 555 666 7788',
+    callerCompany: 'ABC Lojistik',
+    subject: 'Şifre sıfırlama çalışmıyor',
+    description: 'Müşteri şifre sıfırlama mailini almadığını söylüyor. Spam klasörünü de kontrol etmiş. 3 kez denemiş.',
+    priority: 'low',
+    category: 'info',
+    status: 'resolved',
+    createdBy: { id: 6, firstName: 'Emre', lastName: 'Yıldız' },
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    assignee: { id: 6, firstName: 'Emre', lastName: 'Yıldız', assignedAt: new Date(Date.now() - 47 * 60 * 60 * 1000).toISOString() },
+    assignedAt: new Date(Date.now() - 47 * 60 * 60 * 1000).toISOString(),
+    helpers: [],
+    viewers: [
+      { userId: 6, viewedAt: new Date(Date.now() - 47.5 * 60 * 60 * 1000).toISOString() }
+    ],
+    history: [
+      { type: 'created', userId: 6, userName: 'Emre Yıldız', at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() },
+      { type: 'assigned', userId: 6, userName: 'Emre Yıldız', at: new Date(Date.now() - 47 * 60 * 60 * 1000).toISOString() },
+      { type: 'resolved', userId: 6, userName: 'Emre Yıldız', at: new Date(Date.now() - 44 * 60 * 60 * 1000).toISOString() }
+    ],
+    notes: [],
+    resolution: 'Müşterinin mail adresi yanlış kayıtlıydı. Düzeltildi ve şifre sıfırlama başarıyla gerçekleşti.',
+    resolvedAt: new Date(Date.now() - 44 * 60 * 60 * 1000).toISOString()
+  }
+];
+
 // Mevcut oturum açmış kullanıcı (giriş sonrası değişecek)
 export const currentUser = users[0]; // Varsayılan olarak patron
 

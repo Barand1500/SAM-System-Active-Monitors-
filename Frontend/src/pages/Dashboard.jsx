@@ -59,7 +59,8 @@ import {
   Languages,
   Code,
   Layers,
-  XCircle
+  XCircle,
+  Headphones
 } from 'lucide-react';
 
 // Yeni bileşenleri import et
@@ -70,6 +71,7 @@ import ReportsPage from '../components/ReportsPage';
 import LeaveRequestSystem from '../components/LeaveRequestSystem';
 import TaskDetailModal from '../components/TaskDetailModal';
 import NotificationCenter from '../components/NotificationCenter';
+import SupportSystem from '../components/SupportSystem';
 
 // LocalStorage helpers
 const loadFromStorage = (key, defaultValue) => {
@@ -186,6 +188,7 @@ const Dashboard = () => {
     ...(canManage ? [{ id: 'reports', label: 'Raporlar', icon: BarChart3 }] : []),
     ...(canManage ? [{ id: 'employees', label: 'Çalışanlar', icon: Users }] : []),
     { id: 'leaves', label: 'İzinler', icon: Palmtree },
+    { id: 'support', label: 'Destek', icon: Headphones },
     { id: 'announcements', label: 'Duyurular', icon: Megaphone },
     { id: 'settings', label: 'Ayarlar', icon: Settings },
   ];
@@ -454,6 +457,7 @@ const Dashboard = () => {
         {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={employees} isDark={isDark} departments={departments} />}
         {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} />}
         {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
+        {activeTab === 'support' && <SupportSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
         {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} canManage={canManage} />}
       </div>
@@ -2565,9 +2569,30 @@ const ColorPicker = ({ value, onChange, isDark }) => {
 const SettingsTab = ({ isDark, isBoss, canManage }) => {
   const { user, company, updateCompany, checkCompanyCodeAvailability } = useAuth();
 
+  // Mevcut kodu parçalara ayır
+  const parseExistingCode = (code) => {
+    if (!code || code.length < 8) return { prefix: '', year: '', suffix: '' };
+    return {
+      prefix: code.slice(0, 3),
+      year: code.slice(3, 7),
+      suffix: code.slice(7)
+    };
+  };
+
+  // Şirket adından kısaltma üret (ilk 3 büyük harf)
+  const generatePrefix = (name) => {
+    if (!name) return '';
+    const letters = name.toUpperCase().replace(/[^A-ZÇĞİÖŞÜ]/g, '').replace(/[ÇĞİÖŞÜ]/g, c => ({ 'Ç':'C','Ğ':'G','İ':'I','Ö':'O','Ş':'S','Ü':'U' })[c] || '');
+    return letters.slice(0, 3);
+  };
+
+  const existingParts = parseExistingCode(company?.companyCode || '');
+
   // Company editing
   const [companyName, setCompanyName] = useState(company?.name || '');
-  const [companyCode, setCompanyCode] = useState(company?.companyCode || '');
+  const [codePrefix, setCodePrefix] = useState(existingParts.prefix || generatePrefix(company?.name || ''));
+  const [codeYear, setCodeYear] = useState(existingParts.year || new Date().getFullYear().toString());
+  const [codeSuffix, setCodeSuffix] = useState(existingParts.suffix || '');
   const [companyDesc, setCompanyDesc] = useState(company?.description || '');
   const [companyIndustry, setCompanyIndustry] = useState(company?.industry || '');
   const [companyPhone, setCompanyPhone] = useState(company?.phone || '');
@@ -2576,45 +2601,51 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
   const [companySaved, setCompanySaved] = useState(false);
   const [codeAvailability, setCodeAvailability] = useState(null); // null | 'checking' | 'available' | 'taken'
 
-  // Company code validation
-  const validateCompanyCode = (code) => {
-    if (!code) return 'Şirket kodu boş bırakılamaz';
-    if (code.length < 6) return 'Şirket kodu en az 6 karakter olmalıdır';
-    if (code.length > 12) return 'Şirket kodu en fazla 12 karakter olabilir';
-    if (!/^[A-Z0-9]+$/.test(code)) return 'Sadece büyük harf (A-Z) ve rakam (0-9) kullanılabilir';
-    if (!/[A-Z]/.test(code)) return 'En az bir büyük harf içermelidir';
-    if (!/[0-9]/.test(code)) return 'En az bir rakam içermelidir';
+  // Birleşik kod
+  const companyCode = `${codePrefix}${codeYear}${codeSuffix}`;
+
+  // Şirket adı değişince prefix otomatik güncelle
+  const handleCompanyNameChange = (val) => {
+    setCompanyName(val);
+    setCodePrefix(generatePrefix(val));
+    setCompanySaved(false);
+  };
+
+  // Company code part validation
+  const validateCompanyCode = () => {
+    if (codePrefix.length < 2) return 'Şirket kısaltması en az 2 harf olmalıdır';
+    if (codePrefix.length > 4) return 'Şirket kısaltması en fazla 4 harf olabilir';
+    if (!/^[A-Z]+$/.test(codePrefix)) return 'Kısaltma sadece harf (A-Z) içermelidir';
+    if (!/^\d{4}$/.test(codeYear)) return 'Yıl 4 haneli olmalıdır';
+    if (!codeSuffix) return 'Özel kod boş bırakılamaz';
+    if (codeSuffix.length > 4) return 'Özel kod en fazla 4 karakter olabilir';
+    if (!/^[A-Z0-9]+$/.test(codeSuffix)) return 'Özel kod sadece harf ve rakam içermelidir';
     return '';
   };
 
   // Debounced availability check
   useEffect(() => {
-    if (!companyCode || validateCompanyCode(companyCode)) {
+    const err = validateCompanyCode();
+    setCodeError(err);
+    if (err) {
       setCodeAvailability(null);
       return;
     }
-    // Mevcut kodla aynıysa kontrol etme
-    if (companyCode === company?.companyCode) {
+    const fullCode = `${codePrefix}${codeYear}${codeSuffix}`;
+    if (fullCode === company?.companyCode) {
       setCodeAvailability(null);
       return;
     }
     setCodeAvailability('checking');
     const timer = setTimeout(() => {
-      const result = checkCompanyCodeAvailability(companyCode);
+      const result = checkCompanyCodeAvailability(fullCode);
       setCodeAvailability(result.available ? 'available' : 'taken');
     }, 500);
     return () => clearTimeout(timer);
-  }, [companyCode]);
-
-  const handleCodeChange = (val) => {
-    const upper = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-    setCompanyCode(upper);
-    setCodeError(validateCompanyCode(upper));
-    setCompanySaved(false);
-  };
+  }, [codePrefix, codeYear, codeSuffix]);
 
   const saveCompanyInfo = () => {
-    const err = validateCompanyCode(companyCode);
+    const err = validateCompanyCode();
     if (err) { setCodeError(err); return; }
     if (codeAvailability === 'taken') return;
     updateCompany({
@@ -2737,7 +2768,7 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
               <input
                 type="text"
                 value={companyName}
-                onChange={(e) => { setCompanyName(e.target.value); setCompanySaved(false); }}
+                onChange={(e) => handleCompanyNameChange(e.target.value)}
                 className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-2.5`}
               />
             </div>
@@ -2755,69 +2786,126 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
 
           {/* Şirket Kodu */}
           <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket Kodu</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={companyCode}
-                onChange={(e) => handleCodeChange(e.target.value)}
-                maxLength={12}
-                className={`w-full font-mono text-lg tracking-widest font-bold pr-12 ${
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Şirket Kodu Oluşturucu</label>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Kısaltma */}
+              <div>
+                <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Şirket Kısaltması</label>
+                <input
+                  type="text"
+                  value={codePrefix}
+                  onChange={(e) => { setCodePrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4)); setCompanySaved(false); }}
+                  maxLength={4}
+                  placeholder="ABC"
+                  className={`w-full font-mono text-lg tracking-widest font-bold text-center ${
+                    isDark ? 'bg-slate-700 text-white placeholder-slate-600' : 'bg-slate-50 text-slate-800 placeholder-slate-300'
+                  } border ${codeError && codePrefix.length < 2 ? 'border-red-500' : isDark ? 'border-slate-600' : 'border-slate-200'} rounded-xl px-3 py-3`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>2-4 harf</p>
+              </div>
+              {/* Yıl */}
+              <div>
+                <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Yıl</label>
+                <input
+                  type="text"
+                  value={codeYear}
+                  onChange={(e) => { setCodeYear(e.target.value.replace(/\D/g, '').slice(0, 4)); setCompanySaved(false); }}
+                  maxLength={4}
+                  placeholder="2026"
+                  className={`w-full font-mono text-lg tracking-widest font-bold text-center ${
+                    isDark ? 'bg-slate-700 text-white placeholder-slate-600' : 'bg-slate-50 text-slate-800 placeholder-slate-300'
+                  } border ${codeError && !/^\d{4}$/.test(codeYear) ? 'border-red-500' : isDark ? 'border-slate-600' : 'border-slate-200'} rounded-xl px-3 py-3`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>4 rakam</p>
+              </div>
+              {/* Özel Kod */}
+              <div>
+                <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Özel Kod</label>
+                <input
+                  type="text"
+                  value={codeSuffix}
+                  onChange={(e) => { setCodeSuffix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)); setCompanySaved(false); }}
+                  maxLength={4}
+                  placeholder="X1"
+                  className={`w-full font-mono text-lg tracking-widest font-bold text-center ${
+                    isDark ? 'bg-slate-700 text-white placeholder-slate-600' : 'bg-slate-50 text-slate-800 placeholder-slate-300'
+                  } border ${codeError && !codeSuffix ? 'border-red-500' : isDark ? 'border-slate-600' : 'border-slate-200'} rounded-xl px-3 py-3`}
+                />
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>1-4 karakter</p>
+              </div>
+            </div>
+
+            {/* Birleşik Kod Önizleme */}
+            <div className={`mt-3 flex items-center gap-3 p-3 rounded-xl border ${
+              codeError
+                ? isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200'
+                : codeAvailability === 'taken'
+                  ? isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200'
+                  : codeAvailability === 'available'
+                    ? isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+                    : isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex-1">
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Oluşan Şirket Kodu:</p>
+                <p className={`font-mono text-xl tracking-[0.3em] font-bold ${
                   codeError || codeAvailability === 'taken'
-                    ? 'border-red-500 focus:ring-red-500'
+                    ? isDark ? 'text-red-400' : 'text-red-600'
                     : codeAvailability === 'available'
-                      ? 'border-emerald-400 focus:ring-emerald-500'
-                      : 'border-slate-300 focus:ring-indigo-500'
-                } ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-800'} border-2 rounded-xl px-4 py-3 focus:ring-2 focus:border-transparent`}
-              />
+                      ? isDark ? 'text-emerald-400' : 'text-emerald-600'
+                      : isDark ? 'text-white' : 'text-slate-800'
+                }`}>
+                  <span className={isDark ? 'text-indigo-400' : 'text-indigo-600'}>{codePrefix || '___'}</span>
+                  <span className={isDark ? 'text-amber-400' : 'text-amber-600'}>{codeYear || '____'}</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-emerald-600'}>{codeSuffix || '_'}</span>
+                </p>
+              </div>
               {/* Müsaitlik göstergesi */}
               {!codeError && companyCode !== company?.companyCode && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div>
                   {codeAvailability === 'checking' && (
-                    <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
                   )}
                   {codeAvailability === 'available' && (
-                    <CheckCircle2 size={20} className="text-emerald-500" />
+                    <CheckCircle2 size={24} className="text-emerald-500" />
                   )}
                   {codeAvailability === 'taken' && (
-                    <XCircle size={20} className="text-red-500" />
+                    <XCircle size={24} className="text-red-500" />
                   )}
                 </div>
               )}
             </div>
-            {/* Müsaitlik mesajı */}
-            {codeAvailability === 'available' && !codeError && (
-              <p className={`mt-1.5 text-xs font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+
+            {/* Durum mesajları */}
+            {codeError && (
+              <p className={`mt-2 text-xs font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>{codeError}</p>
+            )}
+            {!codeError && codeAvailability === 'available' && (
+              <p className={`mt-2 text-xs font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                 ✓ Bu şirket kodu müsait
               </p>
             )}
-            {codeAvailability === 'taken' && !codeError && (
-              <p className={`mt-1.5 text-xs font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+            {!codeError && codeAvailability === 'taken' && (
+              <p className={`mt-2 text-xs font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                 ✗ Bu şirket kodu başka bir şirket tarafından kullanılıyor
               </p>
             )}
-            {/* Uyarı kutusu */}
+
+            {/* Bilgi kutusu */}
             <div className={`mt-2.5 flex items-start gap-2.5 p-3 rounded-xl ${
-              codeError || codeAvailability === 'taken'
-                ? isDark ? 'bg-red-500/10 border border-red-500/30' : 'bg-red-50 border border-red-200'
-                : isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
+              isDark ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-amber-50 border border-amber-200'
             }`}>
-              <AlertTriangle size={18} className={`shrink-0 mt-0.5 ${codeError ? 'text-red-500' : 'text-amber-500'}`} />
+              <AlertTriangle size={18} className="shrink-0 mt-0.5 text-amber-500" />
               <div>
-                {codeError ? (
-                  <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>{codeError}</p>
-                ) : (
-                  <p className={`text-sm font-medium ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                    Dikkat! Bu alan çok önemlidir
-                  </p>
-                )}
+                <p className={`text-sm font-medium ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                  Şirket kodu yapısı: Kısaltma + Yıl + Özel Kod
+                </p>
                 <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   Şirket kodu, çalışanların giriş yapması için kullanılır. Değiştirirseniz tüm çalışanlara yeni kodu bildirmeniz gerekir.
                 </p>
                 <div className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  <span>• 6-12 karakter</span>
-                  <span>• Sadece A-Z ve 0-9</span>
-                  <span>• En az 1 harf + 1 rakam</span>
+                  <span>• Kısaltma: Şirket adından türetilir (2-4 harf)</span>
+                  <span>• Yıl: 4 haneli yıl</span>
+                  <span>• Özel Kod: 1-4 karakter (A-Z, 0-9)</span>
                 </div>
               </div>
             </div>
