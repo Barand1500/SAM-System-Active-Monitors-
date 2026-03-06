@@ -16,7 +16,7 @@ import {
   Filter
 } from 'lucide-react';
 
-const LeaveRequestSystem = ({ user, isBoss, isDark }) => {
+const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
   const [showNewRequest, setShowNewRequest] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
   const [newRequest, setNewRequest] = useState({
@@ -154,7 +154,8 @@ const LeaveRequestSystem = ({ user, isBoss, isDark }) => {
     setNewRequest({ type: 'annual', startDate: '', endDate: '', reason: '' });
   };
 
-  const filteredRequests = requests.filter(r => filter === 'all' || r.status === filter);
+  const userRequests = canManage ? requests : requests.filter(r => r.employeeId === user?.id);
+  const filteredRequests = userRequests.filter(r => filter === 'all' || r.status === filter);
 
   return (
     <div className="space-y-6">
@@ -165,11 +166,11 @@ const LeaveRequestSystem = ({ user, isBoss, isDark }) => {
             İzin Yönetimi
           </h1>
           <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            {isBoss ? 'Çalışan izin taleplerini yönetin' : 'İzin taleplerinizi buradan takip edin'}
+            {canManage ? 'Çalışan izin taleplerini yönetin' : 'İzin taleplerinizi buradan takip edin'}
           </p>
         </div>
 
-        {!isBoss && (
+        {!canManage && (
           <button 
             onClick={() => setShowNewRequest(true)}
             className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-5 py-2.5 rounded-xl font-medium hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
@@ -181,7 +182,7 @@ const LeaveRequestSystem = ({ user, isBoss, isDark }) => {
       </div>
 
       {/* Çalışan için: İzin Bakiyesi */}
-      {!isBoss && (
+      {!canManage && (
         <div className="grid grid-cols-3 gap-4">
           {Object.entries(leaveBalance).map(([type, balance]) => {
             const leaveType = leaveTypes.find(lt => lt.id === type);
@@ -287,7 +288,7 @@ const LeaveRequestSystem = ({ user, isBoss, isDark }) => {
                   </div>
                 </div>
 
-                {isBoss && request.status === 'pending' && (
+                {canManage && request.status === 'pending' && (
                   <div className="flex gap-2">
                     <button 
                       onClick={() => handleApprove(request.id)}
