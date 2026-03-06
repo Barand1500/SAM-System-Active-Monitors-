@@ -1,12 +1,10 @@
-import { createServer } from 'http';
-import { Server as SocketIO } from 'socket.io';
-import dotenv from 'dotenv';
-import app from './app.js';
-
-dotenv.config();
+const http = require('http');
+const { Server: SocketIO } = require('socket.io');
+require('dotenv').config();
+const app = require('./app');
 
 const PORT = process.env.PORT || 5000;
-const httpServer = createServer(app);
+const httpServer = http.createServer(app);
 
 // ─── Socket.io ───────────────────────────────────────────────────────────────
 const io = new SocketIO(httpServer, {
@@ -34,7 +32,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// io'yu app üzerinden route'lara iletilebilir hale getir
+// io'yu route'lara iletilebilir hale getir
 app.set('io', io);
 
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────
