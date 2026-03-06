@@ -25,7 +25,7 @@ Backend/
 │   └── database.js                 # MySQL bağlantı havuzu (mysql2/promise Pool)
 │
 ├── middleware/
-│   ├── auth.js                     # JWT doğrulama → req.user'ı doldurur
+│   ├── authMiddleware.js                     # JWT doğrulama → req.user'ı doldurur
 │   ├── roleCheck.js                # roleCheck('boss','manager') şeklinde kullanılır
 │   ├── companyIsolation.js         # Her sorguda company_id = req.user.companyId kontrolü
 │   ├── handlers.js                 # Global hata yakalayıcı + yanıt formatlama

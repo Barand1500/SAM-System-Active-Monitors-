@@ -17,12 +17,12 @@ module.exports = (sequelize, DataTypes) => {
 
     condition: {
       type: DataTypes.TEXT,
-      field: "condition_"
+      field: "rule_condition"
     },
 
     action: {
       type: DataTypes.TEXT,
-      field: "action_"
+      field: "rule_action"
     },
 
     isActive: {

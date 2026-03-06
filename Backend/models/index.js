@@ -45,6 +45,7 @@ const RecurringTask = require("./RecurringTask")(sequelize, DataTypes);
 
 const UserDashboardSetting = require("./UserDashboardSetting")(sequelize, DataTypes);
 const AuditLog = require("./AuditLog")(sequelize, DataTypes);
+const UserSkill = require("./UserSkill")(sequelize, DataTypes);
 
 
 // ============================
@@ -135,8 +136,43 @@ Announcement.belongsTo(Company, { foreignKey: "company_id" });
 CompanySetting.belongsTo(Company, { foreignKey: "company_id" });
 
 
+// WORKSPACE
+Workspace.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(Workspace, { foreignKey: "company_id" });
+
+Workspace.belongsTo(User, { foreignKey: "created_by", as: "workspaceCreator" });
+
+WorkspaceMember.belongsTo(Workspace, { foreignKey: "workspace_id" });
+Workspace.hasMany(WorkspaceMember, { foreignKey: "workspace_id" });
+
+WorkspaceMember.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(WorkspaceMember, { foreignKey: "user_id" });
+
+
+// PROJECT
+Project.belongsTo(Workspace, { foreignKey: "workspace_id" });
+Workspace.hasMany(Project, { foreignKey: "workspace_id" });
+
+Project.belongsTo(User, { foreignKey: "created_by", as: "projectCreator" });
+
+ProjectMember.belongsTo(Project, { foreignKey: "project_id" });
+Project.hasMany(ProjectMember, { foreignKey: "project_id" });
+
+ProjectMember.belongsTo(User, { foreignKey: "user_id" });
+
+
+// TASK LIST
+TaskList.belongsTo(Project, { foreignKey: "project_id" });
+Project.hasMany(TaskList, { foreignKey: "project_id" });
+
+
 // AUTOMATION
 AutomationRule.belongsTo(Company, { foreignKey: "company_id" });
+
+
+// USER SKILLS
+UserSkill.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(UserSkill, { foreignKey: "user_id" });
 
 
 // RECURRING TASK
@@ -199,5 +235,6 @@ module.exports = {
   RecurringTask,
 
   UserDashboardSetting,
-  AuditLog
+  AuditLog,
+  UserSkill
 };
