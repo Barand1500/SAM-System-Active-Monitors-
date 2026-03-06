@@ -3,7 +3,8 @@ import {
   Plus, Phone, Building2, User, Tag, AlertCircle, Clock,
   Eye, UserPlus, CheckCircle2, X, ChevronRight, MessageSquare,
   Send, Search, Filter, Headphones, LogOut, FileText,
-  AlertTriangle, Info, Wrench, HelpCircle, BarChart3
+  AlertTriangle, Info, Wrench, HelpCircle, BarChart3,
+  MapPin, ArrowLeft, Save
 } from 'lucide-react';
 import { supportTickets as initialTickets } from '../data/mockData';
 
@@ -14,6 +15,425 @@ const loadTickets = () => {
   } catch { return initialTickets; }
 };
 
+const defaultContacts = [
+  {
+    id: 1, name: 'Ercan Güzel', phone: '0538 930 33 14', company: 'Güzel Teknoloji',
+    addresses: [{ id: 1, name: 'Merkez', city: 'Antalya', district: '', neighborhood: '', quarter: 'Emel Mahallesi', buildingInfo: '88055 Sok. Türkiye' }]
+  }
+];
+
+const loadContacts = () => {
+  try {
+    const saved = localStorage.getItem('sam_contacts');
+    return saved ? JSON.parse(saved) : defaultContacts;
+  } catch { return defaultContacts; }
+};
+
+const formatPhoneNumber = (value) => {
+  const raw = value.replace(/\D/g, '');
+  const d = raw.startsWith('0') ? raw : '0' + raw;
+  let f = '';
+  for (let i = 0; i < d.length && i < 11; i++) {
+    if (i === 4 || i === 7 || i === 9) f += ' ';
+    f += d[i];
+  }
+  return f.trim();
+};
+
+const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, inputClass, cardClass, priorities, categories }) => {
+  const [step, setStep] = useState('phone');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [ncName, setNcName] = useState('');
+  const [ncCompany, setNcCompany] = useState('');
+  const [ncAddresses, setNcAddresses] = useState([]);
+  const [addrSearch, setAddrSearch] = useState('');
+  const [addrName, setAddrName] = useState('');
+  const [addrCity, setAddrCity] = useState('');
+  const [addrDistrict, setAddrDistrict] = useState('');
+  const [addrNeighborhood, setAddrNeighborhood] = useState('');
+  const [addrQuarter, setAddrQuarter] = useState('');
+  const [addrBuilding, setAddrBuilding] = useState('');
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [category, setCategory] = useState('technical');
+
+  const allAddresses = contacts.flatMap(c =>
+    c.addresses.map(a => ({ ...a, contactName: c.name, contactCompany: c.company }))
+  );
+
+  const filteredAddresses = addrSearch.trim()
+    ? allAddresses.filter(a => {
+        const q = addrSearch.toLowerCase();
+        return [a.name, a.city, a.district, a.neighborhood, a.quarter, a.buildingInfo]
+          .some(field => (field || '').toLowerCase().includes(q));
+      })
+    : [];
+
+  const handlePhoneChange = (value) => {
+    const formatted = formatPhoneNumber(value);
+    setPhoneInput(formatted);
+    const digits = formatted.replace(/\D/g, '');
+    if (digits.length >= 4) {
+      setSearchResults(contacts.filter(c => c.phone.replace(/\D/g, '').includes(digits)));
+    } else {
+      setSearchResults([]);
+    }
+    setSelectedContact(null);
+  };
+
+  const selectContact = (contact) => {
+    setSelectedContact(contact);
+    setPhoneInput(contact.phone);
+    if (contact.addresses.length > 0) setSelectedAddress(contact.addresses[0]);
+    setStep('ticket');
+  };
+
+  const goNewContact = () => {
+    setNcName('');
+    setNcCompany('');
+    setNcAddresses([]);
+    setStep('new_contact');
+  };
+
+  const saveNewContact = () => {
+    if (!ncName.trim()) return;
+    const newC = { id: Date.now(), name: ncName.trim(), phone: phoneInput, company: ncCompany.trim(), addresses: ncAddresses };
+    setContacts(prev => [...prev, newC]);
+    setSelectedContact(newC);
+    if (newC.addresses.length > 0) setSelectedAddress(newC.addresses[0]);
+    setStep('ticket');
+  };
+
+  const resetAddrForm = () => {
+    setAddrSearch(''); setAddrName(''); setAddrCity(''); setAddrDistrict('');
+    setAddrNeighborhood(''); setAddrQuarter(''); setAddrBuilding('');
+  };
+
+  const selectSearchAddr = (a) => {
+    setAddrName(a.name || ''); setAddrCity(a.city || ''); setAddrDistrict(a.district || '');
+    setAddrNeighborhood(a.neighborhood || ''); setAddrQuarter(a.quarter || '');
+    setAddrBuilding(a.buildingInfo || ''); setAddrSearch('');
+  };
+
+  const saveAddress = () => {
+    const addr = {
+      id: Date.now(), name: addrName.trim(), city: addrCity.trim(), district: addrDistrict.trim(),
+      neighborhood: addrNeighborhood.trim(), quarter: addrQuarter.trim(), buildingInfo: addrBuilding.trim()
+    };
+    if (step === 'new_contact') {
+      setNcAddresses(prev => [...prev, addr]);
+    } else if (selectedContact) {
+      const updated = { ...selectedContact, addresses: [...selectedContact.addresses, addr] };
+      setContacts(prev => prev.map(c => c.id === selectedContact.id ? updated : c));
+      setSelectedContact(updated);
+      setSelectedAddress(addr);
+    }
+    setShowAddressForm(false);
+    resetAddrForm();
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!subject.trim() || !description.trim()) return;
+    onCreateTicket({
+      callerName: selectedContact.name, callerPhone: selectedContact.phone,
+      callerCompany: selectedContact.company, callerAddress: selectedAddress,
+      contactId: selectedContact.id, subject: subject.trim(), description: description.trim(),
+      priority, category
+    });
+  };
+
+  const renderAddressForm = () => (
+    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} space-y-3`}>
+      <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+        <MapPin size={15} className="inline mr-1.5" /> Adres Ekle
+      </h4>
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input type="text" value={addrSearch} onChange={e => setAddrSearch(e.target.value)}
+          placeholder="Adres ara..." className={`w-full ${inputClass} border rounded-xl px-4 py-2 pl-9 text-sm`} />
+        {filteredAddresses.length > 0 && addrSearch && (
+          <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg max-h-40 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+            {filteredAddresses.map((a, i) => (
+              <button key={i} type="button" onClick={() => selectSearchAddr(a)}
+                className={`w-full text-left px-4 py-2.5 text-sm border-b last:border-b-0 ${isDark ? 'hover:bg-slate-700 text-slate-300 border-slate-700' : 'hover:bg-slate-50 text-slate-700 border-slate-100'}`}>
+                <span className="font-medium">{a.name || 'Adres'}</span>
+                <span className="text-xs opacity-70 ml-2">{[a.quarter, a.neighborhood, a.district, a.city].filter(Boolean).join(', ')}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <input type="text" value={addrName} onChange={e => setAddrName(e.target.value)}
+        placeholder="Adres Adı (ör: Merkez Ofis)" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+      <div className="grid grid-cols-2 gap-3">
+        <input type="text" value={addrCity} onChange={e => setAddrCity(e.target.value)}
+          placeholder="İl" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+        <input type="text" value={addrDistrict} onChange={e => setAddrDistrict(e.target.value)}
+          placeholder="İlçe" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+        <input type="text" value={addrNeighborhood} onChange={e => setAddrNeighborhood(e.target.value)}
+          placeholder="Semt" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+        <input type="text" value={addrQuarter} onChange={e => setAddrQuarter(e.target.value)}
+          placeholder="Mahalle" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+      </div>
+      <input type="text" value={addrBuilding} onChange={e => setAddrBuilding(e.target.value)}
+        placeholder="Bina Bilgisi / Adres Tarifi" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => { setShowAddressForm(false); resetAddrForm(); }}
+          className={`px-4 py-2 text-sm rounded-xl ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-100'}`}>
+          İptal
+        </button>
+        <button type="button" onClick={saveAddress} disabled={!addrCity.trim()}
+          className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
+          <Save size={14} /> Kaydet
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`${cardClass} rounded-2xl border p-6 space-y-5`}>
+      <div className="flex items-center gap-2 mb-2">
+        {step !== 'phone' && (
+          <button type="button" onClick={() => setStep('phone')}
+            className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+            <ArrowLeft size={18} />
+          </button>
+        )}
+        <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+          {step === 'phone' ? 'Destek Talebi Oluştur' : step === 'new_contact' ? 'Yeni Müşteri Kaydı' : 'Talep Bilgileri'}
+        </h3>
+      </div>
+
+      {step === 'phone' && (
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-sm mb-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Arayan Telefon Numarası *</label>
+            <div className="relative">
+              <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="tel" value={phoneInput} onChange={e => handlePhoneChange(e.target.value)}
+                placeholder="0XXX XXX XX XX" maxLength={14}
+                className={`w-full ${inputClass} border rounded-xl px-4 py-3 pl-10 text-base font-mono tracking-wider`} />
+            </div>
+          </div>
+          {phoneInput.replace(/\D/g, '').length >= 4 && (
+            <div className="space-y-2">
+              {searchResults.length > 0 ? (
+                <>
+                  <p className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                    <CheckCircle2 size={14} className="inline mr-1" /> {searchResults.length} kayıt bulundu
+                  </p>
+                  {searchResults.map(c => (
+                    <button key={c.id} type="button" onClick={() => selectContact(c)}
+                      className={`w-full text-left p-4 rounded-xl border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-indigo-500/50' : 'bg-slate-50 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'}`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{c.name}</p>
+                          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <Building2 size={13} className="inline mr-1" />{c.company}
+                          </p>
+                          <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'} mt-1`}>
+                            <Phone size={12} className="inline mr-1" />{c.phone}
+                            {c.addresses.length > 0 && <span className="ml-3"><MapPin size={12} className="inline mr-1" />{c.addresses.length} adres</span>}
+                          </p>
+                        </div>
+                        <ChevronRight size={18} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
+                      </div>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                  <p className={`text-sm font-medium ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                    <AlertCircle size={14} className="inline mr-1.5" /> Numara bulunamadı
+                  </p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-amber-400/60' : 'text-amber-600'}`}>
+                    Bu numaraya ait kayıt sistemde yok. Yeni kayıt oluşturabilirsiniz.
+                  </p>
+                  <button type="button" onClick={goNewContact}
+                    className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-indigo-600 hover:to-purple-700">
+                    <UserPlus size={15} /> Yeni Kayıt Oluştur
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <button type="button" onClick={onCancel}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+              İptal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'new_contact' && (
+        <div className="space-y-4">
+          <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'} flex items-center gap-2`}>
+            <Phone size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+            <span className={`font-mono text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{phoneInput}</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ad Soyad *</label>
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" value={ncName} onChange={e => setNcName(e.target.value)}
+                  placeholder="Ad Soyad" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
+              </div>
+            </div>
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket</label>
+              <div className="relative">
+                <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" value={ncCompany} onChange={e => setNcCompany(e.target.value)}
+                  placeholder="Şirket adı" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <MapPin size={14} className="inline mr-1" /> Adresler
+              </label>
+              {!showAddressForm && (
+                <button type="button" onClick={() => setShowAddressForm(true)}
+                  className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  <Plus size={13} /> Adres Ekle
+                </button>
+              )}
+            </div>
+            {ncAddresses.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {ncAddresses.map((a, i) => (
+                  <div key={i} className={`p-3 rounded-xl border flex items-center justify-between ${isDark ? 'bg-slate-700/30 border-slate-600' : 'bg-white border-slate-200'}`}>
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{a.name || 'Adres'}</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {[a.quarter, a.neighborhood, a.district, a.city].filter(Boolean).join(', ')}
+                      </p>
+                      {a.buildingInfo && <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{a.buildingInfo}</p>}
+                    </div>
+                    <button type="button" onClick={() => setNcAddresses(prev => prev.filter((_, idx) => idx !== i))}
+                      className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-600 text-slate-500' : 'hover:bg-slate-100 text-slate-400'}`}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showAddressForm && renderAddressForm()}
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setStep('phone')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+              Geri
+            </button>
+            <button type="button" onClick={saveNewContact} disabled={!ncName.trim()}
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25 disabled:opacity-50 flex items-center gap-1.5">
+              <Save size={15} /> Kaydet ve Devam Et
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'ticket' && selectedContact && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className={`p-4 rounded-xl border ${isDark ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{selectedContact.name}</p>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {selectedContact.company && <><Building2 size={13} className="inline mr-1" />{selectedContact.company} · </>}
+                  <Phone size={13} className="inline mr-1" />{selectedContact.phone}
+                </p>
+              </div>
+              <button type="button" onClick={() => { setStep('phone'); setSelectedContact(null); setSelectedAddress(null); }}
+                className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                Değiştir
+              </button>
+            </div>
+          </div>
+
+          {selectedContact.addresses.length > 0 && (
+            <div>
+              <label className={`block text-sm mb-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                <MapPin size={13} className="inline mr-1" /> Adres Seç
+              </label>
+              <div className="space-y-2">
+                {selectedContact.addresses.map(addr => (
+                  <button key={addr.id} type="button" onClick={() => setSelectedAddress(addr)}
+                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                      selectedAddress?.id === addr.id
+                        ? isDark ? 'border-indigo-500 bg-indigo-500/10' : 'border-indigo-400 bg-indigo-50'
+                        : isDark ? 'border-slate-600 bg-slate-700/30 hover:border-slate-500' : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{addr.name || 'Adres'}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {[addr.quarter, addr.neighborhood, addr.district, addr.city].filter(Boolean).join(', ')}
+                    </p>
+                    {addr.buildingInfo && <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{addr.buildingInfo}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!showAddressForm ? (
+            <button type="button" onClick={() => setShowAddressForm(true)}
+              className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              <Plus size={13} /> Yeni Adres Ekle
+            </button>
+          ) : renderAddressForm()}
+
+          <div>
+            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Konu / Başlık *</label>
+            <input type="text" required value={subject} onChange={e => setSubject(e.target.value)}
+              placeholder="Kısa özet" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
+          </div>
+          <div>
+            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Detaylı Açıklama *</label>
+            <textarea required value={description} onChange={e => setDescription(e.target.value)}
+              rows={4} placeholder="Sorunu detaylı olarak açıklayınız..."
+              className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm resize-none`} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Öncelik</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)}
+                className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`}>
+                {priorities.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Kategori</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onCancel}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
+              İptal
+            </button>
+            <button type="submit"
+              className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25">
+              Destek Talebi Oluştur
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
+
 const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const [tickets, setTickets] = useState(loadTickets);
   const [view, setView] = useState('pool'); // pool | create | resolved
@@ -22,8 +442,10 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [contacts, setContacts] = useState(loadContacts);
 
   useEffect(() => { localStorage.setItem('sam_support_tickets', JSON.stringify(tickets)); }, [tickets]);
+  useEffect(() => { localStorage.setItem('sam_contacts', JSON.stringify(contacts)); }, [contacts]);
   useEffect(() => { const t = setInterval(() => setCurrentTime(Date.now()), 30000); return () => clearInterval(t); }, []);
 
   const categories = [
@@ -175,86 +597,6 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
 
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
-
-  // ─── CREATE FORM ─────────────────────────
-  const CreateForm = () => {
-    const [form, setForm] = useState({
-      callerName: '', callerPhone: '', callerCompany: '',
-      subject: '', description: '', priority: 'medium', category: 'technical'
-    });
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      if (!form.callerName.trim() || !form.subject.trim() || !form.description.trim()) return;
-      createTicket(form);
-    };
-    return (
-      <form onSubmit={handleSubmit} className={`${cardClass} rounded-2xl border p-6 space-y-5`}>
-        <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>Yeni Destek Talebi Oluştur</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Arayan Kişi *</label>
-            <div className="relative">
-              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" required value={form.callerName} onChange={e => setForm(p => ({...p, callerName: e.target.value}))}
-                placeholder="Ad Soyad" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
-            </div>
-          </div>
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Telefon</label>
-            <div className="relative">
-              <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="tel" value={form.callerPhone} onChange={e => setForm(p => ({...p, callerPhone: e.target.value}))}
-                placeholder="+90 5XX XXX XXXX" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
-            </div>
-          </div>
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Şirket *</label>
-            <div className="relative">
-              <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" required value={form.callerCompany} onChange={e => setForm(p => ({...p, callerCompany: e.target.value}))}
-                placeholder="Şirket adı" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
-            </div>
-          </div>
-        </div>
-        <div>
-          <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Konu / Başlık *</label>
-          <input type="text" required value={form.subject} onChange={e => setForm(p => ({...p, subject: e.target.value}))}
-            placeholder="Kısa özet" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
-        </div>
-        <div>
-          <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Detaylı Açıklama *</label>
-          <textarea required value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
-            rows={4} placeholder="Sorunu detaylı olarak açıklayınız..." className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm resize-none`} />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Öncelik</label>
-            <select value={form.priority} onChange={e => setForm(p => ({...p, priority: e.target.value}))}
-              className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`}>
-              {priorities.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Kategori</label>
-            <select value={form.category} onChange={e => setForm(p => ({...p, category: e.target.value}))}
-              className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm`}>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={() => setView('pool')}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>
-            İptal
-          </button>
-          <button type="submit"
-            className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25">
-            Destek Talebi Oluştur
-          </button>
-        </div>
-      </form>
-    );
-  };
 
   // ─── TICKET CARD ─────────────────────────
   const TicketCard = ({ ticket }) => {
@@ -426,28 +768,42 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
             )}
 
             {/* Caller Info */}
-            <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-              <div className="flex items-center gap-2">
-                <User size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                <div>
-                  <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Arayan</p>
-                  <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerName}</p>
+            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'} space-y-3`}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <User size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                  <div>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Arayan</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                  <div>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Telefon</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerPhone || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building2 size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                  <div>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Şirket</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerCompany}</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                <div>
-                  <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Telefon</p>
-                  <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerPhone || '-'}</p>
+              {t.callerAddress && (
+                <div className="flex items-start gap-2 pt-2 border-t border-dashed" style={{borderColor: isDark ? '#475569' : '#e2e8f0'}}>
+                  <MapPin size={16} className={`mt-0.5 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                  <div>
+                    <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Adres {t.callerAddress.name && `(${t.callerAddress.name})`}</p>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      {[t.callerAddress.quarter, t.callerAddress.neighborhood, t.callerAddress.district, t.callerAddress.city].filter(Boolean).join(', ')}
+                    </p>
+                    {t.callerAddress.buildingInfo && <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t.callerAddress.buildingInfo}</p>}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Building2 size={16} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                <div>
-                  <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Şirket</p>
-                  <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.callerCompany}</p>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Description */}
@@ -716,7 +1072,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
       )}
 
       {/* Content */}
-      {view === 'create' && <CreateForm />}
+      {view === 'create' && <CreateForm contacts={contacts} setContacts={setContacts} onCreateTicket={createTicket} onCancel={() => setView('pool')} isDark={isDark} inputClass={inputClass} cardClass={cardClass} priorities={priorities} categories={categories} />}
       {view === 'pool' && (
         filteredPool.length === 0 ? (
           <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
