@@ -884,29 +884,64 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
             <div>
               <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Aktivite Geçmişi</h4>
               <div className="space-y-0">
-                {t.history.map((h, i) => {
+                {t.history.map((h, i, arr) => {
                   const hi = historyIcons[h.type] || historyIcons.created;
                   const HIcon = hi.icon;
+                  const prevTime = i > 0 ? new Date(arr[i - 1].at) : null;
+                  const curTime = new Date(h.at);
+                  const elapsedFromPrev = prevTime ? curTime - prevTime : 0;
+                  const fmtElapsed = (ms) => {
+                    const mins = Math.floor(ms / 60000);
+                    if (mins < 1) return 'anında';
+                    if (mins < 60) return `${mins} dk sonra`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs} sa ${mins % 60} dk sonra`;
+                    const days = Math.floor(hrs / 24);
+                    return `${days} gün ${hrs % 24} sa sonra`;
+                  };
                   return (
                     <div key={i} className="flex gap-3">
                       <div className="flex flex-col items-center">
                         <div className={`w-7 h-7 rounded-lg ${hi.bg} flex items-center justify-center shrink-0`}>
                           <HIcon size={14} className={hi.color} />
                         </div>
-                        {i < t.history.length - 1 && <div className={`w-0.5 flex-1 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />}
+                        {i < arr.length - 1 && <div className={`w-0.5 flex-1 ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />}
                       </div>
                       <div className="pb-4">
                         <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                           <span className="font-medium">{h.userName}</span> {hi.label.toLowerCase()}
                         </p>
-                        <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {new Date(h.at).toLocaleString('tr-TR')}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {curTime.toLocaleString('tr-TR')}
+                          </p>
+                          {i > 0 && elapsedFromPrev > 0 && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isDark ? 'bg-indigo-500/15 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                              {fmtElapsed(elapsedFromPrev)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {t.status === 'resolved' && t.resolvedAt && (
+                <div className={`mt-2 p-3 rounded-xl flex items-center gap-2 ${isDark ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-purple-50 border border-purple-200'}`}>
+                  <Clock size={15} className={isDark ? 'text-purple-400' : 'text-purple-600'} />
+                  <span className={`text-sm font-medium ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
+                    Toplam çözüm süresi: {(() => {
+                      const diff = new Date(t.resolvedAt) - new Date(t.createdAt);
+                      const mins = Math.floor(diff / 60000);
+                      if (mins < 60) return `${mins} dakika`;
+                      const hrs = Math.floor(mins / 60);
+                      if (hrs < 24) return `${hrs} saat ${mins % 60} dakika`;
+                      const days = Math.floor(hrs / 24);
+                      return `${days} gün ${hrs % 24} saat`;
+                    })()}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Notes / Comments */}

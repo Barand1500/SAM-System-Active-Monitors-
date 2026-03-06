@@ -65,7 +65,7 @@ const KanbanBoard = ({ tasks: initialTasks, users, isDark, canManage, onTaskClic
 
   return (
     <div className="h-full">
-      <div className="flex gap-5 h-full overflow-x-auto pb-4">
+      <div className="grid grid-cols-4 gap-4 h-full">
         {columns.map(column => {
           const columnTasks = getColumnTasks(column.id);
           const Icon = column.icon;
@@ -74,7 +74,7 @@ const KanbanBoard = ({ tasks: initialTasks, users, isDark, canManage, onTaskClic
           return (
             <div 
               key={column.id} 
-              className={`shrink-0 w-80 rounded-2xl flex flex-col transition-all duration-200 ${
+              className={`min-w-0 rounded-2xl flex flex-col transition-all duration-200 ${
                 isDropTarget
                   ? isDark ? 'bg-indigo-500/10 ring-2 ring-indigo-500/50' : 'bg-indigo-50 ring-2 ring-indigo-300'
                   : isDark ? 'bg-slate-800/40' : 'bg-slate-50'
@@ -100,11 +100,16 @@ const KanbanBoard = ({ tasks: initialTasks, users, isDark, canManage, onTaskClic
                     </span>
                   </div>
                 </div>
-                <div className={`mt-3 h-1 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                  <div 
-                    className={`h-full rounded-full bg-linear-to-r ${column.gradient} transition-all duration-500`}
-                    style={{ width: `${tasks.length > 0 ? (columnTasks.length / tasks.length) * 100 : 0}%` }}
-                  />
+                <div className="relative mt-3">
+                  <div className={`h-1.5 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                    <div 
+                      className={`h-full rounded-full bg-linear-to-r ${column.gradient} transition-all duration-500`}
+                      style={{ width: `${tasks.length > 0 ? (columnTasks.length / tasks.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className={`text-[10px] font-bold mt-1 block text-right ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    %{tasks.length > 0 ? Math.round((columnTasks.length / tasks.length) * 100) : 0}
+                  </span>
                 </div>
               </div>
 

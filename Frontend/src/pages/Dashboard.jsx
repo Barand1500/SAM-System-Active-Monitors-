@@ -168,6 +168,8 @@ const Dashboard = () => {
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [calendarDate, setCalendarDate] = useState(null);
   const [showBulkEmployeeModal, setShowBulkEmployeeModal] = useState(false);
+  const [showSmsModal, setShowSmsModal] = useState(false);
+  const [smsHistory, setSmsHistory] = useState(() => loadFromStorage('app_sms_history', []));
 
   // LocalStorage'a kaydet
   useEffect(() => {
@@ -199,7 +201,6 @@ const Dashboard = () => {
     { id: 'files', label: 'Dosyalar', icon: FolderOpen },
     { id: 'surveys', label: 'Anketler', icon: Vote },
     { id: 'announcements', label: 'Duyurular', icon: Megaphone },
-    { id: 'settings', label: 'Ayarlar', icon: Settings },
   ];
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -432,7 +433,7 @@ const Dashboard = () => {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`relative flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
+                    className={`relative flex items-center gap-1.5 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
                       ${isActive
                         ? 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-[1.02]'
                         : isDark
@@ -440,8 +441,8 @@ const Dashboard = () => {
                           : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
                       }`}
                   >
-                    <Icon size={17} className={isActive ? 'drop-shadow-sm' : ''} />
-                    <span className="hidden md:inline text-[13px]">{item.label}</span>
+                    <Icon size={16} className={isActive ? 'drop-shadow-sm' : ''} />
+                    <span className="hidden md:inline text-[12px]">{item.label}</span>
                     {isActive && (
                       <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-400 shadow-sm shadow-indigo-400/50 md:hidden" />
                     )}
@@ -477,14 +478,24 @@ const Dashboard = () => {
                 </button>
               )}
               {activeTab === 'announcements' && (
-                <button
-                  onClick={() => openAnnouncementModal()}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600
-                           hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl
-                           shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                  <Megaphone size={17} />
-                  <span className="hidden sm:inline">Yeni Duyuru</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSmsModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600
+                             hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold rounded-xl
+                             shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                    <Send size={17} />
+                    <span className="hidden sm:inline">SMS Gönder</span>
+                  </button>
+                  <button
+                    onClick={() => openAnnouncementModal()}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600
+                             hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl
+                             shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                    <Megaphone size={17} />
+                    <span className="hidden sm:inline">Yeni Duyuru</span>
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -591,6 +602,21 @@ const Dashboard = () => {
             setEditingAnnouncement(null);
           }}
           isDark={isDark}
+        />
+      )}
+
+      {/* SMS Gönderme Modal */}
+      {showSmsModal && (
+        <SmsModal
+          employees={employees}
+          isDark={isDark}
+          smsHistory={smsHistory}
+          onClose={() => setShowSmsModal(false)}
+          onSend={(smsData) => {
+            const newHistory = [{ ...smsData, id: Date.now(), sentAt: new Date().toISOString() }, ...smsHistory];
+            setSmsHistory(newHistory);
+            saveToStorage('app_sms_history', newHistory);
+          }}
         />
       )}
 
@@ -2580,6 +2606,31 @@ const PRESET_COLORS = [
   '#d946ef', '#ec4899', '#f43f5e', '#64748b', '#78716c', '#0f172a'
 ];
 
+const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, children }) => {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'} overflow-hidden`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between p-5 transition-colors ${isDark ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50'}`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+            <Icon size={20} className="text-white" />
+          </div>
+          <div className="text-left">
+            <h3 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{subtitle}</p>
+          </div>
+        </div>
+        <ChevronDown size={20} className={`${isDark ? 'text-slate-400' : 'text-slate-500'} transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
+      </button>
+      {isOpen && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  );
+};
+
 const ColorPicker = ({ value, onChange, isDark }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [customColor, setCustomColor] = useState(value);
@@ -3044,16 +3095,7 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
       {isBoss && (
         <>
           {/* Departman Yönetimi */}
-          <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-                <Building2 size={20} className="text-white" />
-              </div>
-              <div>
-                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Departman Yönetimi</h3>
-                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Departmanları ekleyin, düzenleyin veya kaldırın</p>
-              </div>
-            </div>
+          <CollapsibleSection isDark={isDark} title="Departman Yönetimi" subtitle="Departmanları ekleyin, düzenleyin veya kaldırın" icon={Building2} gradient="from-indigo-500 to-purple-500">
 
             {/* Ekleme */}
             <div className="flex gap-3 mb-4">
@@ -3112,19 +3154,10 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
                 </div>
               ))}
             </div>
-          </div>
+          </CollapsibleSection>
 
           {/* Öncelik Yönetimi */}
-          <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-red-500 flex items-center justify-center">
-                <Shield size={20} className="text-white" />
-              </div>
-              <div>
-                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Öncelik Yönetimi</h3>
-                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Görev öncelik seviyelerini yönetin</p>
-              </div>
-            </div>
+          <CollapsibleSection isDark={isDark} title="Öncelik Yönetimi" subtitle="Görev öncelik seviyelerini yönetin" icon={Shield} gradient="from-amber-500 to-red-500">
 
             {/* Ekleme */}
             <div className="flex gap-3 mb-4">
@@ -3183,7 +3216,7 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
                 </div>
               ))}
             </div>
-          </div>
+          </CollapsibleSection>
         </>
       )}
 
@@ -3213,6 +3246,347 @@ const StatusBadge = ({ status }) => {
     <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${bg} ${text}`}>
       {label}
     </span>
+  );
+};
+
+// ===== SMS GÖNDERME MODAL =====
+const SMS_TEMPLATES = [
+  { id: 1, title: 'Toplantı Hatırlatma', message: 'Sayın çalışanımız, yarın saat {saat} tarihinde {konu} konulu toplantımız bulunmaktadır. Katılımınız önemlidir.' },
+  { id: 2, title: 'Maaş Bildirimi', message: 'Sayın {isim}, {ay} ayı maaşınız hesabınıza yatırılmıştır. İyi günler dileriz.' },
+  { id: 3, title: 'İzin Onayı', message: 'Sayın {isim}, {tarih1} - {tarih2} tarihleri arasındaki izin talebiniz onaylanmıştır.' },
+  { id: 4, title: 'İzin Reddi', message: 'Sayın {isim}, {tarih1} - {tarih2} tarihleri arasındaki izin talebiniz uygun görülmemiştir. Detaylar için yöneticinizle görüşünüz.' },
+  { id: 5, title: 'Acil Duyuru', message: 'DİKKAT: {mesaj}. Tüm çalışanlarımızın bilgisine sunulur.' },
+  { id: 6, title: 'Doğum Günü Kutlama', message: 'Doğum gününüz kutlu olsun {isim}! Nice mutlu ve sağlıklı yıllara. 🎂' },
+  { id: 7, title: 'Görev Atama', message: 'Sayın {isim}, size yeni bir görev atanmıştır: "{gorev}". Detaylar için SAM sistemini kontrol ediniz.' },
+  { id: 8, title: 'Genel Bilgilendirme', message: 'Değerli çalışanlarımız, {mesaj}. Bilgilerinize sunarız.' },
+];
+
+const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
+  const [activeView, setActiveView] = useState('compose'); // compose | history
+  const [sendTo, setSendTo] = useState('all'); // all | selected
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [message, setMessage] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const activeEmployees = employees.filter(e => e.role !== 'boss' && e.status === 'active');
+  const filteredEmployees = activeEmployees.filter(emp =>
+    `${emp.firstName} ${emp.lastName} ${emp.department} ${emp.position}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleEmployee = (emp) => {
+    setSelectedEmployees(prev =>
+      prev.find(e => e.id === emp.id)
+        ? prev.filter(e => e.id !== emp.id)
+        : [...prev, emp]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedEmployees(prev => prev.length === activeEmployees.length ? [] : [...activeEmployees]);
+  };
+
+  const applyTemplate = (template) => {
+    setSelectedTemplate(template.id);
+    setMessage(template.message);
+  };
+
+  const handleSend = () => {
+    if (!message.trim()) return;
+    const recipients = sendTo === 'all'
+      ? activeEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))
+      : selectedEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
+    if (recipients.length === 0) return;
+
+    onSend({
+      message: message.trim(),
+      recipients,
+      sendTo,
+      templateUsed: SMS_TEMPLATES.find(t => t.id === selectedTemplate)?.title || null,
+    });
+    setShowSuccess(true);
+    setTimeout(() => {
+      setShowSuccess(false);
+      setMessage('');
+      setSelectedTemplate(null);
+      setSelectedEmployees([]);
+      setSendTo('all');
+    }, 2000);
+  };
+
+  const charCount = message.length;
+  const smsCount = Math.max(1, Math.ceil(charCount / 160));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        {/* Header */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Send size={20} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">SMS Gönder</h2>
+              <p className="text-emerald-100 text-xs">Çalışanlarınıza toplu veya tekli SMS gönderin</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-white/20 rounded-lg p-0.5">
+              <button
+                onClick={() => setActiveView('compose')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeView === 'compose' ? 'bg-white text-emerald-700' : 'text-white/80 hover:text-white'}`}
+              >
+                Yeni SMS
+              </button>
+              <button
+                onClick={() => setActiveView('history')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeView === 'history' ? 'bg-white text-emerald-700' : 'text-white/80 hover:text-white'}`}
+              >
+                Geçmiş ({smsHistory.length})
+              </button>
+            </div>
+            <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+              <X size={20} className="text-white" />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+          {activeView === 'compose' ? (
+            <div className="p-6 space-y-5">
+              {/* Success */}
+              {showSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+                  <CheckCircle2 size={22} className="text-emerald-600" />
+                  <div>
+                    <p className="font-semibold text-emerald-800">SMS Başarıyla Gönderildi!</p>
+                    <p className="text-sm text-emerald-600">Mesajınız alıcılara iletildi.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Alıcı Seçimi */}
+              <div>
+                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  <Users size={15} className="inline mr-1.5 -mt-0.5" />
+                  Alıcılar
+                </label>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => setSendTo('all')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border-2 transition-all ${
+                      sendTo === 'all'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : isDark ? 'border-gray-600 text-gray-300 hover:border-gray-500' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <Users size={16} className="inline mr-1.5 -mt-0.5" />
+                    Herkese Gönder ({activeEmployees.length} kişi)
+                  </button>
+                  <button
+                    onClick={() => setSendTo('selected')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border-2 transition-all ${
+                      sendTo === 'selected'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : isDark ? 'border-gray-600 text-gray-300 hover:border-gray-500' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <User size={16} className="inline mr-1.5 -mt-0.5" />
+                    Seçili Kişilere ({selectedEmployees.length})
+                  </button>
+                </div>
+
+                {/* Kişi Seçimi Paneli */}
+                {sendTo === 'selected' && (
+                  <div className={`rounded-xl border-2 ${isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-200 bg-gray-50'} p-3`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="relative flex-1">
+                        <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
+                        <input
+                          type="text"
+                          placeholder="Çalışan ara..."
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                          className={`w-full pl-9 pr-3 py-2 rounded-lg text-sm border ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'} focus:outline-none focus:ring-2 focus:ring-emerald-400`}
+                        />
+                      </div>
+                      <button
+                        onClick={selectAll}
+                        className="px-3 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        {selectedEmployees.length === activeEmployees.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                      </button>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {filteredEmployees.map(emp => {
+                        const isSelected = selectedEmployees.find(e => e.id === emp.id);
+                        return (
+                          <div
+                            key={emp.id}
+                            onClick={() => toggleEmployee(emp)}
+                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
+                              isSelected
+                                ? isDark ? 'bg-emerald-900/40 border border-emerald-600' : 'bg-emerald-50 border border-emerald-300'
+                                : isDark ? 'hover:bg-gray-600' : 'hover:bg-white'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                              isSelected ? 'bg-emerald-500 border-emerald-500' : isDark ? 'border-gray-500' : 'border-gray-300'
+                            }`}>
+                              {isSelected && <CheckCircle2 size={12} className="text-white" />}
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
+                              {emp.firstName?.[0]}{emp.lastName?.[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {emp.department} · {emp.position}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filteredEmployees.length === 0 && (
+                        <p className={`text-center text-sm py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Çalışan bulunamadı</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Şablon Seçimi */}
+              <div>
+                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  <FileText size={15} className="inline mr-1.5 -mt-0.5" />
+                  Hazır Şablonlar
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SMS_TEMPLATES.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => applyTemplate(t)}
+                      className={`p-2.5 rounded-xl text-xs font-medium border-2 text-left transition-all hover:scale-[1.02] ${
+                        selectedTemplate === t.id
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                          : isDark ? 'border-gray-600 text-gray-300 hover:border-emerald-500/50 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:border-emerald-300 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      {t.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mesaj Alanı */}
+              <div>
+                <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  <Mail size={15} className="inline mr-1.5 -mt-0.5" />
+                  Mesaj İçeriği
+                </label>
+                <textarea
+                  value={message}
+                  onChange={e => { setMessage(e.target.value); setSelectedTemplate(null); }}
+                  rows={4}
+                  placeholder="SMS mesajınızı yazın veya yukarıdan bir şablon seçin..."
+                  className={`w-full px-4 py-3 rounded-xl border-2 text-sm resize-none transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+                    isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-gray-50 border-gray-200 text-gray-800 placeholder-gray-400'
+                  }`}
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {'{isim}, {tarih}, {saat}, {konu}, {mesaj}'} gibi değişkenler kullanabilirsiniz
+                  </p>
+                  <p className={`text-xs ${charCount > 160 ? 'text-amber-500 font-medium' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {charCount} karakter · {smsCount} SMS
+                  </p>
+                </div>
+              </div>
+
+              {/* Gönder Butonu */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={onClose}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleSend}
+                  disabled={!message.trim() || (sendTo === 'selected' && selectedEmployees.length === 0)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 
+                           text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl 
+                           transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  <Send size={16} />
+                  {sendTo === 'all' ? `Herkese Gönder (${activeEmployees.length})` : `Gönder (${selectedEmployees.length} kişi)`}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* SMS Geçmişi */
+            <div className="p-6">
+              {smsHistory.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                    <Mail size={28} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+                  </div>
+                  <p className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Henüz SMS gönderilmemiş</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Gönderdiğiniz SMS'ler burada listelenecektir</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {smsHistory.map(sms => (
+                    <div key={sms.id} className={`p-4 rounded-xl border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                            <Send size={14} className="text-white" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                              {sms.sendTo === 'all' ? 'Tüm Çalışanlar' : `${sms.recipients.length} Kişi`}
+                            </p>
+                            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {new Date(sms.sentAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        {sms.templateUsed && (
+                          <span className={`px-2 py-0.5 rounded-md text-xs ${isDark ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {sms.templateUsed}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{sms.message}</p>
+                      {sms.sendTo === 'selected' && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {sms.recipients.slice(0, 5).map((r, i) => (
+                            <span key={i} className={`px-2 py-0.5 rounded-full text-xs ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                              {r.name}
+                            </span>
+                          ))}
+                          {sms.recipients.length > 5 && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${isDark ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                              +{sms.recipients.length - 5} kişi
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 

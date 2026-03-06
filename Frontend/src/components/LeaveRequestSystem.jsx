@@ -277,11 +277,11 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
                     <p className={`mt-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{request.reason}</p>
 
                     {request.status === 'rejected' && request.rejectionReason && (
-                      <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
+                      <div className={`mt-3 flex items-start gap-2 p-3 rounded-lg ${isDark ? 'bg-red-900/30' : 'bg-red-100'}`}>
                         <AlertCircle size={16} className="text-red-500 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-red-700 dark:text-red-400">Red Sebebi:</p>
-                          <p className="text-sm text-red-600 dark:text-red-300">{request.rejectionReason}</p>
+                          <p className={`text-sm font-medium ${isDark ? 'text-red-400' : 'text-red-800'}`}>Red Sebebi:</p>
+                          <p className={`text-sm ${isDark ? 'text-red-300' : 'text-red-700'}`}>{request.rejectionReason}</p>
                         </div>
                       </div>
                     )}
