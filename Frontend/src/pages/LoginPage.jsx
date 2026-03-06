@@ -67,7 +67,7 @@ const LoginPage = ({ onSwitchToRegister }) => {
         <div className="relative z-10 space-y-8">
           <h1 className="text-4xl font-bold text-white leading-tight">
             Ekibinizi yönetin,<br/>
-            işlerinizi takip edin
+            işlerinizi takip edin.
           </h1>
           
           <div className="space-y-4">
@@ -77,7 +77,7 @@ const LoginPage = ({ onSwitchToRegister }) => {
               </div>
               <div>
                 <h3 className="text-white font-semibold">Kolay Görev Atama</h3>
-                <p className="text-white/70 text-sm">Çalışanlarınıza hızlıca görev atayın ve takip edin</p>
+                <p className="text-white/70 text-sm">Çalışanlarınıza hızlıca görev atayın ve takip edin.</p>
               </div>
             </div>
             
@@ -87,7 +87,7 @@ const LoginPage = ({ onSwitchToRegister }) => {
               </div>
               <div>
                 <h3 className="text-white font-semibold">Ekip Yönetimi</h3>
-                <p className="text-white/70 text-sm">Tüm ekibinizi tek bir platformda yönetin</p>
+                <p className="text-white/70 text-sm">Tüm ekibinizi tek bir platformda yönetin.</p>
               </div>
             </div>
             
@@ -97,14 +97,14 @@ const LoginPage = ({ onSwitchToRegister }) => {
               </div>
               <div>
                 <h3 className="text-white font-semibold">Şirket Kodu ile Erişim</h3>
-                <p className="text-white/70 text-sm">Benzersiz şirket kodunuzla güvenli giriş</p>
+                <p className="text-white/70 text-sm">Benzersiz şirket kodunuzla güvenli giriş.</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="relative z-10 text-white/50 text-sm">
-          © 2024 İş Takip. Tüm hakları saklıdır.
+          © 2060 İş Takip. Tüm hakları saklıdır.
         </div>
       </div>
 
@@ -119,7 +119,7 @@ const LoginPage = ({ onSwitchToRegister }) => {
               <span className="text-2xl font-bold text-slate-800">İş Takip</span>
             </div>
             <h2 className="text-2xl font-bold text-slate-800">Hoş Geldiniz</h2>
-            <p className="text-slate-500 mt-2">Hesabınıza giriş yapın</p>
+            <p className="text-slate-500 mt-2">Hesabınıza giriş yapın!</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -150,13 +150,13 @@ const LoginPage = ({ onSwitchToRegister }) => {
                   required
                 />
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">Şirketinizin size verdiği 8 haneli kod</p>
+              <p className="text-xs text-slate-400 mt-1.5">Şirketinizin size verdiği 8 haneli kod?</p>
             </div>
 
             {/* E-posta */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                E-posta Adresi
+                E-Posta Adresi
               </label>
               <div className="relative">
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -241,9 +241,9 @@ const LoginPage = ({ onSwitchToRegister }) => {
           <div className="mt-8 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
             <p className="text-indigo-800 font-medium text-sm mb-2">Demo Giriş Bilgileri:</p>
             <div className="text-xs text-indigo-600 space-y-1">
-              <p><span className="font-semibold">Şirket Kodu:</span> TPY2024X</p>
-              <p><span className="font-semibold">Patron:</span> patron@techpro.com</p>
-              <p><span className="font-semibold">Çalışan:</span> ayse@techpro.com</p>
+              <p><span className="font-semibold">Şirket Kodu:</span> GZK2026X</p>
+              <p><span className="font-semibold">Patron:</span> patron@guzelteknoloji.com</p>
+              <p><span className="font-semibold">Çalışan:</span> personel@guzelteknoloji.com</p>
               <p><span className="font-semibold">Şifre:</span> 123456</p>
             </div>
           </div>
