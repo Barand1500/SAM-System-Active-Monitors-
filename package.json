@@ -1,0 +1,14 @@
+{
+  "name": "sam-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev --prefix Backend\" \"npm run dev --prefix Frontend\"",
+    "build": "npm run build --prefix Frontend",
+    "start": "npm run start --prefix Backend",
+    "install:all": "npm install --prefix Backend && npm install --prefix Frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
