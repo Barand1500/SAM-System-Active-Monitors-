@@ -381,7 +381,9 @@ const Dashboard = () => {
                         {isBoss ? 'Patron' : isManager ? 'Yönetici' : 'Çalışan'}
                       </span>
                     </div>
-                    <button className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                    <button 
+                      onClick={() => { setActiveTab('settings'); setShowUserMenu(false); }}
+                      className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
                       <Settings size={16} />
                       Hesap Ayarları
                     </button>
@@ -400,59 +402,91 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Tab Navigasyonu */}
-        <div className="flex items-center justify-between mb-8">
-          <div className={`flex items-center gap-1 ${isDark ? 'bg-slate-800/80' : 'bg-white/80'} backdrop-blur-sm rounded-2xl p-1.5 shadow-sm border ${isDark ? 'border-slate-700/60' : 'border-slate-200/60'} overflow-x-auto`}>
-            {menuItems.map(item => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap
-                            ${activeTab === item.id 
-                              ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25' 
-                              : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100')}`}
-                >
-                  <Icon size={18} />
-                  <span className="hidden sm:inline">{item.label}</span>
-                </button>
-              );
-            })}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Tab Navigasyonu - Modern */}
+        <div className="mb-6 sm:mb-8 space-y-3">
+          <div className="relative group">
+            {/* Sol gradient mask */}
+            <div className={`absolute left-0 top-0 bottom-0 w-8 z-10 pointer-events-none rounded-l-2xl transition-opacity ${isDark ? 'bg-gradient-to-r from-slate-900/90 to-transparent' : 'bg-gradient-to-r from-slate-50/90 to-transparent'}`} style={{ opacity: 0 }} id="tab-fade-left" />
+            {/* Sağ gradient mask */}
+            <div className={`absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none rounded-r-2xl transition-opacity ${isDark ? 'bg-gradient-to-l from-slate-900/90 to-transparent' : 'bg-gradient-to-l from-slate-50/90 to-transparent'}`} id="tab-fade-right" />
+            
+            <div
+              className={`flex items-center gap-1 p-1.5 rounded-2xl border backdrop-blur-xl overflow-x-auto scroll-smooth
+                ${isDark 
+                  ? 'bg-slate-800/60 border-slate-700/40 shadow-lg shadow-black/20' 
+                  : 'bg-white/70 border-slate-200/60 shadow-lg shadow-slate-200/50'}`}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const fadeL = document.getElementById('tab-fade-left');
+                const fadeR = document.getElementById('tab-fade-right');
+                if (fadeL) fadeL.style.opacity = el.scrollLeft > 8 ? '1' : '0';
+                if (fadeR) fadeR.style.opacity = el.scrollLeft < el.scrollWidth - el.clientWidth - 8 ? '1' : '0';
+              }}
+            >
+              {menuItems.map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`relative flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
+                      ${isActive
+                        ? 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-[1.02]'
+                        : isDark
+                          ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
+                      }`}
+                  >
+                    <Icon size={17} className={isActive ? 'drop-shadow-sm' : ''} />
+                    <span className="hidden md:inline text-[13px]">{item.label}</span>
+                    {isActive && (
+                      <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-400 shadow-sm shadow-indigo-400/50 md:hidden" />
+                    )}
+                  </button>
+                );
+              })}
+              {/* CSS to hide scrollbar for webkit */}
+              <style>{`.scroll-smooth::-webkit-scrollbar { display: none; }`}</style>
+            </div>
           </div>
 
-          {canManage && activeTab === 'tasks' && (
-            <button 
-              onClick={() => openTaskModal()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
-                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
-                       shadow-lg shadow-indigo-500/25 transition-all">
-              <Plus size={18} />
-              Yeni Görev
-            </button>
-          )}
-
-          {canManage && activeTab === 'employees' && (
-            <button 
-              onClick={() => openEmployeeModal()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
-                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
-                       shadow-lg shadow-indigo-500/25 transition-all">
-              <UserPlus size={18} />
-              Çalışan Ekle
-            </button>
-          )}
-
-          {canManage && activeTab === 'announcements' && (
-            <button 
-              onClick={() => openAnnouncementModal()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 
-                       hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-xl
-                       shadow-lg shadow-indigo-500/25 transition-all">
-              <Megaphone size={18} />
-              Yeni Duyuru
-            </button>
+          {/* Aksiyon butonları - tab altında sağa hizalı */}
+          {canManage && (activeTab === 'tasks' || activeTab === 'employees' || activeTab === 'announcements') && (
+            <div className="flex justify-end">
+              {activeTab === 'tasks' && (
+                <button
+                  onClick={() => openTaskModal()}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600
+                           hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl
+                           shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <Plus size={17} />
+                  <span className="hidden sm:inline">Yeni Görev</span>
+                </button>
+              )}
+              {activeTab === 'employees' && (
+                <button
+                  onClick={() => openEmployeeModal()}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600
+                           hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl
+                           shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <UserPlus size={17} />
+                  <span className="hidden sm:inline">Çalışan Ekle</span>
+                </button>
+              )}
+              {activeTab === 'announcements' && (
+                <button
+                  onClick={() => openAnnouncementModal()}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600
+                           hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-semibold rounded-xl
+                           shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <Megaphone size={17} />
+                  <span className="hidden sm:inline">Yeni Duyuru</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 
