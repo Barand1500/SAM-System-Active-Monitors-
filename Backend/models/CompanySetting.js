@@ -36,7 +36,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "company_settings",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return CompanySetting;

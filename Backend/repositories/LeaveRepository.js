@@ -1,6 +1,6 @@
 // Backend/repositories/LeaveRepository.js
 const BaseRepository = require("./BaseRepository");
-const { LeaveRequest } = require("../models");
+const { LeaveRequest, User } = require("../models");
 
 class LeaveRepository extends BaseRepository {
   constructor() {
@@ -9,6 +9,18 @@ class LeaveRepository extends BaseRepository {
 
   async findByUser(user_id) {
     return this.model.findAll({ where: { user_id } });
+  }
+
+  async findPendingByCompany(companyId) {
+    return this.model.findAll({
+      where: { approval_status: "pending" },
+      include: [{
+        model: User,
+        where: { company_id: companyId },
+        attributes: ["id", "first_name", "last_name", "email"]
+      }],
+      order: [["created_at", "ASC"]]
+    });
   }
 }
 

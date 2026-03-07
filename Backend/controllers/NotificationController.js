@@ -1,13 +1,10 @@
 // Backend/controllers/NotificationController.js
-const NotificationRepo = require("../repositories/NotificationRepository");
+const NotificationService = require("../services/NotificationService");
 
 class NotificationController {
   async list(req, res) {
     try {
-      const notifications = await NotificationRepo.model.findAll({
-        where: { user_id: req.user.id },
-        order: [['created_at','DESC']],
-      });
+      const notifications = await NotificationService.getByUser(req.user.id);
       res.json(notifications);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -16,11 +13,17 @@ class NotificationController {
 
   async markRead(req, res) {
     try {
-      const notification = await NotificationRepo.model.findByPk(req.params.id);
-      if (!notification) return res.status(404).json({ error: "Notification not found" });
-      notification.is_read = true;
-      await notification.save();
+      const notification = await NotificationService.markAsRead(req.params.id);
       res.json(notification);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async markAllRead(req, res) {
+    try {
+      await NotificationService.markAllAsRead(req.user.id);
+      res.json({ message: "All notifications marked as read" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

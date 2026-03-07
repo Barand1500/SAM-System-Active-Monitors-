@@ -5,6 +5,7 @@ const sequelize = require("../config/database");
 const Company = require("./Company")(sequelize, DataTypes);
 const Department = require("./Department")(sequelize, DataTypes);
 const User = require("./User")(sequelize, DataTypes);
+const Customer = require("./Customer")(sequelize, DataTypes);
 
 const TaskStatus = require("./TaskStatus")(sequelize, DataTypes);
 const TaskPriority = require("./TaskPriority")(sequelize, DataTypes);
@@ -59,6 +60,10 @@ User.belongsTo(Company, { foreignKey: "company_id" });
 Company.hasMany(Department, { foreignKey: "company_id" });
 Department.belongsTo(Company, { foreignKey: "company_id" });
 
+// USER → DEPARTMENT
+User.belongsTo(Department, { foreignKey: "department_id" });
+Department.hasMany(User, { foreignKey: "department_id" });
+
 
 // TASK
 Task.belongsTo(TaskList, { foreignKey: "task_list_id" });
@@ -70,6 +75,10 @@ Task.belongsTo(TaskStatus, { foreignKey: "status_id" });
 Task.belongsTo(TaskPriority, { foreignKey: "priority_id" });
 
 Task.belongsTo(Category, { foreignKey: "category_id" });
+
+// TASK SELF-REFERENCING (alt görevler)
+Task.belongsTo(Task, { as: "parentTask", foreignKey: "parent_task_id" });
+Task.hasMany(Task, { as: "subtasks", foreignKey: "parent_task_id" });
 
 
 // TASK ASSIGNMENTS
@@ -100,6 +109,24 @@ Task.hasMany(TaskComment, { foreignKey: "task_id" });
 
 TaskComment.belongsTo(User, { foreignKey: "user_id" });
 
+// COMMENT SELF-REFERENCING (threaded yanıtlar)
+TaskComment.belongsTo(TaskComment, { as: "parentComment", foreignKey: "parent_comment_id" });
+TaskComment.hasMany(TaskComment, { as: "replies", foreignKey: "parent_comment_id" });
+
+
+// TASK LOG
+TaskLog.belongsTo(Task, { foreignKey: "task_id" });
+Task.hasMany(TaskLog, { foreignKey: "task_id" });
+
+TaskLog.belongsTo(User, { foreignKey: "user_id" });
+
+
+// TASK HISTORY
+TaskHistory.belongsTo(Task, { foreignKey: "task_id" });
+Task.hasMany(TaskHistory, { foreignKey: "task_id" });
+
+TaskHistory.belongsTo(User, { foreignKey: "user_id", as: "changedBy" });
+
 
 // FILES
 File.belongsTo(User, { foreignKey: "uploaded_by" });
@@ -121,6 +148,7 @@ Break.belongsTo(BreakType, { foreignKey: "break_type_id" });
 
 // LEAVE
 LeaveRequest.belongsTo(User, { foreignKey: "user_id" });
+LeaveRequest.belongsTo(User, { as: "approver", foreignKey: "approved_by" });
 
 
 // NOTIFICATIONS
@@ -177,7 +205,9 @@ User.hasMany(UserSkill, { foreignKey: "user_id" });
 
 // RECURRING TASK
 RecurringTask.belongsTo(User, { foreignKey: "created_by" });
+RecurringTask.belongsTo(User, { as: "assignee", foreignKey: "assignee_id" });
 RecurringTask.belongsTo(TaskPriority, { foreignKey: "priority_id" });
+RecurringTask.belongsTo(TaskList, { foreignKey: "task_list_id" });
 
 
 // DASHBOARD
@@ -188,6 +218,11 @@ UserDashboardSetting.belongsTo(User, { foreignKey: "user_id" });
 AuditLog.belongsTo(User, { foreignKey: "user_id" });
 
 
+// CUSTOMER
+Customer.belongsTo(User, { foreignKey: "user_id" });
+User.hasOne(Customer, { foreignKey: "user_id" });
+
+
 // EXPORT
 module.exports = {
   sequelize,
@@ -196,6 +231,7 @@ module.exports = {
   Company,
   Department,
   User,
+  Customer,
 
   TaskStatus,
   TaskPriority,

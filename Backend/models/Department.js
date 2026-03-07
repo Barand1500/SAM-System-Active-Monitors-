@@ -21,7 +21,8 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: "departments",
-    timestamps: false
+    underscored: true,
+    timestamps: true,
   });
 
   return Department;

@@ -37,7 +37,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "task_logs",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return TaskLog;

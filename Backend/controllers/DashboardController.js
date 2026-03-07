@@ -10,7 +10,10 @@ class DashboardController {
       const [totalUsers, totalTasks, todayAttendance, pendingLeaves, announcements] = await Promise.all([
         User.count({ where: { company_id, status: "active" } }),
         Task.count({ where: { company_id } }),
-        Attendance.count({ where: { date: today } }),
+        Attendance.count({
+          where: { date: today },
+          include: [{ model: User, where: { company_id }, attributes: [] }]
+        }),
         LeaveRequest.count({
           where: { approval_status: "pending" },
           include: [{ model: User, where: { company_id }, attributes: [] }]

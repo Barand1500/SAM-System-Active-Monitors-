@@ -13,7 +13,12 @@ async function authenticate(req, res, next) {
 
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    req.user = user; // req.user ile tüm controllerlarda erişilebilir
+    // Convert to plain object and add snake_case aliases
+    // Models use camelCase attributes (companyId) but code uses snake_case (company_id)
+    const userData = user.toJSON();
+    userData.company_id = userData.companyId;
+    delete userData.password;
+    req.user = userData;
     next();
   } catch (err) {
     return res.status(403).json({ error: "Invalid token" });

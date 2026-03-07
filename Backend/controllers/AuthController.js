@@ -13,7 +13,10 @@ class AuthController {
 
   async registerEmployee(req, res) {
     try {
-      const employeeData = req.body;
+      const employeeData = {
+        ...req.body,
+        company_id: req.user.company_id,  // Force company from token
+      };
       const result = await AuthService.registerEmployee(employeeData);
       res.status(201).json(result);
     } catch (err) {

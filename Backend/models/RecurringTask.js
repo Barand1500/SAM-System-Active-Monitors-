@@ -35,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
       field: "priority_id"
     },
 
+    taskListId: {
+      type: DataTypes.BIGINT,
+      field: "task_list_id"
+    },
+
     assigneeId: {
       type: DataTypes.BIGINT,
       field: "assignee_id"

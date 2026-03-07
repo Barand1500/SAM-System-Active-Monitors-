@@ -28,7 +28,7 @@ class RecurringTaskService {
   async toggleActive(id) {
     const task = await RecurringTask.findByPk(id);
     if (!task) throw new Error("Recurring task not found");
-    task.is_active = !task.is_active;
+    task.isActive = !task.isActive;
     await task.save();
     return task;
   }

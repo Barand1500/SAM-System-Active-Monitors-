@@ -37,7 +37,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "breaks",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return Break;

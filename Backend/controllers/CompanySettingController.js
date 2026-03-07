@@ -1,10 +1,10 @@
 // Backend/controllers/CompanySettingController.js
-const CompanySettingRepo = require("../repositories/CompanySettingRepository");
+const CompanySettingService = require("../services/CompanySettingService");
 
 class CompanySettingController {
   async get(req, res) {
     try {
-      const settings = await CompanySettingRepo.getByCompany(req.user.company_id);
+      const settings = await CompanySettingService.getByCompany(req.user.company_id);
       res.json(settings);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -13,10 +13,8 @@ class CompanySettingController {
 
   async update(req, res) {
     try {
-      const settings = await CompanySettingRepo.getByCompany(req.user.company_id);
-      if (!settings) return res.status(404).json({ error: "Not found" });
-      Object.assign(settings, req.body);
-      await settings.save();
+      const { company_id, id, ...safeData } = req.body;
+      const settings = await CompanySettingService.upsert(req.user.company_id, safeData);
       res.json(settings);
     } catch (err) {
       res.status(400).json({ error: err.message });

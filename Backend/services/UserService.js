@@ -9,19 +9,23 @@ class UserService {
     return UserRepo.create(data);
   }
 
-  async updateUser(id, data) {
+  async updateUser(id, data, companyId) {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-    return UserRepo.update(id, data);
+    return UserRepo.update(id, data, companyId);
   }
 
-  async getUserWithSkills(user_id) {
-    return UserRepo.getWithSkills(user_id);
+  async getUserWithSkills(userId, companyId) {
+    return UserRepo.getWithSkills(userId, companyId);
   }
 
   async listByCompany(company_id) {
     return UserRepo.getByCompany(company_id);
+  }
+
+  async deleteUser(id, companyId) {
+    return UserRepo.delete(id, companyId);
   }
 }
 

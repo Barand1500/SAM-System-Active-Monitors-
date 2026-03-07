@@ -1,16 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const ProjectController = require("../controllers/ProjectController");
-const { authenticate } = require("../middleware/authMiddleware");
+const { authenticate, authorizeRoles } = require("../middleware/authMiddleware");
+const companyIsolation = require("../middleware/companyIsolation");
 
-router.get("/workspace/:workspaceId", authenticate, ProjectController.list);
-router.get("/:id", authenticate, ProjectController.get);
-router.post("/", authenticate, ProjectController.create);
-router.put("/:id", authenticate, ProjectController.update);
-router.delete("/:id", authenticate, ProjectController.delete);
+router.use(authenticate, companyIsolation);
+
+router.get("/workspace/:workspaceId", ProjectController.list);
+router.get("/:id", ProjectController.get);
+router.post("/", authorizeRoles("boss", "manager"), ProjectController.create);
+router.put("/:id", authorizeRoles("boss", "manager"), ProjectController.update);
+router.delete("/:id", authorizeRoles("boss", "manager"), ProjectController.delete);
 
 // Members
-router.post("/:id/members", authenticate, ProjectController.addMember);
-router.delete("/:id/members/:userId", authenticate, ProjectController.removeMember);
+router.post("/:id/members", authorizeRoles("boss", "manager"), ProjectController.addMember);
+router.delete("/:id/members/:userId", authorizeRoles("boss", "manager"), ProjectController.removeMember);
 
 module.exports = router;

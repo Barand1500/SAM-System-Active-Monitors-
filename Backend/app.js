@@ -27,8 +27,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
-// const routes = require('./routes/index');  // ← routes hazır olunca aç
-// app.use('/api', routes);
+const routes = require('./routes/index');  // ← routes hazır olunca aç
+app.use('/api', routes);
+
+// ─── Error Handlers ──────────────────────────────────────────────────────────
+const { notFound, errorHandler } = require('./middleware/handlers');
 
 // ─── Production: Frontend build dosyalarını sun ───────────────────────────────
 if (process.env.NODE_ENV === 'production') {
@@ -40,5 +43,9 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 }
+
+// ─── 404 & Global Error Handler ──────────────────────────────────────────────
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;

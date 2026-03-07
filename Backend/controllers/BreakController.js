@@ -1,14 +1,10 @@
 // Backend/controllers/BreakController.js
-const BreakRepo = require("../repositories/BreakRepository");
+const BreakService = require("../services/BreakService");
 
 class BreakController {
   async startBreak(req, res) {
     try {
-      const br = await BreakRepo.create({
-        attendance_id: req.body.attendance_id,
-        break_type_id: req.body.break_type_id,
-        start_time: new Date(),
-      });
+      const br = await BreakService.startBreak(req.user.id, req.body.break_type_id);
       res.status(201).json(br);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -17,11 +13,7 @@ class BreakController {
 
   async endBreak(req, res) {
     try {
-      const br = await BreakRepo.model.findByPk(req.params.breakId);
-      if (!br) return res.status(404).json({ error: "Break not found" });
-
-      br.end_time = new Date();
-      await br.save();
+      const br = await BreakService.endBreak(req.user.id, req.params.breakId);
       res.json(br);
     } catch (err) {
       res.status(400).json({ error: err.message });

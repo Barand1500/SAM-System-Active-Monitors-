@@ -31,7 +31,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "project_members",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return ProjectMember;

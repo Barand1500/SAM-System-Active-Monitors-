@@ -15,8 +15,10 @@ class UserRepository extends BaseRepository {
     return this.model.findAll({ where: { company_id }, include: [{ model: Department }] });
   }
 
-  async getWithSkills(user_id) {
-    return this.model.findByPk(user_id, { include: [{ model: UserSkill }] });
+  async getWithSkills(userId, companyId) {
+    const where = { id: userId };
+    if (companyId) where.company_id = companyId;
+    return this.model.findOne({ where, include: [{ model: UserSkill }] });
   }
 }
 

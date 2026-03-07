@@ -31,7 +31,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "workspace_members",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return WorkspaceMember;

@@ -9,16 +9,16 @@ class DepartmentService {
     return departmentRepo.findByCompany(company_id);
   }
 
-  async getById(id) {
-    return departmentRepo.findById(id);
+  async getById(id, companyId = null) {
+    return departmentRepo.findById(id, companyId);
   }
 
-  async update(id, data) {
-    return departmentRepo.update(id, data);
+  async update(id, data, companyId = null) {
+    return departmentRepo.update(id, data, companyId);
   }
 
-  async delete(id) {
-    return departmentRepo.delete(id);
+  async delete(id, companyId = null) {
+    return departmentRepo.delete(id, companyId);
   }
 }
 

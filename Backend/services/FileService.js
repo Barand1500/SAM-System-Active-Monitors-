@@ -1,4 +1,6 @@
 const fileRepo = require("../repositories/FileRepository");
+const fs = require("fs");
+const path = require("path");
 
 class FileService {
   async create(data) {
@@ -9,12 +11,23 @@ class FileService {
     return fileRepo.findByCompany(company_id);
   }
 
-  async getById(id) {
-    return fileRepo.findById(id);
+  async getById(id, companyId = null) {
+    return fileRepo.findById(id, companyId);
   }
 
-  async delete(id) {
-    return fileRepo.delete(id);
+  async delete(id, companyId = null) {
+    const file = await fileRepo.findById(id, companyId);
+    if (!file) throw new Error("File not found");
+
+    // Diskten dosyayı sil
+    if (file.fileUrl) {
+      const filePath = path.join(__dirname, "..", file.fileUrl);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    return fileRepo.delete(id, companyId);
   }
 }
 

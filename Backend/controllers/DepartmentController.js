@@ -12,7 +12,7 @@ class DepartmentController {
 
   async get(req, res) {
     try {
-      const department = await DepartmentService.getById(req.params.id);
+      const department = await DepartmentService.getById(req.params.id, req.user.company_id);
       if (!department) return res.status(404).json({ error: "Department not found" });
       res.json(department);
     } catch (err) {
@@ -34,7 +34,7 @@ class DepartmentController {
 
   async update(req, res) {
     try {
-      const department = await DepartmentService.update(req.params.id, req.body);
+      const department = await DepartmentService.update(req.params.id, req.body, req.user.company_id);
       res.json(department);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -43,7 +43,7 @@ class DepartmentController {
 
   async delete(req, res) {
     try {
-      await DepartmentService.delete(req.params.id);
+      await DepartmentService.delete(req.params.id, req.user.company_id);
       res.json({ message: "Deleted" });
     } catch (err) {
       res.status(400).json({ error: err.message });

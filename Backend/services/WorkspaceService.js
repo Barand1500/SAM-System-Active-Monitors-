@@ -18,16 +18,16 @@ class WorkspaceService {
     return workspaceRepo.findByCompany(company_id);
   }
 
-  async getById(id) {
-    return workspaceRepo.findWithMembers(id);
+  async getById(id, companyId) {
+    return workspaceRepo.findWithMembers(id, companyId);
   }
 
-  async update(id, data) {
-    return workspaceRepo.update(id, data);
+  async update(id, data, companyId) {
+    return workspaceRepo.update(id, data, companyId);
   }
 
-  async delete(id) {
-    return workspaceRepo.delete(id);
+  async delete(id, companyId) {
+    return workspaceRepo.delete(id, companyId);
   }
 
   async addMember(workspace_id, user_id, role = "member") {

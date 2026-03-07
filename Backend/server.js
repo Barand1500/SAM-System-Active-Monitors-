@@ -37,6 +37,10 @@ app.set('io', io);
 
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
+  // Start recurring task scheduler (every 60s)
+  const { startScheduler } = require('./utils/scheduler');
+  startScheduler(60000);
+
   const env = process.env.NODE_ENV || 'development';
   console.log(`\n SAM Backend çalışıyor`);
   console.log(` Port    : http://localhost:${PORT}`);

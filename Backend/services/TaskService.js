@@ -6,8 +6,9 @@ class TaskService {
     return taskRepo.create(data);
   }
 
-  async getById(id) {
-    return taskRepo.model.findByPk(id, {
+  async getById(id, companyId) {
+    return taskRepo.model.findOne({
+      where: { id, company_id: companyId },
       include: [
         { model: User, as: "creator", attributes: ["id", "first_name", "last_name"] },
         { model: TaskStatus },
@@ -22,12 +23,12 @@ class TaskService {
     return taskRepo.findByTaskList(task_list_id);
   }
 
-  async update(id, data) {
-    return taskRepo.update(id, data);
+  async update(id, data, companyId) {
+    return taskRepo.update(id, data, companyId);
   }
 
-  async delete(id) {
-    return taskRepo.delete(id);
+  async delete(id, companyId) {
+    return taskRepo.delete(id, companyId);
   }
 
   async assignUser(task_id, user_id) {

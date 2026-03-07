@@ -52,4 +52,10 @@ router.use("/settings", require("./settings"));
 // Dashboard
 router.use("/dashboard", require("./dashboard"));
 
+// Recurring Tasks
+router.use("/recurring-tasks", require("./recurringTasks"));
+
+// Automation Rules
+router.use("/automation-rules", require("./automationRules"));
+
 module.exports = router;

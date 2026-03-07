@@ -7,8 +7,10 @@ class TaskCommentRepository extends BaseRepository {
   }
 
   async findByTask(task_id) {
+    const { User } = require("../models");
     return this.model.findAll({
       where: { task_id },
+      include: [{ model: User, attributes: ["id", "first_name", "last_name", "email", "avatar_url"] }],
       order: [["created_at", "ASC"]]
     });
   }

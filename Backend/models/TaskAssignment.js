@@ -47,7 +47,8 @@ module.exports = (sequelize, DataTypes) => {
 
   }, {
     tableName: "task_assignments",
-    timestamps: false
+    timestamps: true,
+    underscored: true
   });
 
   return TaskAssignment;

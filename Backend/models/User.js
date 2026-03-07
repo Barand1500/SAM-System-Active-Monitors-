@@ -1,3 +1,5 @@
+const bcrypt = require("bcrypt");
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define("User", {
     id: {
@@ -20,38 +22,6 @@ module.exports = (sequelize, DataTypes) => {
     parentId: {
       type: DataTypes.BIGINT,
       field: "parent_id"
-    },
-
-    isReseller: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      field: "is_reseller"
-    },
-
-    userType: {
-      type: DataTypes.ENUM("individual_tr","individual_foreign","legal_entity"),
-      defaultValue: "individual_tr",
-      field: "user_type"
-    },
-
-    identityNumber: {
-      type: DataTypes.STRING(20),
-      field: "identity_number"
-    },
-
-    taxNumber: {
-      type: DataTypes.STRING(20),
-      field: "tax_number"
-    },
-
-    taxOffice: {
-      type: DataTypes.STRING(100),
-      field: "tax_office"
-    },
-
-    companyName: {
-      type: DataTypes.STRING(255),
-      field: "company_name"
     },
 
     firstName: {
@@ -113,7 +83,19 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: "users",
     underscored: true,
-    timestamps: true
+    timestamps: true,
+    hooks: {
+      beforeCreate: async (user) => {
+        if (user.password && !user.password.startsWith("$2b$")) {
+          user.password = await bcrypt.hash(user.password, 10);
+        }
+      },
+      beforeUpdate: async (user) => {
+        if (user.changed("password") && !user.password.startsWith("$2b$")) {
+          user.password = await bcrypt.hash(user.password, 10);
+        }
+      }
+    }
   });
 
   return User;

@@ -2,12 +2,14 @@
 const express = require("express");
 const router = express.Router();
 const UserController = require("../controllers/UserController");
-const { authenticate } = require("../middleware/authMiddleware");
+const { authenticate, authorizeRoles } = require("../middleware/authMiddleware");
+const companyIsolation = require("../middleware/companyIsolation");
 
 // User CRUD
-router.get("/", authenticate, UserController.list);
-router.get("/:id", authenticate, UserController.get);
-router.post("/", authenticate, UserController.create);
-router.put("/:id", authenticate, UserController.update);
+router.get("/", authenticate, companyIsolation, UserController.list);
+router.get("/:id", authenticate, companyIsolation, UserController.get);
+router.post("/", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.create);
+router.put("/:id", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.update);
+router.delete("/:id", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.delete);
 
 module.exports = router;

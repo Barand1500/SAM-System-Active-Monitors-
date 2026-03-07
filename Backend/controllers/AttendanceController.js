@@ -1,27 +1,13 @@
 // Backend/controllers/AttendanceController.js
-const AttendanceRepo = require("../repositories/AttendanceRepository");
+const AttendanceService = require("../services/AttendanceService");
 
 class AttendanceController {
   async checkIn(req, res) {
     try {
-      const date = new Date().toISOString().split("T")[0];
-      let attendance = await AttendanceRepo.findByUserAndDate(req.user.id, date);
-
-      if (attendance && attendance.check_in) {
-        return res.status(400).json({ error: "Already checked in" });
-      }
-
-      if (!attendance) {
-        attendance = await AttendanceRepo.create({
-          user_id: req.user.id,
-          date,
-          check_in: new Date(),
-        });
-      } else {
-        attendance.check_in = new Date();
-        await attendance.save();
-      }
-
+      const attendance = await AttendanceService.checkIn(req.user.id, {
+        ip_address: req.ip,
+        device: req.headers["user-agent"] || null,
+      });
       res.json(attendance);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -30,16 +16,20 @@ class AttendanceController {
 
   async checkOut(req, res) {
     try {
-      const date = new Date().toISOString().split("T")[0];
-      const attendance = await AttendanceRepo.findByUserAndDate(req.user.id, date);
-
-      if (!attendance || !attendance.check_in) {
-        return res.status(400).json({ error: "Check-in not found" });
-      }
-
-      attendance.check_out = new Date();
-      await attendance.save();
+      const attendance = await AttendanceService.checkOut(req.user.id);
       res.json(attendance);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async list(req, res) {
+    try {
+      const attendances = await AttendanceService.listByCompany(
+        req.user.company_id,
+        req.query.date
+      );
+      res.json(attendances);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
