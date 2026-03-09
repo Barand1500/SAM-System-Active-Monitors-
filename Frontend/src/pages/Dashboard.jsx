@@ -79,6 +79,9 @@ import CustomerCRM from '../components/CustomerCRM';
 import FileSharing from '../components/FileSharing';
 import SurveySystem from '../components/SurveySystem';
 
+// Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
+const DATA_VERSION = 2;
+
 // LocalStorage helpers
 const loadFromStorage = (key, defaultValue) => {
   try {
@@ -87,6 +90,33 @@ const loadFromStorage = (key, defaultValue) => {
   } catch {
     return defaultValue;
   }
+};
+
+// Çalışan verilerini mockData ile senkronize et (isim/email güncellemelerini yansıtır)
+const syncEmployeesWithMockData = (cachedEmployees, freshData) => {
+  const currentVersion = parseInt(localStorage.getItem('app_data_version') || '0');
+  if (currentVersion >= DATA_VERSION && cachedEmployees) {
+    return cachedEmployees;
+  }
+  // Versiyon eski veya hiç yok: mockData'dan güncel isimleri al, ek çalışanları koru
+  localStorage.setItem('app_data_version', String(DATA_VERSION));
+  if (!cachedEmployees || cachedEmployees.length === 0) {
+    return freshData;
+  }
+  const freshMap = new Map(freshData.map(u => [u.id, u]));
+  const merged = cachedEmployees.map(emp => {
+    const fresh = freshMap.get(emp.id);
+    if (fresh) {
+      return { ...emp, firstName: fresh.firstName, lastName: fresh.lastName, email: fresh.email, position: fresh.position, department: fresh.department, phone: fresh.phone, skills: fresh.skills };
+    }
+    return emp;
+  });
+  // mockData'daki yeni kullanıcıları da ekle
+  const existingIds = new Set(merged.map(e => e.id));
+  freshData.forEach(u => {
+    if (!existingIds.has(u.id)) merged.push(u);
+  });
+  return merged;
 };
 
 const saveToStorage = (key, value) => {
@@ -156,7 +186,7 @@ const Dashboard = () => {
   
   // Ana state'ler - LocalStorage ile senkronize
   const [tasks, setTasks] = useState(() => loadFromStorage('app_tasks', initialTasks));
-  const [employees, setEmployees] = useState(() => loadFromStorage('app_employees', initialUsers));
+  const [employees, setEmployees] = useState(() => syncEmployeesWithMockData(loadFromStorage('app_employees', null), initialUsers));
   const [announcementsList, setAnnouncementsList] = useState(() => loadFromStorage('app_announcements', initialAnnouncements));
   
   // Modal state'leri
