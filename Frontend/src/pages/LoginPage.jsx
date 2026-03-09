@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import { 
   Building2, 
   Mail, 
@@ -15,6 +16,7 @@ import {
 
 const LoginPage = ({ onSwitchToRegister }) => {
   const { login } = useAuth();
+  const { addToast } = useNotification();
   const [formData, setFormData] = useState({
     companyCode: '',
     email: '',
@@ -31,8 +33,10 @@ const LoginPage = ({ onSwitchToRegister }) => {
 
     try {
       await login(formData.companyCode, formData.email, formData.password);
+      addToast({ type: 'success', title: 'Giriş Başarılı', message: 'Hoş geldiniz!' });
     } catch (err) {
       setError(err.message);
+      addToast({ type: 'error', title: 'Giriş Hatası', message: err.message });
     } finally {
       setIsLoading(false);
     }

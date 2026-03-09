@@ -15,15 +15,39 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+const STORAGE_KEY = 'sam_timetracker';
+
+const loadTrackerState = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return null;
+    const data = JSON.parse(saved);
+    // Tarihleri Date objesine çevir
+    if (data.checkInTime) data.checkInTime = new Date(data.checkInTime);
+    if (data.breakStartTime) data.breakStartTime = new Date(data.breakStartTime);
+    if (data.workLogs) data.workLogs = data.workLogs.map(l => ({ ...l, time: new Date(l.time) }));
+    if (data.breakLogs) data.breakLogs = data.breakLogs.map(l => ({
+      ...l,
+      startTime: new Date(l.startTime),
+      endTime: l.endTime ? new Date(l.endTime) : null
+    }));
+    // Bugünün tarihini kontrol et - farklı güne ait veriyse sıfırla
+    const today = new Date().toDateString();
+    if (data.savedDate !== today) return null;
+    return data;
+  } catch { return null; }
+};
+
 const TimeTracker = ({ user, isDark }) => {
-  const [isWorking, setIsWorking] = useState(false);
-  const [isOnBreak, setIsOnBreak] = useState(false);
-  const [checkInTime, setCheckInTime] = useState(null);
-  const [breakStartTime, setBreakStartTime] = useState(null);
-  const [totalBreakTime, setTotalBreakTime] = useState(0);
+  const savedState = loadTrackerState();
+  const [isWorking, setIsWorking] = useState(savedState?.isWorking || false);
+  const [isOnBreak, setIsOnBreak] = useState(savedState?.isOnBreak || false);
+  const [checkInTime, setCheckInTime] = useState(savedState?.checkInTime || null);
+  const [breakStartTime, setBreakStartTime] = useState(savedState?.breakStartTime || null);
+  const [totalBreakTime, setTotalBreakTime] = useState(savedState?.totalBreakTime || 0);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [breakLogs, setBreakLogs] = useState([]);
-  const [workLogs, setWorkLogs] = useState([]); // Çalışma ve mola zaman çizelgesi
+  const [breakLogs, setBreakLogs] = useState(savedState?.breakLogs || []);
+  const [workLogs, setWorkLogs] = useState(savedState?.workLogs || []);
   const [weeklyLogs, setWeeklyLogs] = useState([
     { date: '2024-02-12', checkIn: '09:00', checkOut: '18:15', breakMinutes: 60, totalHours: 8.25 },
     { date: '2024-02-11', checkIn: '08:45', checkOut: '17:30', breakMinutes: 45, totalHours: 8.0 },
@@ -31,6 +55,17 @@ const TimeTracker = ({ user, isDark }) => {
     { date: '2024-02-09', checkIn: '09:00', checkOut: '17:45', breakMinutes: 45, totalHours: 8.0 },
     { date: '2024-02-08', checkIn: '08:30', checkOut: '17:30', breakMinutes: 60, totalHours: 8.0 },
   ]);
+
+  // localStorage'a kaydet
+  useEffect(() => {
+    const data = {
+      isWorking, isOnBreak, totalBreakTime, breakLogs, workLogs,
+      checkInTime: checkInTime?.toISOString() || null,
+      breakStartTime: breakStartTime?.toISOString() || null,
+      savedDate: new Date().toDateString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }, [isWorking, isOnBreak, checkInTime, breakStartTime, totalBreakTime, breakLogs, workLogs]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);

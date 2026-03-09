@@ -3,7 +3,7 @@ import {
   Plus, BarChart3, PieChart, CheckCircle2, X, Users, Clock,
   Vote, ChevronDown, ChevronUp, Eye, Trash2, Edit, Lock, Unlock,
   ListChecks, RadioTower, Star, TrendingUp, AlertCircle, GitBranch,
-  ArrowRight, MessageSquare, Hash
+  ArrowRight, MessageSquare, Hash, Type, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 
 const loadSurveys = () => {
@@ -161,7 +161,11 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
     };
 
     const submit = () => {
-      const validQs = form.questions.filter(q => q.text.trim() && q.options.filter(o => o.text.trim()).length >= 2);
+      const validQs = form.questions.filter(q => {
+        if (!q.text.trim()) return false;
+        if (q.type === 'text' || q.type === 'rating' || q.type === 'yesno') return true;
+        return q.options.filter(o => o.text.trim()).length >= 2;
+      });
       if (!form.title.trim() || validQs.length === 0) return;
       const newSurvey = {
         id: Date.now(), title: form.title.trim(), description: form.description.trim(),
@@ -229,6 +233,9 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                       className={`text-xs px-2 py-1 rounded-lg border ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
                       <option value="single">Tek Seçim</option>
                       <option value="multiple">Çoklu Seçim</option>
+                      <option value="text">Yazılı Cevap</option>
+                      <option value="rating">Puan (1-5)</option>
+                      <option value="yesno">Evet / Hayır</option>
                     </select>
                     {form.questions.length > 1 && (
                       <button onClick={() => removeQuestion(q.id)}
@@ -274,6 +281,30 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                 <input type="text" value={q.text} onChange={e => updateQuestion(q.id, { text: e.target.value })}
                   placeholder="Soru metni..." className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm mb-3`} />
 
+                {/* Tip bilgisi */}
+                {q.type === 'text' && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg ${isDark ? 'bg-slate-600/30' : 'bg-blue-50'}`}>
+                    <Type size={14} className={isDark ? 'text-blue-400' : 'text-blue-500'} />
+                    <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Katılımcılar yazılı cevap verecek</span>
+                  </div>
+                )}
+                {q.type === 'rating' && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg ${isDark ? 'bg-slate-600/30' : 'bg-amber-50'}`}>
+                    <Star size={14} className="text-amber-500" />
+                    <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Katılımcılar 1-5 arası puan verecek</span>
+                    <div className="flex gap-0.5 ml-2">
+                      {[1,2,3,4,5].map(s => <Star key={s} size={12} className="text-amber-400 fill-amber-400" />)}
+                    </div>
+                  </div>
+                )}
+                {q.type === 'yesno' && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg ${isDark ? 'bg-slate-600/30' : 'bg-emerald-50'}`}>
+                    <ThumbsUp size={14} className="text-emerald-500" />
+                    <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Katılımcılar Evet veya Hayır seçecek</span>
+                  </div>
+                )}
+
+                {(q.type === 'single' || q.type === 'multiple') && (
                 <div className="space-y-2">
                   {q.options.map((opt, oIdx) => (
                     <div key={opt.id} className="flex items-center gap-2">
@@ -297,6 +328,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                     <Plus size={13} /> Seçenek Ekle
                   </button>
                 </div>
+                )}
               </div>
             );
           })}
@@ -349,6 +381,9 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
 
     const canNext = () => {
       const a = answers[currentQ.id];
+      if (currentQ.type === 'text') return a && a.trim().length > 0;
+      if (currentQ.type === 'rating') return a && a >= 1 && a <= 5;
+      if (currentQ.type === 'yesno') return a === 'yes' || a === 'no';
       if (Array.isArray(a)) return a.length > 0;
       return !!a;
     };
@@ -380,9 +415,62 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
           </div>
           <p className={`text-base font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>{currentQ.text}</p>
           <p className={`text-xs mb-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-            {currentQ.type === 'multiple' ? 'Birden fazla seçenek işaretleyebilirsiniz' : 'Bir seçenek seçin'}
+            {currentQ.type === 'multiple' ? 'Birden fazla seçenek işaretleyebilirsiniz' : 
+             currentQ.type === 'text' ? 'Cevabınızı yazın' :
+             currentQ.type === 'rating' ? '1-5 arası puan verin' :
+             currentQ.type === 'yesno' ? 'Evet veya Hayır seçin' :
+             'Bir seçenek seçin'}
           </p>
 
+          {/* Yazılı Cevap */}
+          {currentQ.type === 'text' && (
+            <div className="mb-5">
+              <textarea
+                value={answers[currentQ.id] || ''}
+                onChange={e => setAnswers(prev => ({ ...prev, [currentQ.id]: e.target.value }))}
+                placeholder="Cevabınızı buraya yazın..."
+                rows={4}
+                className={`w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'}`}
+              />
+            </div>
+          )}
+
+          {/* Puan (Rating) */}
+          {currentQ.type === 'rating' && (
+            <div className="flex items-center justify-center gap-3 mb-5 py-4">
+              {[1,2,3,4,5].map(val => (
+                <button key={val} onClick={() => setAnswers(prev => ({ ...prev, [currentQ.id]: val }))}
+                  className="transition-all hover:scale-110">
+                  <Star size={36} className={`transition-colors ${(answers[currentQ.id] || 0) >= val ? 'text-amber-400 fill-amber-400' : isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Evet / Hayır */}
+          {currentQ.type === 'yesno' && (
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <button onClick={() => setAnswers(prev => ({ ...prev, [currentQ.id]: 'yes' }))}
+                className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                  answers[currentQ.id] === 'yes'
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/30'
+                    : isDark ? 'border-slate-600 text-slate-300 hover:border-emerald-500/50' : 'border-slate-200 text-slate-600 hover:border-emerald-300'
+                }`}>
+                <ThumbsUp size={20} /> Evet
+              </button>
+              <button onClick={() => setAnswers(prev => ({ ...prev, [currentQ.id]: 'no' }))}
+                className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                  answers[currentQ.id] === 'no'
+                    ? 'border-red-500 bg-red-500/10 text-red-600 ring-1 ring-red-500/30'
+                    : isDark ? 'border-slate-600 text-slate-300 hover:border-red-500/50' : 'border-slate-200 text-slate-600 hover:border-red-300'
+                }`}>
+                <ThumbsDown size={20} /> Hayır
+              </button>
+            </div>
+          )}
+
+          {/* Seçenekli (single/multiple) */}
+          {(currentQ.type === 'single' || currentQ.type === 'multiple') && (
           <div className="space-y-2 mb-5">
             {currentQ.options.map((opt, i) => {
               const selected = currentQ.type === 'multiple'
@@ -404,6 +492,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
               );
             })}
           </div>
+          )}
 
           <div className="flex justify-between">
             {step > 0 ? (
@@ -469,58 +558,127 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
               const qResponses = survey.responses.filter(r => r.answers[q.id] !== undefined);
               const qTotal = qResponses.length;
 
-              // Her seçenek kaç oy aldı
-              const optionCounts = q.options.map(opt => {
-                const count = qResponses.filter(r => {
-                  const a = r.answers[q.id];
-                  return Array.isArray(a) ? a.includes(opt.id) : a === opt.id;
-                }).length;
-                return { ...opt, count };
-              }).sort((a, b) => b.count - a.count);
-
-              const maxCount = Math.max(...optionCounts.map(o => o.count), 1);
+              const typeLabel = q.type === 'single' ? 'Tek seçim' : q.type === 'multiple' ? 'Çoklu seçim' : q.type === 'text' ? 'Yazılı cevap' : q.type === 'rating' ? 'Puan' : q.type === 'yesno' ? 'Evet/Hayır' : q.type;
 
               return (
                 <div key={q.id} className={`p-5 rounded-xl border ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-white'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-600'}`}>S{qIdx + 1}</span>
                     {q.condition && <GitBranch size={12} className="text-amber-500" />}
-                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{q.type === 'single' ? 'Tek seçim' : 'Çoklu seçim'} · {qTotal} yanıt</span>
+                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{typeLabel} · {qTotal} yanıt</span>
                   </div>
                   <h4 className={`text-sm font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>{q.text}</h4>
 
-                  {/* Bar chart */}
-                  <div className="space-y-2.5">
-                    {optionCounts.map((opt, i) => {
-                      const pct = qTotal > 0 ? Math.round((opt.count / qTotal) * 100) : 0;
-                      const barWidth = maxCount > 0 ? (opt.count / maxCount) * 100 : 0;
-                      return (
-                        <div key={opt.id}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{opt.text}</span>
-                            <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{pct}% <span className={`font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>({opt.count})</span></span>
-                          </div>
-                          <div className={`w-full h-6 rounded-lg overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
-                            <div className="h-full rounded-lg transition-all duration-500" style={{ width: `${barWidth}%`, backgroundColor: COLORS[i % COLORS.length] }} />
-                          </div>
+                  {/* Yazılı cevap istatistikleri */}
+                  {q.type === 'text' && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {qResponses.length === 0 ? (
+                        <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Henüz cevap yok</p>
+                      ) : qResponses.map((r, i) => (
+                        <div key={i} className={`p-3 rounded-lg text-sm ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-50 text-slate-700'}`}>
+                          "{r.answers[q.id]}"
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Pie chart visualization (simple) */}
-                  {qTotal > 0 && (
-                    <div className="flex items-center gap-4 mt-4 flex-wrap">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {optionCounts.filter(o => o.count > 0).map((opt, i) => (
-                          <span key={opt.id} className="flex items-center gap-1 text-xs" style={{ color: COLORS[i % COLORS.length] }}>
-                            <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                            {opt.text} ({Math.round((opt.count / qTotal) * 100)}%)
-                          </span>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                   )}
+
+                  {/* Rating istatistikleri */}
+                  {q.type === 'rating' && (() => {
+                    const ratings = qResponses.map(r => r.answers[q.id]).filter(v => typeof v === 'number');
+                    const avg = ratings.length > 0 ? (ratings.reduce((s, v) => s + v, 0) / ratings.length).toFixed(1) : 0;
+                    const distribution = [1,2,3,4,5].map(v => ({ value: v, count: ratings.filter(r => r === v).length }));
+                    const maxC = Math.max(...distribution.map(d => d.count), 1);
+                    return (
+                      <div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(v => <Star key={v} size={20} className={`${parseFloat(avg) >= v ? 'text-amber-400 fill-amber-400' : isDark ? 'text-slate-600' : 'text-slate-300'}`} />)}
+                          </div>
+                          <span className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{avg}</span>
+                          <span className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>/ 5</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {distribution.reverse().map(d => (
+                            <div key={d.value} className="flex items-center gap-2">
+                              <span className={`text-xs w-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{d.value}</span>
+                              <Star size={12} className="text-amber-400 fill-amber-400" />
+                              <div className={`flex-1 h-4 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                                <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${maxC > 0 ? (d.count / maxC) * 100 : 0}%` }} />
+                              </div>
+                              <span className={`text-xs w-6 text-right ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{d.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Evet/Hayır istatistikleri */}
+                  {q.type === 'yesno' && (() => {
+                    const yesCount = qResponses.filter(r => r.answers[q.id] === 'yes').length;
+                    const noCount = qResponses.filter(r => r.answers[q.id] === 'no').length;
+                    const yesPct = qTotal > 0 ? Math.round((yesCount / qTotal) * 100) : 0;
+                    const noPct = qTotal > 0 ? Math.round((noCount / qTotal) * 100) : 0;
+                    return (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className={`p-4 rounded-xl text-center ${isDark ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-200'}`}>
+                          <ThumbsUp size={24} className="mx-auto mb-1 text-emerald-500" />
+                          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{yesPct}%</p>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Evet ({yesCount})</p>
+                        </div>
+                        <div className={`p-4 rounded-xl text-center ${isDark ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-200'}`}>
+                          <ThumbsDown size={24} className="mx-auto mb-1 text-red-500" />
+                          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{noPct}%</p>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Hayır ({noCount})</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Seçenekli (single/multiple) Bar chart */}
+                  {(q.type === 'single' || q.type === 'multiple') && (() => {
+                    const optionCounts = (q.options || []).map(opt => {
+                      const count = qResponses.filter(r => {
+                        const a = r.answers[q.id];
+                        return Array.isArray(a) ? a.includes(opt.id) : a === opt.id;
+                      }).length;
+                      return { ...opt, count };
+                    }).sort((a, b) => b.count - a.count);
+                    const maxCount = Math.max(...optionCounts.map(o => o.count), 1);
+                    return (
+                      <div>
+                        <div className="space-y-2.5">
+                          {optionCounts.map((opt, i) => {
+                            const pct = qTotal > 0 ? Math.round((opt.count / qTotal) * 100) : 0;
+                            const barWidth = maxCount > 0 ? (opt.count / maxCount) * 100 : 0;
+                            return (
+                              <div key={opt.id}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{opt.text}</span>
+                                  <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{pct}% <span className={`font-normal text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>({opt.count})</span></span>
+                                </div>
+                                <div className={`w-full h-6 rounded-lg overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                                  <div className="h-full rounded-lg transition-all duration-500" style={{ width: `${barWidth}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {qTotal > 0 && (
+                          <div className="flex items-center gap-4 mt-4 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {optionCounts.filter(o => o.count > 0).map((opt, i) => (
+                                <span key={opt.id} className="flex items-center gap-1 text-xs" style={{ color: COLORS[i % COLORS.length] }}>
+                                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                                  {opt.text} ({Math.round((opt.count / qTotal) * 100)}%)
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -605,7 +763,37 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
             {(responded || isExpired) && firstQ && (
               <div className="space-y-1.5 mb-3">
                 <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{firstQ.text}</p>
-                {firstQ.options.map(opt => {
+                
+                {/* Rating önizleme */}
+                {firstQ.type === 'rating' && (() => {
+                  const ratings = firstQResponses.map(r => r.answers[firstQ.id]).filter(v => typeof v === 'number');
+                  const avg = ratings.length > 0 ? (ratings.reduce((s, v) => s + v, 0) / ratings.length).toFixed(1) : 0;
+                  return (
+                    <div className="flex items-center gap-2">
+                      {[1,2,3,4,5].map(v => <Star key={v} size={14} className={`${parseFloat(avg) >= v ? 'text-amber-400 fill-amber-400' : isDark ? 'text-slate-600' : 'text-slate-300'}`} />)}
+                      <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{avg}/5</span>
+                    </div>
+                  );
+                })()}
+
+                {/* Evet/Hayır önizleme */}
+                {firstQ.type === 'yesno' && (() => {
+                  const yesCount = firstQResponses.filter(r => r.answers[firstQ.id] === 'yes').length;
+                  const yesPct = firstQTotal > 0 ? Math.round((yesCount / firstQTotal) * 100) : 0;
+                  return (
+                    <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      <ThumbsUp size={14} className="text-emerald-500" /> {yesPct}% Evet · <ThumbsDown size={14} className="text-red-500" /> {100 - yesPct}% Hayır
+                    </div>
+                  );
+                })()}
+
+                {/* Yazılı cevap önizleme */}
+                {firstQ.type === 'text' && (
+                  <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{firstQTotal} yazılı cevap</p>
+                )}
+
+                {/* Seçenekli önizleme */}
+                {(firstQ.type === 'single' || firstQ.type === 'multiple') && (firstQ.options || []).map(opt => {
                   const count = firstQResponses.filter(r => {
                     const a = r.answers[firstQ.id];
                     return Array.isArray(a) ? a.includes(opt.id) : a === opt.id;

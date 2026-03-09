@@ -14,25 +14,58 @@ import {
   Crown,
   AlertCircle,
   Check,
-  Copy
+  Copy,
+  ShieldCheck
 } from 'lucide-react';
+
+const INDUSTRY_OPTIONS = [
+  { value: 'technology', label: 'Teknoloji' },
+  { value: 'finance', label: 'Finans & Bankacılık' },
+  { value: 'healthcare', label: 'Sağlık' },
+  { value: 'education', label: 'Eğitim' },
+  { value: 'retail', label: 'Perakende' },
+  { value: 'manufacturing', label: 'Üretim & Sanayi' },
+  { value: 'construction', label: 'İnşaat' },
+  { value: 'food', label: 'Gıda & İçecek' },
+  { value: 'logistics', label: 'Lojistik & Taşımacılık' },
+  { value: 'tourism', label: 'Turizm & Otelcilik' },
+  { value: 'automotive', label: 'Otomotiv' },
+  { value: 'energy', label: 'Enerji' },
+  { value: 'agriculture', label: 'Tarım & Hayvancılık' },
+  { value: 'media', label: 'Medya & İletişim' },
+  { value: 'realestate', label: 'Gayrimenkul' },
+  { value: 'law', label: 'Hukuk & Danışmanlık' },
+  { value: 'textile', label: 'Tekstil & Moda' },
+  { value: 'insurance', label: 'Sigortacılık' },
+  { value: 'telecom', label: 'Telekomünikasyon' },
+  { value: 'ecommerce', label: 'E-Ticaret' },
+  { value: 'gaming', label: 'Oyun & Eğlence' },
+  { value: 'pharmacy', label: 'Eczacılık & İlaç' },
+  { value: 'defense', label: 'Savunma & Havacılık' },
+  { value: 'ngo', label: 'STK & Sivil Toplum' },
+];
 
 const RegisterPage = ({ onSwitchToLogin }) => {
   const { registerCompany, joinCompany } = useAuth();
-  const [mode, setMode] = useState(null); // 'boss' veya 'employee'
+  const [mode, setMode] = useState(null);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [customIndustry, setCustomIndustry] = useState('');
+  
+  // E-posta doğrulama
+  const [emailVerificationStep, setEmailVerificationStep] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
   
   const [formData, setFormData] = useState({
-    // Patron için
     companyName: '',
     industry: '',
-    // İşçi için
     companyCode: '',
-    // Ortak
     firstName: '',
     lastName: '',
     email: '',
@@ -47,21 +80,67 @@ const RegisterPage = ({ onSwitchToLogin }) => {
       ...prev,
       [e.target.name]: e.target.value
     }));
+    // E-posta değişirse doğrulamayı sıfırla
+    if (e.target.name === 'email') {
+      setEmailVerified(false);
+      setVerificationSent(false);
+      setVerificationCode('');
+    }
+  };
+
+  const handleIndustryChange = (e) => {
+    const val = e.target.value;
+    setFormData(prev => ({ ...prev, industry: val }));
+    if (val !== 'custom') setCustomIndustry('');
+  };
+
+  const getIndustryValue = () => {
+    if (formData.industry === 'custom') return customIndustry;
+    return formData.industry;
+  };
+
+  // E-posta doğrulama kodu gönder
+  const sendVerificationCode = () => {
+    if (!formData.email) return;
+    setVerificationSent(true);
+    setVerificationError('');
+    setVerificationCode('');
+  };
+
+  // E-posta doğrulama kodunu kontrol et
+  const verifyEmailCode = () => {
+    if (verificationCode === '111') {
+      setEmailVerified(true);
+      setVerificationError('');
+      setEmailVerificationStep(false);
+    } else {
+      setVerificationError('Geçersiz doğrulama kodu!');
+    }
   };
 
   const handleBossRegister = async (e) => {
     e.preventDefault();
     setError('');
     
+    if (!emailVerified) {
+      setError('Lütfen e-posta adresinizi doğrulayın!');
+      return;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
       setError('Şifreler eşleşmiyor!');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır!');
       return;
     }
 
     setIsLoading(true);
     try {
       const result = await registerCompany(
-        { name: formData.companyName, industry: formData.industry },
+        { name: formData.companyName, industry: getIndustryValue() },
         { 
           firstName: formData.firstName, 
           lastName: formData.lastName, 
@@ -80,8 +159,18 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     e.preventDefault();
     setError('');
     
+    if (!emailVerified) {
+      setError('Lütfen e-posta adresinizi doğrulayın!');
+      return;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
       setError('Şifreler eşleşmiyor!');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır!');
       return;
     }
 
@@ -277,19 +366,28 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                     <select
                       name="industry"
                       value={formData.industry}
-                      onChange={handleChange}
+                      onChange={handleIndustryChange}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5
                                text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                     >
                       <option value="">Sektör seçin</option>
-                      <option value="technology">Teknoloji</option>
-                      <option value="finance">Finans</option>
-                      <option value="healthcare">Sağlık</option>
-                      <option value="education">Eğitim</option>
-                      <option value="retail">Perakende</option>
-                      <option value="manufacturing">Üretim</option>
-                      <option value="other">Diğer</option>
+                      {INDUSTRY_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                      <option value="custom">✏️ Kendim Girmek İstiyorum</option>
                     </select>
+                    {formData.industry === 'custom' && (
+                      <input
+                        type="text"
+                        value={customIndustry}
+                        onChange={e => setCustomIndustry(e.target.value)}
+                        placeholder="Sektörünüzü yazın..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mt-2
+                                 text-slate-800 placeholder-slate-400
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        required
+                      />
+                    )}
                   </div>
 
                   <button
@@ -346,12 +444,62 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="ornek@sirket.com"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-24
                                  text-slate-800 placeholder-slate-400
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                         required
                       />
+                      {!emailVerified && (
+                        <button
+                          type="button"
+                          onClick={sendVerificationCode}
+                          disabled={!formData.email}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
+                                   bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
+                                   disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Doğrula
+                        </button>
+                      )}
+                      {emailVerified && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <ShieldCheck size={20} className="text-emerald-500" />
+                        </div>
+                      )}
                     </div>
+                    {verificationSent && !emailVerified && (
+                      <div className="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                        <p className="text-xs text-indigo-700 mb-2">
+                          📧 <span className="font-medium">{formData.email}</span> adresine doğrulama kodu gönderildi
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={verificationCode}
+                            onChange={e => setVerificationCode(e.target.value)}
+                            placeholder="Doğrulama kodunu girin"
+                            className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm
+                                     focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            maxLength={6}
+                          />
+                          <button
+                            type="button"
+                            onClick={verifyEmailCode}
+                            className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+                          >
+                            Onayla
+                          </button>
+                        </div>
+                        {verificationError && (
+                          <p className="text-xs text-red-500 mt-1.5">{verificationError}</p>
+                        )}
+                      </div>
+                    )}
+                    {emailVerified && (
+                      <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                        <Check size={12} /> E-posta doğrulandı
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -470,7 +618,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   name="companyCode"
                   value={formData.companyCode}
                   onChange={handleChange}
-                  placeholder="Örn: TPY2024X"
+                  placeholder="Örn: GZL2026X"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
                            text-slate-800 placeholder-slate-400 uppercase tracking-wider
                            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -521,12 +669,62 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="ornek@sirket.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-24
                            text-slate-800 placeholder-slate-400
                            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                   required
                 />
+                {!emailVerified && (
+                  <button
+                    type="button"
+                    onClick={sendVerificationCode}
+                    disabled={!formData.email}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
+                             bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Doğrula
+                  </button>
+                )}
+                {emailVerified && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <ShieldCheck size={20} className="text-emerald-500" />
+                  </div>
+                )}
               </div>
+              {verificationSent && !emailVerified && (
+                <div className="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <p className="text-xs text-indigo-700 mb-2">
+                    📧 <span className="font-medium">{formData.email}</span> adresine doğrulama kodu gönderildi
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={verificationCode}
+                      onChange={e => setVerificationCode(e.target.value)}
+                      placeholder="Doğrulama kodunu girin"
+                      className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      maxLength={6}
+                    />
+                    <button
+                      type="button"
+                      onClick={verifyEmailCode}
+                      className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+                    >
+                      Onayla
+                    </button>
+                  </div>
+                  {verificationError && (
+                    <p className="text-xs text-red-500 mt-1.5">{verificationError}</p>
+                  )}
+                </div>
+              )}
+              {emailVerified && (
+                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                  <Check size={12} /> E-posta doğrulandı
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

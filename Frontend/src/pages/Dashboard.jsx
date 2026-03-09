@@ -170,6 +170,7 @@ const Dashboard = () => {
   const [showBulkEmployeeModal, setShowBulkEmployeeModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsHistory, setSmsHistory] = useState(() => loadFromStorage('app_sms_history', []));
+  const [smsGroups, setSmsGroups] = useState(() => loadFromStorage('app_sms_groups', []));
 
   // LocalStorage'a kaydet
   useEffect(() => {
@@ -611,6 +612,8 @@ const Dashboard = () => {
           employees={employees}
           isDark={isDark}
           smsHistory={smsHistory}
+          smsGroups={smsGroups}
+          onGroupsChange={(groups) => { setSmsGroups(groups); saveToStorage('app_sms_groups', groups); }}
           onClose={() => setShowSmsModal(false)}
           onSend={(smsData) => {
             const newHistory = [{ ...smsData, id: Date.now(), sentAt: new Date().toISOString() }, ...smsHistory];
@@ -2375,19 +2378,81 @@ const PoolTab = ({ tasks, user, isDark, onClaimTask, onTaskClick }) => {
 
 // ===== ÇALIŞANLAR TAB =====
 const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd }) => {
-  const displayEmployees = employees.filter(u => u.role !== 'boss');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+
+  const allEmployees = employees.filter(u => u.role !== 'boss');
+  const departments = [...new Set(allEmployees.map(e => e.department).filter(Boolean))];
+  
+  const displayEmployees = allEmployees.filter(emp => {
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      const match = `${emp.firstName} ${emp.lastName} ${emp.email} ${emp.position} ${emp.department}`.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (statusFilter !== 'all' && emp.status !== statusFilter) return false;
+    if (departmentFilter !== 'all' && emp.department !== departmentFilter) return false;
+    if (roleFilter !== 'all') {
+      const roles = emp.roles || [emp.role];
+      if (!roles.includes(roleFilter)) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Toplu Ekle Butonu */}
-      <div className="flex justify-end">
-        <button
-          onClick={onBulkAdd}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
-        >
-          <FolderPlus size={18} />
-          Toplu Çalışan Ekle
-        </button>
+      {/* Üst Bar: Filtreler + Toplu Ekle */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Çalışan ara (isim, e-posta, pozisyon)..."
+              className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-indigo-400`}
+            />
+          </div>
+          <button
+            onClick={onBulkAdd}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
+          >
+            <FolderPlus size={18} />
+            Toplu Çalışan Ekle
+          </button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className={`px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
+            <option value="all">Tüm Durumlar</option>
+            <option value="active">Aktif</option>
+            <option value="on_leave">İzinli</option>
+            <option value="inactive">Pasif</option>
+          </select>
+          <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}
+            className={`px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
+            <option value="all">Tüm Departmanlar</option>
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+            className={`px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
+            <option value="all">Tüm Roller</option>
+            <option value="manager">Yönetici</option>
+            <option value="employee">Çalışan</option>
+          </select>
+          {(searchTerm || statusFilter !== 'all' || departmentFilter !== 'all' || roleFilter !== 'all') && (
+            <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDepartmentFilter('all'); setRoleFilter('all'); }}
+              className={`px-3 py-2 rounded-xl text-sm font-medium ${isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-500 hover:bg-red-50'}`}>
+              Filtreleri Temizle
+            </button>
+          )}
+          <span className={`ml-auto text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {displayEmployees.length} / {allEmployees.length} çalışan
+          </span>
+        </div>
       </div>
       {displayEmployees.length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -3261,14 +3326,23 @@ const SMS_TEMPLATES = [
   { id: 8, title: 'Genel Bilgilendirme', message: 'Değerli çalışanlarımız, {mesaj}. Bilgilerinize sunarız.' },
 ];
 
-const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
-  const [activeView, setActiveView] = useState('compose'); // compose | history
-  const [sendTo, setSendTo] = useState('all'); // all | selected
+const GROUP_EMOJIS = ['👥', '💼', '🏢', '⚙️', '📊', '🎯', '🔧', '📱', '💡', '🎨', '📋', '🏆', '🌟', '🔑', '📦', '🛡️', '🚀', '❤️', '🎓', '✅'];
+
+const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChange, onClose, onSend }) => {
+  const [activeView, setActiveView] = useState('compose'); // compose | history | groups
+  const [sendTo, setSendTo] = useState('all'); // all | selected | group
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [message, setMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  // Grup oluşturma
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupEmoji, setNewGroupEmoji] = useState('👥');
+  const [newGroupMembers, setNewGroupMembers] = useState([]);
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
 
   const activeEmployees = employees.filter(e => e.role !== 'boss' && e.status === 'active');
   const filteredEmployees = activeEmployees.filter(emp =>
@@ -3287,6 +3361,42 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
     setSelectedEmployees(prev => prev.length === activeEmployees.length ? [] : [...activeEmployees]);
   };
 
+  const createGroup = () => {
+    if (!newGroupName.trim() || newGroupMembers.length === 0) return;
+    const group = {
+      id: Date.now(),
+      name: newGroupName.trim(),
+      emoji: newGroupEmoji,
+      memberIds: newGroupMembers.map(m => m.id),
+      createdAt: new Date().toISOString()
+    };
+    onGroupsChange?.([...smsGroups, group]);
+    setNewGroupName('');
+    setNewGroupEmoji('👥');
+    setNewGroupMembers([]);
+    setShowGroupForm(false);
+  };
+
+  const deleteGroup = (groupId) => {
+    onGroupsChange?.(smsGroups.filter(g => g.id !== groupId));
+    if (selectedGroup === groupId) setSelectedGroup(null);
+  };
+
+  const selectGroupForSend = (group) => {
+    setSendTo('group');
+    setSelectedGroup(group.id);
+    const members = activeEmployees.filter(e => group.memberIds.includes(e.id));
+    setSelectedEmployees(members);
+  };
+
+  const toggleGroupMember = (emp) => {
+    setNewGroupMembers(prev =>
+      prev.find(e => e.id === emp.id)
+        ? prev.filter(e => e.id !== emp.id)
+        : [...prev, emp]
+    );
+  };
+
   const applyTemplate = (template) => {
     setSelectedTemplate(template.id);
     setMessage(template.message);
@@ -3294,9 +3404,18 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
 
   const handleSend = () => {
     if (!message.trim()) return;
-    const recipients = sendTo === 'all'
-      ? activeEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }))
-      : selectedEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
+    let recipients;
+    if (sendTo === 'all') {
+      recipients = activeEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
+    } else if (sendTo === 'group') {
+      const group = smsGroups.find(g => g.id === selectedGroup);
+      if (!group) return;
+      recipients = activeEmployees
+        .filter(e => group.memberIds.includes(e.id))
+        .map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
+    } else {
+      recipients = selectedEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
+    }
     if (recipients.length === 0) return;
 
     onSend({
@@ -3311,6 +3430,7 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
       setMessage('');
       setSelectedTemplate(null);
       setSelectedEmployees([]);
+      setSelectedGroup(null);
       setSendTo('all');
     }, 2000);
   };
@@ -3346,6 +3466,12 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeView === 'history' ? 'bg-white text-emerald-700' : 'text-white/80 hover:text-white'}`}
               >
                 Geçmiş ({smsHistory.length})
+              </button>
+              <button
+                onClick={() => setActiveView('groups')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeView === 'groups' ? 'bg-white text-emerald-700' : 'text-white/80 hover:text-white'}`}
+              >
+                Gruplar ({smsGroups.length})
               </button>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
@@ -3397,6 +3523,19 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
                     <User size={16} className="inline mr-1.5 -mt-0.5" />
                     Seçili Kişilere ({selectedEmployees.length})
                   </button>
+                  {smsGroups.length > 0 && (
+                    <button
+                      onClick={() => setSendTo('group')}
+                      className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border-2 transition-all ${
+                        sendTo === 'group'
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : isDark ? 'border-gray-600 text-gray-300 hover:border-gray-500' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      <Users size={16} className="inline mr-1.5 -mt-0.5" />
+                      Gruba Gönder
+                    </button>
+                  )}
                 </div>
 
                 {/* Kişi Seçimi Paneli */}
@@ -3455,6 +3594,36 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
                       {filteredEmployees.length === 0 && (
                         <p className={`text-center text-sm py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Çalışan bulunamadı</p>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Grup Seçimi Paneli */}
+                {sendTo === 'group' && (
+                  <div className={`rounded-xl border-2 ${isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-200 bg-gray-50'} p-3`}>
+                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Grup seçin:</p>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {smsGroups.map(group => {
+                        const memberCount = activeEmployees.filter(e => group.memberIds.includes(e.id)).length;
+                        return (
+                          <div
+                            key={group.id}
+                            onClick={() => selectGroupForSend(group)}
+                            className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all ${
+                              selectedGroup === group.id
+                                ? isDark ? 'bg-emerald-900/40 border border-emerald-600' : 'bg-emerald-50 border border-emerald-300'
+                                : isDark ? 'hover:bg-gray-600' : 'hover:bg-white'
+                            }`}
+                          >
+                            <span className="text-xl">{group.emoji}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{group.name}</p>
+                              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{memberCount} kişi</p>
+                            </div>
+                            {selectedGroup === group.id && <CheckCircle2 size={18} className="text-emerald-500" />}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -3518,17 +3687,17 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
                 </button>
                 <button
                   onClick={handleSend}
-                  disabled={!message.trim() || (sendTo === 'selected' && selectedEmployees.length === 0)}
+                  disabled={!message.trim() || (sendTo === 'selected' && selectedEmployees.length === 0) || (sendTo === 'group' && !selectedGroup)}
                   className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 
                            text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl 
                            transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   <Send size={16} />
-                  {sendTo === 'all' ? `Herkese Gönder (${activeEmployees.length})` : `Gönder (${selectedEmployees.length} kişi)`}
+                  {sendTo === 'all' ? `Herkese Gönder (${activeEmployees.length})` : sendTo === 'group' ? `Gruba Gönder` : `Gönder (${selectedEmployees.length} kişi)`}
                 </button>
               </div>
             </div>
-          ) : (
+          ) : activeView === 'history' ? (
             /* SMS Geçmişi */
             <div className="p-6">
               {smsHistory.length === 0 ? (
@@ -3580,6 +3749,144 @@ const SmsModal = ({ employees, isDark, smsHistory, onClose, onSend }) => {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Gruplar */
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                  <Users size={15} className="inline mr-1.5 -mt-0.5" />
+                  SMS Grupları
+                </h3>
+                <button
+                  onClick={() => setShowGroupForm(!showGroupForm)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition-colors"
+                >
+                  {showGroupForm ? <X size={14} /> : <Plus size={14} />}
+                  {showGroupForm ? 'İptal' : 'Yeni Grup'}
+                </button>
+              </div>
+
+              {/* Grup Oluşturma Formu */}
+              {showGroupForm && (
+                <div className={`rounded-xl border-2 p-4 space-y-3 ${isDark ? 'border-gray-600 bg-gray-700/50' : 'border-emerald-200 bg-emerald-50/50'}`}>
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Grup Adı</label>
+                    <input
+                      type="text"
+                      value={newGroupName}
+                      onChange={e => setNewGroupName(e.target.value)}
+                      placeholder="Grup adını girin..."
+                      className={`w-full px-3 py-2 rounded-lg text-sm border ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'} focus:outline-none focus:ring-2 focus:ring-emerald-400`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Emoji Seç</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {GROUP_EMOJIS.map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => setNewGroupEmoji(emoji)}
+                          className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all ${
+                            newGroupEmoji === emoji
+                              ? 'bg-emerald-500 ring-2 ring-emerald-400 scale-110'
+                              : isDark ? 'hover:bg-gray-600 bg-gray-700' : 'hover:bg-gray-200 bg-white'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Üyeler ({newGroupMembers.length} seçildi)</label>
+                    <div className="relative mb-2">
+                      <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400' : 'text-gray-400'}`} />
+                      <input
+                        type="text"
+                        placeholder="Çalışan ara..."
+                        value={groupSearchTerm}
+                        onChange={e => setGroupSearchTerm(e.target.value)}
+                        className={`w-full pl-9 pr-3 py-2 rounded-lg text-sm border ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'} focus:outline-none focus:ring-2 focus:ring-emerald-400`}
+                      />
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {activeEmployees
+                        .filter(emp => {
+                          const term = groupSearchTerm.toLowerCase();
+                          return !term || `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(term) || emp.department?.toLowerCase().includes(term);
+                        })
+                        .map(emp => {
+                          const isSelected = newGroupMembers.find(e => e.id === emp.id);
+                          return (
+                            <div
+                              key={emp.id}
+                              onClick={() => toggleGroupMember(emp)}
+                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
+                                isSelected
+                                  ? isDark ? 'bg-emerald-900/40 border border-emerald-600' : 'bg-emerald-50 border border-emerald-300'
+                                  : isDark ? 'hover:bg-gray-600' : 'hover:bg-white'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${isSelected ? 'bg-emerald-500 border-emerald-500' : isDark ? 'border-gray-500' : 'border-gray-300'}`}>
+                                {isSelected && <CheckCircle2 size={10} className="text-white" />}
+                              </div>
+                              <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{emp.firstName} {emp.lastName}</span>
+                              <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>· {emp.department}</span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={createGroup}
+                    disabled={!newGroupName.trim() || newGroupMembers.length === 0}
+                    className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Grup Oluştur
+                  </button>
+                </div>
+              )}
+
+              {/* Grup Listesi */}
+              {smsGroups.length === 0 && !showGroupForm ? (
+                <div className="text-center py-8">
+                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3 ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                    <Users size={24} className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+                  </div>
+                  <p className={`font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Henüz grup oluşturulmamış</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Gruplar oluşturarak toplu SMS gönderimini kolaylaştırın</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {smsGroups.map(group => {
+                    const memberCount = activeEmployees.filter(e => group.memberIds.includes(e.id)).length;
+                    return (
+                      <div key={group.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                        <span className="text-2xl">{group.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{group.name}</p>
+                          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{memberCount} üye · {new Date(group.createdAt).toLocaleDateString('tr-TR')}</p>
+                        </div>
+                        <button
+                          onClick={() => { selectGroupForSend(group); setActiveView('compose'); }}
+                          className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Bu gruba SMS gönder"
+                        >
+                          <Send size={16} />
+                        </button>
+                        <button
+                          onClick={() => deleteGroup(group.id)}
+                          className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Grubu sil"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

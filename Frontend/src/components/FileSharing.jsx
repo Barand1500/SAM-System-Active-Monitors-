@@ -2,8 +2,56 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Upload, Download, Trash2, FolderOpen, File, FileText, Image, Film,
   Music, Archive, Search, Plus, X, Share2, Users, User, Clock,
-  HardDrive, Eye, Filter, Grid, List, ChevronRight, FolderPlus
+  HardDrive, Eye, Filter, Grid, List, ChevronRight, FolderPlus,
+  Folder, BookOpen, Camera, Code, Database, Globe, Heart, Home,
+  Inbox, Layers, Mail, Map, Monitor, Package, Palette, Shield, Star, Zap
 } from 'lucide-react';
+
+const FOLDER_ICONS = [
+  { id: 'folder', label: 'Klasör', Icon: FolderOpen },
+  { id: 'star', label: 'Yıldız', Icon: Star },
+  { id: 'heart', label: 'Kalp', Icon: Heart },
+  { id: 'book', label: 'Kitap', Icon: BookOpen },
+  { id: 'camera', label: 'Kamera', Icon: Camera },
+  { id: 'code', label: 'Kod', Icon: Code },
+  { id: 'database', label: 'Veritabanı', Icon: Database },
+  { id: 'globe', label: 'Dünya', Icon: Globe },
+  { id: 'home', label: 'Ev', Icon: Home },
+  { id: 'inbox', label: 'Gelen', Icon: Inbox },
+  { id: 'layers', label: 'Katman', Icon: Layers },
+  { id: 'mail', label: 'Posta', Icon: Mail },
+  { id: 'map', label: 'Harita', Icon: Map },
+  { id: 'monitor', label: 'Ekran', Icon: Monitor },
+  { id: 'package', label: 'Paket', Icon: Package },
+  { id: 'palette', label: 'Palet', Icon: Palette },
+  { id: 'shield', label: 'Kalkan', Icon: Shield },
+  { id: 'zap', label: 'Şimşek', Icon: Zap },
+  { id: 'users', label: 'Kullanıcılar', Icon: Users },
+  { id: 'archive', label: 'Arşiv', Icon: Archive },
+];
+
+const FOLDER_COLORS = [
+  { id: 'amber', label: 'Sarı', class: 'text-amber-500' },
+  { id: 'blue', label: 'Mavi', class: 'text-blue-500' },
+  { id: 'emerald', label: 'Yeşil', class: 'text-emerald-500' },
+  { id: 'red', label: 'Kırmızı', class: 'text-red-500' },
+  { id: 'purple', label: 'Mor', class: 'text-purple-500' },
+  { id: 'pink', label: 'Pembe', class: 'text-pink-500' },
+  { id: 'cyan', label: 'Turkuaz', class: 'text-cyan-500' },
+  { id: 'orange', label: 'Turuncu', class: 'text-orange-500' },
+  { id: 'indigo', label: 'İndigo', class: 'text-indigo-500' },
+  { id: 'slate', label: 'Gri', class: 'text-slate-500' },
+];
+
+const getFolderIconComponent = (iconId) => {
+  const found = FOLDER_ICONS.find(i => i.id === iconId);
+  return found ? found.Icon : FolderOpen;
+};
+
+const getFolderColorClass = (colorId) => {
+  const found = FOLDER_COLORS.find(c => c.id === colorId);
+  return found ? found.class : 'text-amber-500';
+};
 
 const FILE_ICONS = {
   pdf: { icon: FileText, color: 'text-red-500' },
@@ -49,10 +97,10 @@ const loadFolders = () => {
 };
 
 const defaultFolders = [
-  { id: 'root', name: 'Ana Dizin', parentId: null },
-  { id: 'reports', name: 'Raporlar', parentId: 'root' },
-  { id: 'templates', name: 'Şablonlar', parentId: 'root' },
-  { id: 'media', name: 'Medya', parentId: 'root' },
+  { id: 'root', name: 'Ana Dizin', parentId: null, icon: 'folder', color: 'amber' },
+  { id: 'reports', name: 'Raporlar', parentId: 'root', icon: 'book', color: 'blue' },
+  { id: 'templates', name: 'Şablonlar', parentId: 'root', icon: 'layers', color: 'purple' },
+  { id: 'media', name: 'Medya', parentId: 'root', icon: 'camera', color: 'pink' },
 ];
 
 const defaultFiles = [
@@ -87,6 +135,8 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderIcon, setNewFolderIcon] = useState('folder');
+  const [newFolderColor, setNewFolderColor] = useState('amber');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const fileInputRef = useRef(null);
   const [employees, setEmployees] = useState([]);
@@ -147,8 +197,10 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   const createFolder = () => {
     if (!newFolderName.trim()) return;
     const id = 'folder_' + Date.now();
-    setFolders(prev => [...prev, { id, name: newFolderName.trim(), parentId: currentFolder }]);
+    setFolders(prev => [...prev, { id, name: newFolderName.trim(), parentId: currentFolder, icon: newFolderIcon, color: newFolderColor }]);
     setNewFolderName('');
+    setNewFolderIcon('folder');
+    setNewFolderColor('amber');
     setShowNewFolder(false);
   };
 
@@ -200,15 +252,45 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
 
       {/* New folder input */}
       {showNewFolder && (
-        <div className={`${cardClass} rounded-2xl border p-4 flex items-center gap-3`}>
-          <FolderOpen size={20} className="text-amber-500" />
-          <input type="text" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && createFolder()}
-            placeholder="Klasör adı..." autoFocus
-            className={`flex-1 ${inputClass} border rounded-xl px-3 py-2 text-sm`} />
-          <button onClick={createFolder} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl">Oluştur</button>
-          <button onClick={() => { setShowNewFolder(false); setNewFolderName(''); }}
-            className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}><X size={18} /></button>
+        <div className={`${cardClass} rounded-2xl border p-4 space-y-3`}>
+          <div className="flex items-center gap-3">
+            {(() => { const IconComp = getFolderIconComponent(newFolderIcon); return <IconComp size={20} className={getFolderColorClass(newFolderColor)} />; })()}
+            <input type="text" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && createFolder()}
+              placeholder="Klasör adı..." autoFocus
+              className={`flex-1 ${inputClass} border rounded-xl px-3 py-2 text-sm`} />
+            <button onClick={createFolder} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl">Oluştur</button>
+            <button onClick={() => { setShowNewFolder(false); setNewFolderName(''); setNewFolderIcon('folder'); setNewFolderColor('amber'); }}
+              className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}><X size={18} /></button>
+          </div>
+          {/* Simge seçici */}
+          <div>
+            <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Simge</label>
+            <div className="flex flex-wrap gap-1.5">
+              {FOLDER_ICONS.map(fi => {
+                const IconC = fi.Icon;
+                return (
+                  <button key={fi.id} onClick={() => setNewFolderIcon(fi.id)} title={fi.label}
+                    className={`p-2 rounded-lg transition-all ${newFolderIcon === fi.id 
+                      ? 'bg-indigo-500/20 ring-2 ring-indigo-500' 
+                      : isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'}`}>
+                    <IconC size={16} className={newFolderIcon === fi.id ? 'text-indigo-500' : isDark ? 'text-slate-400' : 'text-slate-500'} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {/* Renk seçici */}
+          <div>
+            <label className={`block text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Renk</label>
+            <div className="flex flex-wrap gap-1.5">
+              {FOLDER_COLORS.map(fc => (
+                <button key={fc.id} onClick={() => setNewFolderColor(fc.id)} title={fc.label}
+                  className={`w-7 h-7 rounded-full transition-all ${fc.class.replace('text-', 'bg-')} ${newFolderColor === fc.id ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : 'opacity-70 hover:opacity-100'}`}
+                  style={newFolderColor === fc.id ? { ringOffsetColor: isDark ? '#1e293b' : '#fff' } : {}} />
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -247,20 +329,24 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
       {/* Folders */}
       {subFolders.length > 0 && (
         <div className={`grid ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1'} gap-3`}>
-          {subFolders.map(folder => (
-            <div key={folder.id} onDoubleClick={() => setCurrentFolder(folder.id)}
-              onClick={() => setCurrentFolder(folder.id)}
-              className={`${cardClass} rounded-xl border p-4 cursor-pointer hover:shadow-md transition-all group ${viewMode === 'list' ? 'flex items-center gap-3' : 'text-center'}`}>
-              <FolderOpen size={viewMode === 'list' ? 20 : 32} className="text-amber-500 mx-auto group-hover:scale-110 transition-transform" />
-              <p className={`text-sm font-medium mt-1 truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>{folder.name}</p>
-              {canManage && folder.id !== 'root' && (
-                <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                  className={`${viewMode === 'list' ? 'ml-auto' : 'mt-1 mx-auto'} p-1 rounded opacity-0 group-hover:opacity-100 ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-50 text-red-500'}`}>
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          ))}
+          {subFolders.map(folder => {
+            const FolderIcon = getFolderIconComponent(folder.icon);
+            const folderColor = getFolderColorClass(folder.color);
+            return (
+              <div key={folder.id} onDoubleClick={() => setCurrentFolder(folder.id)}
+                onClick={() => setCurrentFolder(folder.id)}
+                className={`${cardClass} rounded-xl border p-4 cursor-pointer hover:shadow-md transition-all group ${viewMode === 'list' ? 'flex items-center gap-3' : 'text-center'}`}>
+                <FolderIcon size={viewMode === 'list' ? 20 : 32} className={`${folderColor} mx-auto group-hover:scale-110 transition-transform`} />
+                <p className={`text-sm font-medium mt-1 truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>{folder.name}</p>
+                {canManage && folder.id !== 'root' && (
+                  <button onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                    className={`${viewMode === 'list' ? 'ml-auto' : 'mt-1 mx-auto'} p-1 rounded opacity-0 group-hover:opacity-100 ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-50 text-red-500'}`}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
