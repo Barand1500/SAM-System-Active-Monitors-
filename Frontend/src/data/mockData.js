@@ -3,7 +3,7 @@
 // Şirket
 export const company = {
   id: 1,
-  name: 'TechPro Yazılım A.Ş.',
+  name: 'Güzel Teknoloji',
   companyCode: 'GZL2026X',
   description: 'Kurumsal yazılım çözümleri',
   industry: 'Teknoloji',
@@ -18,8 +18,8 @@ export const users = [
     id: 1,
     companyId: 1,
     email: 'patron@demo.com',
-    firstName: 'Ahmet',
-    lastName: 'Yılmaz',
+    firstName: 'Ercan',
+    lastName: 'Güzel',
     role: 'boss',
     department: 'Yönetim',
     position: 'CEO',
@@ -36,8 +36,8 @@ export const users = [
     id: 2,
     companyId: 1,
     email: 'yonetici@demo.com',
-    firstName: 'Mehmet',
-    lastName: 'Kaya',
+    firstName: 'Semihcan',
+    lastName: 'Güzel',
     role: 'manager',
     department: 'Yazılım',
     position: 'Takım Lideri',
@@ -57,8 +57,8 @@ export const users = [
     id: 3,
     companyId: 1,
     email: 'calisan@demo.com',
-    firstName: 'Ayşe',
-    lastName: 'Demir',
+    firstName: 'Baran',
+    lastName: 'Ürüncan',
     role: 'employee',
     department: 'Yazılım',
     position: 'Frontend Developer',
@@ -78,9 +78,9 @@ export const users = [
   {
     id: 4,
     companyId: 1,
-    email: 'ali@techpro.com',
+    email: 'ali@demo.com',
     firstName: 'Ali',
-    lastName: 'Öztürk',
+    lastName: 'Köse',
     role: 'employee',
     department: 'Yazılım',
     position: 'Backend Developer',
@@ -101,9 +101,9 @@ export const users = [
   {
     id: 5,
     companyId: 1,
-    email: 'zeynep@techpro.com',
-    firstName: 'Zeynep',
-    lastName: 'Arslan',
+    email: 'nimet@demo.com',
+    firstName: 'Nimet',
+    lastName: 'Demir',
     role: 'employee',
     department: 'Tasarım',
     position: 'UI/UX Designer',
@@ -124,9 +124,9 @@ export const users = [
   {
     id: 6,
     companyId: 1,
-    email: 'can@techpro.com',
-    firstName: 'Can',
-    lastName: 'Yıldırım',
+    email: 'recep@demo.com',
+    firstName: 'Recep',
+    lastName: 'Abi',
     role: 'employee',
     department: 'Yazılım',
     position: 'Full Stack Developer',
@@ -144,12 +144,31 @@ export const users = [
       { name: 'Flutter', category: 'Mobil', level: 'beginner' },
       { name: 'İngilizce', category: 'Dil', level: 'advanced' }
     ]
+  },
+  {
+    id: 7,
+    companyId: 1,
+    email: 'aykut@demo.com',
+    firstName: 'Aykut',
+    lastName: 'Abi',
+    role: 'employee',
+    department: 'Yazılım',
+    position: 'Mobile Developer',
+    phone: '+90 538 777 8888',
+    status: 'active',
+    avatar: null,
+    skills: [
+      { name: 'React Native', category: 'Mobil', level: 'expert' },
+      { name: 'Flutter', category: 'Mobil', level: 'advanced' },
+      { name: 'JavaScript', category: 'Frontend', level: 'advanced' },
+      { name: 'İngilizce', category: 'Dil', level: 'intermediate' }
+    ]
   }
 ];
 
 // Departmanlar
 export const departments = [
-  { id: 1, name: 'Yazılım', color: '#6366f1', employeeCount: 4 },
+  { id: 1, name: 'Yazılım', color: '#6366f1', employeeCount: 5 },
   { id: 2, name: 'Tasarım', color: '#ec4899', employeeCount: 1 },
   { id: 3, name: 'Yönetim', color: '#f59e0b', employeeCount: 1 },
 ];
