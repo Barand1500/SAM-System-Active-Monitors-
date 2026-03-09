@@ -8,6 +8,11 @@ export default defineConfig({
   base: './',
   server: {
     port: 3000,
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 3000,
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

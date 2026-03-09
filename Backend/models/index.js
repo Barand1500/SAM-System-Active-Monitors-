@@ -48,6 +48,17 @@ const UserDashboardSetting = require("./UserDashboardSetting")(sequelize, DataTy
 const AuditLog = require("./AuditLog")(sequelize, DataTypes);
 const UserSkill = require("./UserSkill")(sequelize, DataTypes);
 
+const Survey = require("./Survey")(sequelize, DataTypes);
+const SurveyQuestion = require("./SurveyQuestion")(sequelize, DataTypes);
+const SurveyQuestionOption = require("./SurveyQuestionOption")(sequelize, DataTypes);
+const SurveyResponse = require("./SurveyResponse")(sequelize, DataTypes);
+const SurveyAnswer = require("./SurveyAnswer")(sequelize, DataTypes);
+
+const SupportTicket = require("./SupportTicket")(sequelize, DataTypes);
+const TicketMessage = require("./TicketMessage")(sequelize, DataTypes);
+const TicketFile = require("./TicketFile")(sequelize, DataTypes);
+const TicketCategory = require("./TicketCategory")(sequelize, DataTypes);
+
 
 // ============================
 // RELATIONSHIPS
@@ -223,6 +234,61 @@ Customer.belongsTo(User, { foreignKey: "user_id" });
 User.hasOne(Customer, { foreignKey: "user_id" });
 
 
+// SURVEY
+Survey.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(Survey, { foreignKey: "company_id" });
+
+Survey.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
+SurveyQuestion.belongsTo(Survey, { foreignKey: "survey_id" });
+Survey.hasMany(SurveyQuestion, { foreignKey: "survey_id" });
+
+SurveyQuestion.belongsTo(SurveyQuestion, { as: "parentQuestion", foreignKey: "conditional_parent_id" });
+SurveyQuestion.hasMany(SurveyQuestion, { as: "childQuestions", foreignKey: "conditional_parent_id" });
+
+SurveyQuestionOption.belongsTo(SurveyQuestion, { foreignKey: "question_id" });
+SurveyQuestion.hasMany(SurveyQuestionOption, { foreignKey: "question_id" });
+
+SurveyResponse.belongsTo(Survey, { foreignKey: "survey_id" });
+Survey.hasMany(SurveyResponse, { foreignKey: "survey_id" });
+
+SurveyResponse.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(SurveyResponse, { foreignKey: "user_id" });
+
+SurveyAnswer.belongsTo(SurveyResponse, { foreignKey: "response_id" });
+SurveyResponse.hasMany(SurveyAnswer, { foreignKey: "response_id" });
+
+SurveyAnswer.belongsTo(SurveyQuestion, { foreignKey: "question_id" });
+SurveyQuestion.hasMany(SurveyAnswer, { foreignKey: "question_id" });
+
+
+// SUPPORT TICKET
+SupportTicket.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(SupportTicket, { foreignKey: "company_id" });
+
+SupportTicket.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+SupportTicket.belongsTo(User, { foreignKey: "assigned_to", as: "assignee" });
+
+SupportTicket.belongsTo(Task, { foreignKey: "related_task_id" });
+
+TicketMessage.belongsTo(SupportTicket, { foreignKey: "ticket_id" });
+SupportTicket.hasMany(TicketMessage, { foreignKey: "ticket_id" });
+
+TicketMessage.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(TicketMessage, { foreignKey: "user_id" });
+
+TicketFile.belongsTo(SupportTicket, { foreignKey: "ticket_id" });
+SupportTicket.hasMany(TicketFile, { foreignKey: "ticket_id" });
+
+TicketFile.belongsTo(TicketMessage, { foreignKey: "message_id" });
+TicketMessage.hasMany(TicketFile, { foreignKey: "message_id" });
+
+TicketFile.belongsTo(User, { foreignKey: "uploaded_by" });
+
+TicketCategory.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(TicketCategory, { foreignKey: "company_id" });
+
+
 // EXPORT
 module.exports = {
   sequelize,
@@ -272,5 +338,16 @@ module.exports = {
 
   UserDashboardSetting,
   AuditLog,
-  UserSkill
+  UserSkill,
+
+  Survey,
+  SurveyQuestion,
+  SurveyQuestionOption,
+  SurveyResponse,
+  SurveyAnswer,
+
+  SupportTicket,
+  TicketMessage,
+  TicketFile,
+  TicketCategory
 };

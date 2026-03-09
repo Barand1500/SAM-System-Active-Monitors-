@@ -22,9 +22,10 @@ class ProjectController {
 
   async create(req, res) {
     try {
+      const { name, description, workspaceId, color, icon, startDate, endDate } = req.body;
       const project = await ProjectService.create({
-        ...req.body,
-        created_by: req.user.id
+        name, description, workspaceId, color, icon, startDate, endDate,
+        createdBy: req.user.id
       });
       res.status(201).json(project);
     } catch (err) {

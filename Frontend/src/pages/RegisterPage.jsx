@@ -148,7 +148,8 @@ const RegisterPage = ({ onSwitchToLogin }) => {
         { 
           firstName: formData.firstName, 
           lastName: formData.lastName, 
-          email: formData.email 
+          email: formData.email,
+          password: formData.password
         }
       );
       setSuccess(result);
@@ -184,6 +185,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
+        password: formData.password,
         department: formData.department,
         position: formData.position
       });

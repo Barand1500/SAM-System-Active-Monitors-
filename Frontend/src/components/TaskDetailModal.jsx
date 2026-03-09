@@ -45,37 +45,17 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // Mock alt görevler
-  const [subtasks, setSubtasks] = useState([
-    { id: 1, title: 'Veritabanı şemasını tasarla', completed: true },
-    { id: 2, title: 'API endpoint\'leri oluştur', completed: true },
-    { id: 3, title: 'Frontend entegrasyonu', completed: false },
-    { id: 4, title: 'Test senaryoları yaz', completed: false },
-  ]);
+  // Alt görevler (şimdilik local state)
+  const [subtasks, setSubtasks] = useState(task.subtasks || []);
 
-  // Mock yorumlar
-  const [comments, setComments] = useState([
-    {
-      id: 1,
-      author: { name: 'Ahmet Yılmaz', avatar: 'AY' },
-      text: 'Bu görev öncelikli olarak tamamlanmalı.',
-      createdAt: '2024-01-26T10:30:00'
-    },
-    {
-      id: 2,
-      author: { name: 'Ayşe Demir', avatar: 'AD' },
-      text: 'Veritabanı şemasını tamamladım, PR\'ı açtım.',
-      createdAt: '2024-01-26T14:15:00'
-    }
-  ]);
+  // Yorumlar (şimdilik local state)
+  const [comments, setComments] = useState(task.comments || []);
 
-  // Mock aktivite geçmişi
+  // Aktivite geçmişi — görev verisinden oluştur
   const activities = [
-    { id: 1, type: 'created', user: 'Ahmet Yılmaz', date: '2024-01-25T09:00:00', detail: 'Görevi oluşturdu' },
-    { id: 2, type: 'assigned', user: 'Ahmet Yılmaz', date: '2024-01-25T09:05:00', detail: 'Ayşe Demir\'e atadı' },
-    { id: 3, type: 'status', user: 'Ayşe Demir', date: '2024-01-26T10:00:00', detail: 'Durumu "Devam Ediyor" olarak değiştirdi' },
-    { id: 4, type: 'comment', user: 'Ahmet Yılmaz', date: '2024-01-26T10:30:00', detail: 'Yorum ekledi' },
-    { id: 5, type: 'subtask', user: 'Ayşe Demir', date: '2024-01-26T14:00:00', detail: '"Veritabanı şemasını tasarla" alt görevini tamamladı' },
+    { id: 1, type: 'created', user: task.assignedBy ? `${task.assignedBy.firstName || ''} ${task.assignedBy.lastName || ''}`.trim() : 'Sistem', date: task.createdAt || new Date().toISOString(), detail: 'Görevi oluşturdu' },
+    ...(task.assignedTo ? [{ id: 2, type: 'assigned', user: task.assignedBy ? `${task.assignedBy.firstName || ''} ${task.assignedBy.lastName || ''}`.trim() : 'Sistem', date: task.createdAt || new Date().toISOString(), detail: `${task.assignedTo.firstName || ''} ${task.assignedTo.lastName || ''}'e atadı` }] : []),
+    ...(task.status === 'completed' && task.completedAt ? [{ id: 3, type: 'status', user: task.assignedTo ? `${task.assignedTo.firstName || ''} ${task.assignedTo.lastName || ''}`.trim() : 'Sistem', date: task.completedAt, detail: 'Durumu "Tamamlandı" olarak değiştirdi' }] : []),
   ];
 
   const priorityConfig = {
@@ -234,14 +214,18 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
                     <User size={16} className={isDark ? 'text-slate-400' : 'text-slate-400'} />
                     <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Atanan</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
-                      {task.assignedTo?.firstName?.[0]}{task.assignedTo?.lastName?.[0]}
+                  {task.assignedTo ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                        {(task.assignedTo.firstName || '?')[0]}{(task.assignedTo.lastName || '?')[0]}
+                      </div>
+                      <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                        {task.assignedTo.firstName} {task.assignedTo.lastName}
+                      </span>
                     </div>
-                    <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>
-                      {task.assignedTo?.firstName} {task.assignedTo?.lastName}
-                    </span>
-                  </div>
+                  ) : (
+                    <span className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Atanmadı</span>
+                  )}
                 </div>
 
                 <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
@@ -250,7 +234,7 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
                     <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Bitiş Tarihi</span>
                   </div>
                   <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>
-                    {new Date(task.dueDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Belirtilmemiş'}
                   </span>
                 </div>
               </div>

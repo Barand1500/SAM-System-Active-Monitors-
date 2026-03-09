@@ -8,15 +8,16 @@ class LeaveRepository extends BaseRepository {
   }
 
   async findByUser(user_id) {
-    return this.model.findAll({ where: { user_id } });
+    return this.model.findAll({ where: { userId: user_id } });
   }
 
   async findPendingByCompany(companyId) {
     return this.model.findAll({
-      where: { approval_status: "pending" },
+      where: { approvalStatus: "pending" },
       include: [{
         model: User,
-        where: { company_id: companyId },
+        where: { companyId },
+
         attributes: ["id", "first_name", "last_name", "email"]
       }],
       order: [["created_at", "ASC"]]

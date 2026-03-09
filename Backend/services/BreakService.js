@@ -11,9 +11,9 @@ class BreakService {
     }
 
     return breakRepo.create({
-      attendance_id: attendance.id,
-      break_type_id,
-      start_time: new Date(),
+      attendanceId: attendance.id,
+      breakTypeId: break_type_id || null,
+      startTime: new Date(),
     });
   }
 
@@ -24,7 +24,7 @@ class BreakService {
     }
 
     const br = await breakRepo.model.findOne({
-      where: { id: breakId, attendance_id: attendance.id },
+      where: { id: breakId, attendanceId: attendance.id },
     });
     if (!br) throw new Error("Break not found");
 

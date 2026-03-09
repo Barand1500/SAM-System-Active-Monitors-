@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 import { users, company } from '../data/mockData';
 
 const AuthContext = createContext(null);
@@ -28,115 +29,98 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // Şirket kodu ile giriş
+  // Şirket kodu ile giriş - Backend API'ye bağlı
   const login = async (companyCode, email, password) => {
-    // Simülasyon - gerçek uygulamada API çağrısı yapılacak
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Şirket kodunu kontrol et
-        if (companyCode.toUpperCase() !== company.companyCode) {
-          reject({ message: 'Geçersiz şirket kodu!' });
-          return;
-        }
-
-        // Kullanıcıyı bul
-        const foundUser = users.find(
-          u => u.email.toLowerCase() === email.toLowerCase()
-        );
-
-        if (!foundUser) {
-          reject({ message: 'Kullanıcı bulunamadı!' });
-          return;
-        }
-
-        // Demo için şifre kontrolü (gerçekte hash karşılaştırması yapılır)
-        if (password !== '123456') {
-          reject({ message: 'Hatalı şifre!' });
-          return;
-        }
-
-        // Başarılı giriş
-        setUser(foundUser);
-        setCurrentCompany(company);
-        localStorage.setItem('currentUser', JSON.stringify(foundUser));
-        localStorage.setItem('currentCompany', JSON.stringify(company));
-        resolve(foundUser);
-      }, 800);
-    });
+    try {
+      const response = await api.post('/auth/login', {
+        companyCode,
+        email,
+        password
+      });
+      
+      const { token, user, company: backendCompany } = response.data;
+      
+      // LocalStorage'a kaydet
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
+      
+      // State'i güncelle
+      setUser(user);
+      setCurrentCompany(backendCompany);
+      
+      return user;
+    } catch (error) {
+      // Backend'den dönen hata mesajını al
+      const errorMsg = error.response?.data?.message || error.message || 'Giriş başarısız!';
+      throw { message: errorMsg };
+    }
   };
 
-  // Yeni şirket oluştur (Patron kaydı)
+  // Yeni şirket oluştur (Patron kaydı) - Backend API'ye bağlı
   const registerCompany = async (companyData, userData) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Şirket kodu oluştur
-        const newCompanyCode = generateCompanyCode(companyData.name);
-        
-        const newCompany = {
-          id: Date.now(),
+    try {
+      const response = await api.post('/auth/register-company', {
+        company: {
           name: companyData.name,
-          companyCode: newCompanyCode,
-          description: companyData.description || '',
-          industry: companyData.industry || '',
-          createdAt: new Date().toISOString()
-        };
-
-        const newUser = {
-          id: Date.now(),
-          companyId: newCompany.id,
-          email: userData.email,
+          industry: companyData.industry || ''
+        },
+        admin: {
           firstName: userData.firstName,
           lastName: userData.lastName,
-          role: 'boss',
-          department: 'Yönetim',
-          position: 'CEO',
-          status: 'active',
-          avatar: null
-        };
+          email: userData.email,
+          password: userData.password  // Frontend'den password gelmeli
+        }
+      });
 
-        setUser(newUser);
-        setCurrentCompany(newCompany);
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
-        localStorage.setItem('currentCompany', JSON.stringify(newCompany));
-        // Kayıt defterine ekle
-        const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
-        registry[newCompanyCode] = newCompany.id;
-        localStorage.setItem('sam_company_registry', JSON.stringify(registry));
-        resolve({ user: newUser, company: newCompany });
-      }, 1000);
-    });
+      const { token, user, company: backendCompany } = response.data;
+
+      // LocalStorage'a kaydet
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
+
+      // State'i güncelle
+      setUser(user);
+      setCurrentCompany(backendCompany);
+
+      return { user, company: backendCompany };
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      throw { message: errorMsg };
+    }
   };
 
-  // Şirket koduna katıl (İşçi kaydı)
+  // Şirket koduna katıl (İşçi kaydı) - Backend API'ye bağlı
   const joinCompany = async (companyCode, userData) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Şirket kodunu kontrol et
-        if (companyCode.toUpperCase() !== company.companyCode) {
-          reject({ message: 'Geçersiz şirket kodu!' });
-          return;
-        }
+    try {
+      const response = await api.post('/auth/join-company', {
+        company_code: companyCode,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        password: userData.password,
+        department: userData.department || 'Genel',
+        position: userData.position || 'Çalışan',
+        role: 'employee'
+      });
 
-        const newUser = {
-          id: Date.now(),
-          companyId: company.id,
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          role: 'employee',
-          department: userData.department || 'Genel',
-          position: userData.position || 'Çalışan',
-          status: 'active',
-          avatar: null
-        };
+      const { token, user, company: backendCompany } = response.data;
 
-        setUser(newUser);
-        setCurrentCompany(company);
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
-        localStorage.setItem('currentCompany', JSON.stringify(company));
-        resolve({ user: newUser, company });
-      }, 1000);
-    });
+      // LocalStorage'a kaydet
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
+
+      // State'i güncelle
+      setUser(user);
+      setCurrentCompany(backendCompany);
+
+      return { user, company: backendCompany };
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      throw { message: errorMsg };
+    }
   };
 
   // Çıkış yap

@@ -8,7 +8,7 @@ class BreakRepository extends BaseRepository {
   }
 
   async findByAttendance(attendance_id) {
-    return this.model.findAll({ where: { attendance_id } });
+    return this.model.findAll({ where: { attendanceId: attendance_id } });
   }
 }
 

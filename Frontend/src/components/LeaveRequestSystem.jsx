@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { leaveAPI } from '../services/api';
 import { 
   Calendar,
   Plus,
@@ -34,53 +35,56 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
     { id: 'education', label: 'Eğitim İzni', icon: GraduationCap, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   ];
 
-  // Mock izin talepleri
-  const [requests, setRequests] = useState([
-    {
-      id: 1,
-      employeeId: 2,
-      employeeName: 'Ayşe Demir',
-      employeeAvatar: 'AD',
-      type: 'annual',
-      startDate: '2024-02-01',
-      endDate: '2024-02-05',
-      days: 5,
-      reason: 'Aile ziyareti için yıllık izin talep ediyorum.',
-      status: 'pending',
-      createdAt: '2024-01-25',
-    },
-    {
-      id: 2,
-      employeeId: 3,
-      employeeName: 'Mehmet Kaya',
-      employeeAvatar: 'MK',
-      type: 'sick',
-      startDate: '2024-01-28',
-      endDate: '2024-01-30',
-      days: 3,
-      reason: 'Grip nedeniyle doktor raporu aldım.',
-      status: 'approved',
-      createdAt: '2024-01-27',
-      approvedBy: 'Ahmet Yılmaz',
-      approvedAt: '2024-01-27'
-    },
-    {
-      id: 3,
-      employeeId: 4,
-      employeeName: 'Zeynep Arslan',
-      employeeAvatar: 'ZA',
-      type: 'personal',
-      startDate: '2024-02-10',
-      endDate: '2024-02-10',
-      days: 1,
-      reason: 'Özel bir işim için günlük izin talep ediyorum.',
-      status: 'rejected',
-      createdAt: '2024-01-26',
-      rejectedBy: 'Ahmet Yılmaz',
-      rejectedAt: '2024-01-26',
-      rejectionReason: 'Bu tarihte önemli bir toplantı var, lütfen başka bir gün talep edin.'
-    },
-  ]);
+  // Mock izin talepleri (Backend'den yüklenecek)
+  const [requests, setRequests] = useState([]);
+
+  // Backend'den izin taleplerini çek
+  useEffect(() => {
+    const loadLeaves = async () => {
+      try {
+        if (canManage) {
+          const res = await leaveAPI.getPending();
+          const data = res.data?.data || res.data;
+          if (Array.isArray(data)) {
+            setRequests(data.map(l => ({
+              id: l.id,
+              employeeId: l.userId,
+              employeeName: l.User ? `${l.User.firstName || l.User.first_name} ${l.User.lastName || l.User.last_name}` : 'Bilinmiyor',
+              employeeAvatar: l.User ? `${(l.User.firstName || l.User.first_name || '')[0]}${(l.User.lastName || l.User.last_name || '')[0]}` : '??',
+              type: l.leaveType || l.leave_type,
+              startDate: l.startDate || l.start_date,
+              endDate: l.endDate || l.end_date,
+              days: l.leaveDays || l.leave_days,
+              reason: l.reasonText || l.reason_text,
+              status: l.approvalStatus || l.approval_status || 'pending',
+              createdAt: l.created_at || l.createdAt
+            })));
+          }
+        } else {
+          const res = await leaveAPI.list();
+          const data = res.data?.data || res.data;
+          if (Array.isArray(data)) {
+            setRequests(data.map(l => ({
+              id: l.id,
+              employeeId: l.userId || l.user_id,
+              employeeName: `${user.firstName} ${user.lastName}`,
+              employeeAvatar: `${user.firstName?.[0]}${user.lastName?.[0]}`,
+              type: l.leaveType || l.leave_type,
+              startDate: l.startDate || l.start_date,
+              endDate: l.endDate || l.end_date,
+              days: l.leaveDays || l.leave_days,
+              reason: l.reasonText || l.reason_text,
+              status: l.approvalStatus || l.approval_status || 'pending',
+              createdAt: l.created_at || l.createdAt
+            })));
+          }
+        }
+      } catch (err) {
+        console.error('İzin talepleri yüklerken hata:', err);
+      }
+    };
+    loadLeaves();
+  }, [canManage]);
 
   // İzin bakiyeleri
   const leaveBalance = {
@@ -117,39 +121,80 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
     }
   };
 
-  const handleApprove = (id) => {
+  const handleApprove = async (id) => {
+    try {
+      await leaveAPI.approve(id);
+    } catch (err) {
+      console.error('İzin onaylama hatası:', err);
+    }
     setRequests(prev => prev.map(r => 
       r.id === id ? { ...r, status: 'approved', approvedBy: user.firstName, approvedAt: new Date().toISOString().split('T')[0] } : r
     ));
   };
 
-  const handleReject = (id) => {
+  const handleReject = async (id) => {
     const reason = prompt('Red sebebi girin:');
     if (reason) {
+      try {
+        await leaveAPI.reject(id, reason);
+      } catch (err) {
+        console.error('İzin reddetme hatası:', err);
+      }
       setRequests(prev => prev.map(r => 
         r.id === id ? { ...r, status: 'rejected', rejectedBy: user.firstName, rejectedAt: new Date().toISOString().split('T')[0], rejectionReason: reason } : r
       ));
     }
   };
 
-  const handleSubmitRequest = (e) => {
+  const handleSubmitRequest = async (e) => {
     e.preventDefault();
     const start = new Date(newRequest.startDate);
     const end = new Date(newRequest.endDate);
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-    const request = {
-      id: Date.now(),
-      employeeId: user.id,
-      employeeName: `${user.firstName} ${user.lastName}`,
-      employeeAvatar: `${user.firstName?.[0]}${user.lastName?.[0]}`,
-      ...newRequest,
-      days,
-      status: 'pending',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    // Backend'e gönder
+    try {
+      const res = await leaveAPI.create({
+        leaveType: newRequest.type,
+        startDate: newRequest.startDate,
+        endDate: newRequest.endDate,
+        leaveDays: days,
+        reasonText: newRequest.reason
+      });
+      const backendLeave = res.data?.data || res.data;
+      const request = {
+        id: backendLeave?.id || Date.now(),
+        employeeId: user.id,
+        employeeName: `${user.firstName} ${user.lastName}`,
+        employeeAvatar: `${user.firstName?.[0]}${user.lastName?.[0]}`,
+        type: newRequest.type,
+        startDate: newRequest.startDate,
+        endDate: newRequest.endDate,
+        reason: newRequest.reason,
+        days,
+        status: 'pending',
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      setRequests(prev => [request, ...prev]);
+    } catch (err) {
+      console.error('İzin talebi hatası:', err);
+      // Fallback: local ekle
+      const request = {
+        id: Date.now(),
+        employeeId: user.id,
+        employeeName: `${user.firstName} ${user.lastName}`,
+        employeeAvatar: `${user.firstName?.[0]}${user.lastName?.[0]}`,
+        type: newRequest.type,
+        startDate: newRequest.startDate,
+        endDate: newRequest.endDate,
+        reason: newRequest.reason,
+        days,
+        status: 'pending',
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      setRequests(prev => [request, ...prev]);
+    }
 
-    setRequests(prev => [request, ...prev]);
     setShowNewRequest(false);
     setNewRequest({ type: 'annual', startDate: '', endDate: '', reason: '' });
   };

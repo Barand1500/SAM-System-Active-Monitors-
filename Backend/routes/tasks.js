@@ -5,7 +5,11 @@ const { authenticate } = require("../middleware/authMiddleware");
 const companyIsolation = require("../middleware/companyIsolation");
 const { validate, rules } = require("../middleware/ValidationMiddleware");
 
+// Task Config (statuses, priorities, default taskListId)
+router.get("/config", authenticate, TaskController.getConfig);
+
 // Task CRUD
+router.get("/", authenticate, companyIsolation, TaskController.getTasks);
 router.post("/", authenticate, companyIsolation, rules.createTask, validate, TaskController.createTask);
 router.get("/list/:listId", authenticate, companyIsolation, TaskController.getTasksByList);
 router.get("/:id", authenticate, companyIsolation, TaskController.getTask);

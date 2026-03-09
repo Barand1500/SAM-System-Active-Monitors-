@@ -10,6 +10,9 @@ router.post("/register-company", rules.registerCompany, validate, AuthController
 // POST /api/auth/register-employee (only boss/manager can add employees)
 router.post("/register-employee", authenticate, authorizeRoles("boss", "manager"), AuthController.registerEmployee);
 
+// POST /api/auth/join-company (public - herkes şirket koduna katılabilir)
+router.post("/join-company", AuthController.joinCompany);
+
 // POST /api/auth/login
 router.post("/login", rules.login, validate, AuthController.login);
 

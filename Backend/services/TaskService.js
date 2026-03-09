@@ -8,12 +8,12 @@ class TaskService {
 
   async getById(id, companyId) {
     return taskRepo.model.findOne({
-      where: { id, company_id: companyId },
+      where: { id, companyId },
       include: [
-        { model: User, as: "creator", attributes: ["id", "first_name", "last_name"] },
+        { model: User, as: "creator", attributes: ["id", "firstName", "lastName"] },
         { model: TaskStatus },
         { model: TaskPriority },
-        { model: TaskAssignment, include: [{ model: User, attributes: ["id", "first_name", "last_name", "avatar_url"] }] },
+        { model: TaskAssignment, include: [{ model: User, attributes: ["id", "firstName", "lastName", "avatarUrl"] }] },
         { model: Tag }
       ]
     });
@@ -21,6 +21,10 @@ class TaskService {
 
   async getByTaskList(task_list_id) {
     return taskRepo.findByTaskList(task_list_id);
+  }
+
+  async getByCompany(companyId) {
+    return taskRepo.findByCompany(companyId);
   }
 
   async update(id, data, companyId) {
@@ -31,12 +35,12 @@ class TaskService {
     return taskRepo.delete(id, companyId);
   }
 
-  async assignUser(task_id, user_id) {
-    return TaskAssignment.create({ task_id, user_id });
+  async assignUser(taskId, userId) {
+    return TaskAssignment.create({ taskId, userId });
   }
 
-  async removeAssignment(task_id, user_id) {
-    const assignment = await TaskAssignment.findOne({ where: { task_id, user_id } });
+  async removeAssignment(taskId, userId) {
+    const assignment = await TaskAssignment.findOne({ where: { taskId, userId } });
     if (!assignment) throw new Error("Assignment not found");
     return assignment.destroy();
   }

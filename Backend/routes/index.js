@@ -58,4 +58,10 @@ router.use("/recurring-tasks", require("./recurringTasks"));
 // Automation Rules
 router.use("/automation-rules", require("./automationRules"));
 
+// Surveys
+router.use("/surveys", require("./surveys"));
+
+// Support Tickets
+router.use("/support-tickets", require("./supportTickets"));
+
 module.exports = router;

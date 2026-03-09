@@ -13,10 +13,10 @@ class AttendanceService {
 
     if (!attendance) {
       attendance = await attendanceRepo.create({
-        user_id,
+        userId: user_id,
         date,
-        check_in: new Date(),
-        ip_address: ip_address || null,
+        checkIn: new Date(),
+        ipAddress: ip_address || null,
         device: device || null,
       });
     } else {

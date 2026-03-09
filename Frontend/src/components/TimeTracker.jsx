@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { attendanceAPI } from '../services/api';
 import { 
   Clock, 
   LogIn, 
@@ -77,6 +78,7 @@ const TimeTracker = ({ user, isDark }) => {
   };
 
   const formatTimeShort = (date) => {
+    if (!date) return '--:--';
     return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -98,8 +100,13 @@ const TimeTracker = ({ user, isDark }) => {
     return `${m} dk`;
   };
 
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
     const now = new Date();
+    try {
+      await attendanceAPI.checkIn();
+    } catch (err) {
+      console.error('Check-in API hatası:', err);
+    }
     setCheckInTime(now);
     setIsWorking(true);
     setTotalBreakTime(0);
@@ -107,27 +114,37 @@ const TimeTracker = ({ user, isDark }) => {
     setWorkLogs([{ id: Date.now(), type: 'checkin', time: now, message: `Mesaiye giriş yapıldı` }]);
   };
 
-  const handleCheckOut = () => {
+  const handleCheckOut = async () => {
     const now = new Date();
+    try {
+      await attendanceAPI.checkOut();
+    } catch (err) {
+      console.error('Check-out API hatası:', err);
+    }
     setWorkLogs(prev => [...prev, { id: Date.now(), type: 'checkout', time: now, message: `Mesaiden çıkış yapıldı` }]);
     setIsWorking(false);
     setCheckInTime(null);
     setIsOnBreak(false);
   };
 
-  const handleBreakToggle = () => {
+  const handleBreakToggle = async () => {
     if (isOnBreak) {
       const now = new Date();
       const breakDurationSec = Math.floor((now - breakStartTime) / 1000);
       const breakDuration = Math.floor(breakDurationSec / 60);
+      // Aktif mola'yı sonlandır
+      const currentBreak = breakLogs.find(b => !b.endTime);
+      if (currentBreak?.backendId) {
+        try {
+          await attendanceAPI.endBreak(currentBreak.backendId);
+        } catch (err) {
+          console.error('Break end API hatası:', err);
+        }
+      }
       setTotalBreakTime(prev => prev + breakDuration);
-      setBreakLogs(prev => [...prev, {
-        id: Date.now(),
-        startTime: breakStartTime,
-        endTime: now,
-        duration: breakDuration,
-        durationSeconds: breakDurationSec
-      }]);
+      setBreakLogs(prev => prev.map(b => 
+        !b.endTime ? { ...b, endTime: now, duration: breakDuration, durationSeconds: breakDurationSec } : b
+      ));
       // Çalışma geçmişinden önceki mola başlangıcını bul ve aradaki çalışma süresini hesapla
       const lastWorkStart = workLogs.filter(l => l.type === 'checkin' || l.type === 'break_end').pop();
       const workDurationBeforeBreak = lastWorkStart ? Math.floor((breakStartTime - lastWorkStart.time) / 1000 / 60) : 0;
@@ -146,6 +163,14 @@ const TimeTracker = ({ user, isDark }) => {
       // Mola öncesi çalışma süresini hesapla
       const lastEvent = workLogs.filter(l => l.type === 'checkin' || l.type === 'break_end').pop();
       const workDuration = lastEvent ? Math.floor((now - lastEvent.time) / 1000 / 60) : 0;
+      // Backend'e mola başlat
+      let backendBreakId = null;
+      try {
+        const res = await attendanceAPI.startBreak(1); // default break type
+        backendBreakId = res.data?.id || res.data?.data?.id;
+      } catch (err) {
+        console.error('Break start API hatası:', err);
+      }
       setWorkLogs(prev => [...prev, { 
         id: Date.now(), 
         type: 'break_start', 
@@ -153,6 +178,7 @@ const TimeTracker = ({ user, isDark }) => {
         workDurationBefore: workDuration,
         message: `Mola verildi (${formatMinutesToText(workDuration)} çalışıldı)` 
       }]);
+      setBreakLogs(prev => [...prev, { id: Date.now(), startTime: now, endTime: null, backendId: backendBreakId }]);
       setBreakStartTime(now);
       setIsOnBreak(true);
     }

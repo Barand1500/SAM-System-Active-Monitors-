@@ -8,7 +8,7 @@ class AttendanceRepository extends BaseRepository {
   }
 
   async findByUserAndDate(user_id, date) {
-    return this.model.findOne({ where: { user_id, date } });
+    return this.model.findOne({ where: { userId: user_id, date } });
   }
 }
 

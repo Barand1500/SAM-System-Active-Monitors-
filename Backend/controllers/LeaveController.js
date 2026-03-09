@@ -4,9 +4,15 @@ const LeaveService = require("../services/LeaveService");
 class LeaveController {
   async createLeave(req, res) {
     try {
+      const { leaveType, startDate, endDate, leaveDays, reasonText, documentUrl } = req.body;
       const leave = await LeaveService.create({
-        ...req.body,
-        user_id: req.user.id,
+        userId: req.user.id,
+        leaveType,
+        startDate,
+        endDate,
+        leaveDays,
+        reasonText,
+        documentUrl,
       });
       res.status(201).json(leave);
     } catch (err) {

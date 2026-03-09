@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
 
     breakTypeId: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: true,
       field: "break_type_id"
     },
 

@@ -1,14 +1,46 @@
 const TaskService = require("../services/TaskService");
+const { TaskStatus, TaskPriority, Workspace, Project, TaskList } = require("../models");
 
 class TaskController {
+  async getConfig(req, res) {
+    try {
+      const companyId = req.user.company_id;
+      const statuses = await TaskStatus.findAll({ where: { companyId }, order: [['orderNo', 'ASC']] });
+      const priorities = await TaskPriority.findAll({ where: { companyId }, order: [['orderNo', 'ASC']] });
+      // Varsayılan TaskList ID'sini bul
+      const workspace = await Workspace.findOne({ where: { companyId } });
+      let defaultTaskListId = null;
+      if (workspace) {
+        const project = await Project.findOne({ where: { workspaceId: workspace.id } });
+        if (project) {
+          const taskList = await TaskList.findOne({ where: { projectId: project.id }, order: [['orderNo', 'ASC']] });
+          if (taskList) defaultTaskListId = taskList.id;
+        }
+      }
+      res.json({ statuses, priorities, defaultTaskListId });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
   async createTask(req, res) {
     try {
+      const { title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId } = req.body;
       const task = await TaskService.create({
-        ...req.body,
-        company_id: req.user.company_id,
-        creator_id: req.user.id
+        title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId,
+        companyId: req.user.company_id,
+        creatorId: req.user.id
       });
       res.status(201).json(task);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getTasks(req, res) {
+    try {
+      const tasks = await TaskService.getByCompany(req.user.company_id);
+      res.json(tasks);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
