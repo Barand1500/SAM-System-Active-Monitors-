@@ -39,10 +39,6 @@ const INDUSTRY_OPTIONS = [
   { value: 'insurance', label: 'Sigortacılık' },
   { value: 'telecom', label: 'Telekomünikasyon' },
   { value: 'ecommerce', label: 'E-Ticaret' },
-  { value: 'gaming', label: 'Oyun & Eğlence' },
-  { value: 'pharmacy', label: 'Eczacılık & İlaç' },
-  { value: 'defense', label: 'Savunma & Havacılık' },
-  { value: 'ngo', label: 'STK & Sivil Toplum' },
 ];
 
 const RegisterPage = ({ onSwitchToLogin }) => {
@@ -99,9 +95,14 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     return formData.industry;
   };
 
+  // E-posta format kontrolü
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   // E-posta doğrulama kodu gönder
   const sendVerificationCode = () => {
-    if (!formData.email) return;
+    if (!isValidEmail(formData.email)) return;
     setVerificationSent(true);
     setVerificationError('');
     setVerificationCode('');
@@ -453,7 +454,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         <button
                           type="button"
                           onClick={sendVerificationCode}
-                          disabled={!formData.email}
+                          disabled={!isValidEmail(formData.email)}
                           className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
                                    bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
                                    disabled:opacity-50 disabled:cursor-not-allowed"
@@ -678,7 +679,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   <button
                     type="button"
                     onClick={sendVerificationCode}
-                    disabled={!formData.email}
+                    disabled={!isValidEmail(formData.email)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
                              bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
                              disabled:opacity-50 disabled:cursor-not-allowed"

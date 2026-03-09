@@ -8,13 +8,24 @@ import {
   StickyNote,
   X,
   Save,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 
 const loadPersonalNotes = () => {
   try {
     const saved = localStorage.getItem('sam_personal_notes');
-    return saved ? JSON.parse(saved) : {};
+    const data = saved ? JSON.parse(saved) : {};
+    // Eski format (string) → yeni format (array) dönüşümü
+    const migrated = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (typeof val === 'string') {
+        migrated[key] = [{ id: Date.now(), text: val, createdAt: new Date().toISOString() }];
+      } else {
+        migrated[key] = val;
+      }
+    }
+    return migrated;
   } catch { return {}; }
 };
 
@@ -22,8 +33,9 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month');
   const [personalNotes, setPersonalNotes] = useState(loadPersonalNotes);
-  const [noteModal, setNoteModal] = useState(null); // { dateStr, note }
+  const [noteModal, setNoteModal] = useState(null); // dateStr or null
   const [noteText, setNoteText] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('sam_personal_notes', JSON.stringify(personalNotes));
@@ -102,33 +114,48 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
 
   const openNoteModal = (dateStr, e) => {
     e.stopPropagation();
-    setNoteText(personalNotes[dateStr] || '');
+    setNoteText('');
+    setEditingNoteId(null);
     setNoteModal(dateStr);
   };
 
   const saveNote = () => {
+    if (!noteModal || !noteText.trim()) return;
+    setPersonalNotes(prev => {
+      const dateNotes = prev[noteModal] || [];
+      if (editingNoteId) {
+        return { ...prev, [noteModal]: dateNotes.map(n => n.id === editingNoteId ? { ...n, text: noteText.trim() } : n) };
+      }
+      return { ...prev, [noteModal]: [...dateNotes, { id: Date.now(), text: noteText.trim(), createdAt: new Date().toISOString() }] };
+    });
+    setNoteText('');
+    setEditingNoteId(null);
+  };
+
+  const deleteNote = (noteId) => {
     if (!noteModal) return;
-    if (noteText.trim()) {
-      setPersonalNotes(prev => ({ ...prev, [noteModal]: noteText.trim() }));
-    } else {
-      setPersonalNotes(prev => {
+    setPersonalNotes(prev => {
+      const dateNotes = (prev[noteModal] || []).filter(n => n.id !== noteId);
+      if (dateNotes.length === 0) {
         const next = { ...prev };
         delete next[noteModal];
         return next;
-      });
+      }
+      return { ...prev, [noteModal]: dateNotes };
+    });
+    if (editingNoteId === noteId) {
+      setEditingNoteId(null);
+      setNoteText('');
     }
-    setNoteModal(null);
-    setNoteText('');
   };
 
-  const deleteNote = () => {
-    if (!noteModal) return;
-    setPersonalNotes(prev => {
-      const next = { ...prev };
-      delete next[noteModal];
-      return next;
-    });
-    setNoteModal(null);
+  const startEditNote = (note) => {
+    setEditingNoteId(note.id);
+    setNoteText(note.text);
+  };
+
+  const cancelEdit = () => {
+    setEditingNoteId(null);
     setNoteText('');
   };
 
@@ -237,7 +264,8 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
           const today = isToday(day.date);
           const minH = view === 'week' ? 'min-h-52' : 'min-h-28';
           const dateStr = day.date.toISOString().split('T')[0];
-          const hasNote = !!personalNotes[dateStr];
+          const noteList = personalNotes[dateStr] || [];
+          const hasNote = noteList.length > 0;
           
           return (
             <div 
@@ -259,8 +287,11 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
                     {day.date.getDate()}
                   </div>
                   {hasNote && (
-                    <button onClick={(e) => openNoteModal(dateStr, e)} title={personalNotes[dateStr]}>
-                      <StickyNote size={12} className="text-amber-500" />
+                    <button onClick={(e) => openNoteModal(dateStr, e)} title={`${noteList.length} not`}>
+                      <div className="flex items-center gap-0.5">
+                        <StickyNote size={12} className="text-amber-500" />
+                        {noteList.length > 1 && <span className="text-[10px] font-bold text-amber-500">{noteList.length}</span>}
+                      </div>
                     </button>
                   )}
                 </div>
@@ -270,9 +301,11 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
                     title="Not ekle">
                     <StickyNote size={13} className={isDark ? 'text-amber-400' : 'text-amber-500'} />
                   </div>
+                  {onAddTask && (
                   <div className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-indigo-100'}`}>
                     <Plus size={14} className={isDark ? 'text-slate-400' : 'text-indigo-500'} />
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -280,7 +313,7 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
               {hasNote && (
                 <div onClick={(e) => openNoteModal(dateStr, e)}
                   className={`text-xs p-1.5 rounded-md mb-1 truncate cursor-pointer ${isDark ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
-                  📝 {personalNotes[dateStr]}
+                  📝 {noteList[0].text}{noteList.length > 1 ? ` (+${noteList.length - 1})` : ''}
                 </div>
               )}
               
@@ -309,47 +342,77 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
 
       {/* Kişisel Not Modal */}
       {noteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setNoteModal(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setNoteModal(null); setEditingNoteId(null); setNoteText(''); }}>
           <div onClick={e => e.stopPropagation()} className={`w-full max-w-md rounded-2xl border shadow-2xl ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
               <div className="flex items-center gap-2">
                 <StickyNote size={18} className="text-amber-500" />
-                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Kişisel Not</h3>
+                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Kişisel Notlar</h3>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
                   {new Date(noteModal + 'T12:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
-              <button onClick={() => setNoteModal(null)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+              <button onClick={() => { setNoteModal(null); setEditingNoteId(null); setNoteText(''); }} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
                 <X size={18} />
               </button>
             </div>
-            <div className="p-4">
-              <textarea
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                placeholder="Bu güne özel notunuzu yazın... (Sadece siz görebilirsiniz)"
-                rows={4}
-                autoFocus
-                className={`w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'}`}
-              />
-              <div className="flex items-center justify-between mt-3">
-                {personalNotes[noteModal] ? (
-                  <button onClick={deleteNote}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors">
-                    <Trash2 size={14} /> Notu Sil
-                  </button>
-                ) : <div />}
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setNoteModal(null)}
-                    className={`px-4 py-2 text-sm rounded-xl ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}>
-                    İptal
-                  </button>
+            <div className="p-4 space-y-3">
+              {/* Mevcut notlar listesi */}
+              {(personalNotes[noteModal] || []).length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(personalNotes[noteModal] || []).map(note => (
+                    <div key={note.id} className={`p-3 rounded-xl border ${editingNoteId === note.id ? (isDark ? 'border-amber-500/50 bg-amber-500/5' : 'border-amber-300 bg-amber-50') : (isDark ? 'border-slate-600 bg-slate-700/50' : 'border-slate-200 bg-slate-50')}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={`text-sm flex-1 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{note.text}</p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => startEditNote(note)}
+                            className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-200 text-slate-500'}`}>
+                            <Edit size={13} />
+                          </button>
+                          <button onClick={() => deleteNote(note.id)}
+                            className={`p-1 rounded-lg ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-50 text-red-500'}`}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {new Date(note.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Not ekleme/düzenleme alanı */}
+              <div>
+                <textarea
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  placeholder={editingNoteId ? "Notu düzenleyin..." : "Yeni not ekleyin... (Sadece siz görebilirsiniz)"}
+                  rows={3}
+                  autoFocus
+                  className={`w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'}`}
+                />
+                <div className="flex items-center justify-end gap-2 mt-2">
+                  {editingNoteId && (
+                    <button onClick={cancelEdit}
+                      className={`px-3 py-1.5 text-sm rounded-xl ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}>
+                      İptal
+                    </button>
+                  )}
                   <button onClick={saveNote}
-                    className="flex items-center gap-1.5 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl shadow-lg shadow-amber-500/25">
-                    <Save size={14} /> Kaydet
+                    disabled={!noteText.trim()}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl shadow-lg shadow-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Save size={14} /> {editingNoteId ? 'Güncelle' : 'Not Ekle'}
                   </button>
                 </div>
               </div>
+
+              {(personalNotes[noteModal] || []).length === 0 && (
+                <p className={`text-center text-xs py-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                  Bu tarih için henüz not eklenmemiş
+                </p>
+              )}
             </div>
           </div>
         </div>

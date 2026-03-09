@@ -260,15 +260,15 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                       }}
                         className={`text-xs px-2 py-1 rounded-lg border ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
                         <option value="">Koşulsuz (her zaman göster)</option>
-                        {prevQs.map((pq, pi) => <option key={pq.id} value={pq.id}>Soru {pi + 1} cevabına bağlı</option>)}
+                        {prevQs.filter(pq => pq.type === 'single' || pq.type === 'multiple').map((pq, pi) => <option key={pq.id} value={pq.id}>Soru {form.questions.indexOf(pq) + 1}: {pq.text || '(soru)'} cevabına bağlı</option>)}
                       </select>
                       {q.condition?.questionId && (
                         <>
                           <ArrowRight size={12} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
                           <select value={q.condition.optionId} onChange={e => setCondition(q.id, q.condition.questionId, e.target.value)}
                             className={`text-xs px-2 py-1 rounded-lg border ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
-                            {form.questions.find(x => x.id === q.condition.questionId)?.options.map(o =>
-                              <option key={o.id} value={o.id}>{o.text || '(boş)'}</option>
+                            {form.questions.find(x => x.id === q.condition.questionId)?.options.filter(o => o.text.trim()).map((o, i) =>
+                              <option key={o.id} value={o.id}>{o.text}</option>
                             )}
                           </select>
                           <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>seçilirse göster</span>
@@ -323,10 +323,18 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                       )}
                     </div>
                   ))}
-                  <button onClick={() => addOption(q.id)}
-                    className={`text-xs font-medium flex items-center gap-1 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                    <Plus size={13} /> Seçenek Ekle
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => addOption(q.id)}
+                      className={`text-xs font-medium flex items-center gap-1 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                      <Plus size={13} /> Seçenek Ekle
+                    </button>
+                    <label className={`flex items-center gap-1.5 cursor-pointer text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      <input type="checkbox" checked={q.hasOther || false}
+                        onChange={e => updateQuestion(q.id, { hasOther: e.target.checked })}
+                        className="w-3.5 h-3.5 rounded accent-indigo-600" />
+                      "Diğer" seçeneği ekle
+                    </label>
+                  </div>
                 </div>
                 )}
               </div>
@@ -356,6 +364,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
   // ─── VOTE FORM ─────────────
   const VoteForm = ({ survey, onClose }) => {
     const [answers, setAnswers] = useState({});
+    const [otherTexts, setOtherTexts] = useState({});
     const [step, setStep] = useState(0);
 
     const visibleQuestions = survey.questions.filter(q => {
@@ -384,6 +393,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
       if (currentQ.type === 'text') return a && a.trim().length > 0;
       if (currentQ.type === 'rating') return a && a >= 1 && a <= 5;
       if (currentQ.type === 'yesno') return a === 'yes' || a === 'no';
+      if (a === '__other__') return (otherTexts[currentQ.id] || '').trim().length > 0;
       if (Array.isArray(a)) return a.length > 0;
       return !!a;
     };
@@ -491,6 +501,35 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                 </button>
               );
             })}
+            {currentQ.hasOther && (() => {
+              const isOtherSelected = answers[currentQ.id] === '__other__';
+              return (
+                <div>
+                  <button onClick={() => setAnswers(prev => ({ ...prev, [currentQ.id]: '__other__' }))}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                      isOtherSelected
+                        ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/30'
+                        : isDark ? 'border-slate-600 hover:border-slate-500' : 'border-slate-200 hover:border-slate-300'
+                    }`}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      isOtherSelected ? 'bg-indigo-500 text-white' : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
+                    }`}>✎</span>
+                    <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>Diğer</span>
+                    {isOtherSelected && <CheckCircle2 size={16} className="ml-auto text-indigo-500" />}
+                  </button>
+                  {isOtherSelected && (
+                    <input
+                      type="text"
+                      value={otherTexts[currentQ.id] || ''}
+                      onChange={e => setOtherTexts(prev => ({ ...prev, [currentQ.id]: e.target.value }))}
+                      placeholder="Cevabınızı yazın..."
+                      autoFocus
+                      className={`w-full mt-2 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'}`}
+                    />
+                  )}
+                </div>
+              );
+            })()}
           </div>
           )}
 
@@ -502,7 +541,16 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
               </button>
             ) : <div />}
             {isLast ? (
-              <button onClick={() => { submitResponse(survey.id, answers); onClose(); }} disabled={!canNext()}
+              <button onClick={() => {
+                // __other__ cevaplarını gerçek metinle değiştir
+                const finalAnswers = { ...answers };
+                for (const [qId, val] of Object.entries(finalAnswers)) {
+                  if (val === '__other__') {
+                    finalAnswers[qId] = `other:${(otherTexts[qId] || '').trim()}`;
+                  }
+                }
+                submitResponse(survey.id, finalAnswers); onClose();
+              }} disabled={!canNext()}
                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-xl shadow-lg disabled:opacity-50">
                 Gönder
               </button>
@@ -637,13 +685,25 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
 
                   {/* Seçenekli (single/multiple) Bar chart */}
                   {(q.type === 'single' || q.type === 'multiple') && (() => {
+                    const otherResponses = qResponses.filter(r => {
+                      const a = r.answers[q.id];
+                      return typeof a === 'string' && a.startsWith('other:');
+                    });
+                    const normalResponses = qResponses.filter(r => {
+                      const a = r.answers[q.id];
+                      return !(typeof a === 'string' && a.startsWith('other:'));
+                    });
                     const optionCounts = (q.options || []).map(opt => {
-                      const count = qResponses.filter(r => {
+                      const count = normalResponses.filter(r => {
                         const a = r.answers[q.id];
                         return Array.isArray(a) ? a.includes(opt.id) : a === opt.id;
                       }).length;
                       return { ...opt, count };
-                    }).sort((a, b) => b.count - a.count);
+                    });
+                    if (otherResponses.length > 0) {
+                      optionCounts.push({ id: '__other__', text: 'Diğer', count: otherResponses.length });
+                    }
+                    optionCounts.sort((a, b) => b.count - a.count);
                     const maxCount = Math.max(...optionCounts.map(o => o.count), 1);
                     return (
                       <div>
@@ -672,6 +732,18 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
                                   <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                                   {opt.text} ({Math.round((opt.count / qTotal) * 100)}%)
                                 </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {otherResponses.length > 0 && (
+                          <div className="mt-3">
+                            <p className={`text-xs font-medium mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Diğer cevaplar:</p>
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {otherResponses.map((r, i) => (
+                                <div key={i} className={`px-3 py-1.5 rounded-lg text-xs ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-50 text-slate-700'}`}>
+                                  "{r.answers[q.id].replace('other:', '')}"
+                                </div>
                               ))}
                             </div>
                           </div>
