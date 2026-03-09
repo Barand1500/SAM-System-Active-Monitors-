@@ -78,6 +78,8 @@ import SupportSystem from '../components/SupportSystem';
 import CustomerCRM from '../components/CustomerCRM';
 import FileSharing from '../components/FileSharing';
 import SurveySystem from '../components/SurveySystem';
+import AdminPanel from '../components/AdminPanel';
+import CompanyInfo from '../components/CompanyInfo';
 
 // Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
 const DATA_VERSION = 2;
@@ -419,6 +421,22 @@ const Dashboard = () => {
                       <Settings size={16} />
                       Hesap Ayarları
                     </button>
+                    {!isBoss && (
+                      <button 
+                        onClick={() => { setActiveTab('companyInfo'); setShowUserMenu(false); }}
+                        className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <Building2 size={16} />
+                        Şirket Bilgileri
+                      </button>
+                    )}
+                    {isBoss && (
+                      <button 
+                        onClick={() => { setActiveTab('admin'); setShowUserMenu(false); }}
+                        className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <Building2 size={16} />
+                        Şirket Ayarları
+                      </button>
+                    )}
                     <button 
                       onClick={logout}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
@@ -547,6 +565,8 @@ const Dashboard = () => {
         {activeTab === 'files' && <FileSharing user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'surveys' && <SurveySystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
+        {activeTab === 'companyInfo' && <CompanyInfo isDark={isDark} />}
+        {activeTab === 'admin' && isBoss && <AdminPanel isDark={isDark} departments={departments} />}
         {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} canManage={canManage} />}
       </div>
 
@@ -2885,60 +2905,7 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
     setTimeout(() => setCompanySaved(false), 2500);
   };
 
-  // Department Management
-  const [deptList, setDeptList] = useState(() => loadFromStorage('sam_departments', departments));
-  const [newDeptName, setNewDeptName] = useState('');
-  const [newDeptColor, setNewDeptColor] = useState('#6366f1');
-  const [editingDept, setEditingDept] = useState(null);
 
-  // Priority Management
-  const defaultPriorities = [
-    { id: 'low', label: 'Düşük', color: '#94a3b8' },
-    { id: 'medium', label: 'Orta', color: '#3b82f6' },
-    { id: 'high', label: 'Yüksek', color: '#f59e0b' },
-    { id: 'urgent', label: 'Acil', color: '#ef4444' },
-  ];
-  const [priorityList, setPriorityList] = useState(() => loadFromStorage('sam_priorities', defaultPriorities));
-  const [newPriorityLabel, setNewPriorityLabel] = useState('');
-  const [newPriorityColor, setNewPriorityColor] = useState('#6366f1');
-  const [editingPriority, setEditingPriority] = useState(null);
-
-  // Save to localStorage on changes
-  useEffect(() => { saveToStorage('sam_departments', deptList); }, [deptList]);
-  useEffect(() => { saveToStorage('sam_priorities', priorityList); }, [priorityList]);
-
-  const addDepartment = () => {
-    if (!newDeptName.trim()) return;
-    setDeptList(prev => [...prev, { id: Date.now(), name: newDeptName.trim(), color: newDeptColor, employeeCount: 0 }]);
-    setNewDeptName('');
-    setNewDeptColor('#6366f1');
-  };
-
-  const removeDepartment = (id) => {
-    setDeptList(prev => prev.filter(d => d.id !== id));
-  };
-
-  const updateDepartment = (id, updates) => {
-    setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
-    setEditingDept(null);
-  };
-
-  const addPriority = () => {
-    if (!newPriorityLabel.trim()) return;
-    const id = newPriorityLabel.trim().toLowerCase().replace(/\s+/g, '_');
-    setPriorityList(prev => [...prev, { id, label: newPriorityLabel.trim(), color: newPriorityColor }]);
-    setNewPriorityLabel('');
-    setNewPriorityColor('#6366f1');
-  };
-
-  const removePriority = (id) => {
-    setPriorityList(prev => prev.filter(p => p.id !== id));
-  };
-
-  const updatePriority = (id, updates) => {
-    setPriorityList(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-    setEditingPriority(null);
-  };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -3184,135 +3151,6 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
           </div>
         </div>
       </div>
-      )}
-
-      {/* Admin Paneli - Sadece Boss */}
-      {isBoss && (
-        <>
-          {/* Departman Yönetimi */}
-          <CollapsibleSection isDark={isDark} title="Departman Yönetimi" subtitle="Departmanları ekleyin, düzenleyin veya kaldırın" icon={Building2} gradient="from-indigo-500 to-purple-500">
-
-            {/* Ekleme */}
-            <div className="flex gap-3 mb-4">
-              <input
-                type="text"
-                value={newDeptName}
-                onChange={(e) => setNewDeptName(e.target.value)}
-                placeholder="Yeni departman adı..."
-                className={`flex-1 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
-                onKeyDown={(e) => e.key === 'Enter' && addDepartment()}
-              />
-              <ColorPicker value={newDeptColor} onChange={setNewDeptColor} isDark={isDark} />
-              <button
-                onClick={addDepartment}
-                className="px-4 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1"
-              >
-                <Plus size={16} />
-                Ekle
-              </button>
-            </div>
-
-            {/* Liste */}
-            <div className="space-y-2">
-              {deptList.map(dept => (
-                <div key={dept.id} className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                  {editingDept === dept.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
-                        defaultValue={dept.name}
-                        className={`flex-1 ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-lg px-3 py-1.5 text-sm`}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') updateDepartment(dept.id, { name: e.target.value });
-                          if (e.key === 'Escape') setEditingDept(null);
-                        }}
-                        autoFocus
-                      />
-                      <ColorPicker value={dept.color} onChange={(c) => updateDepartment(dept.id, { color: c })} isDark={isDark} />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: dept.color }} />
-                        <span className={`font-medium text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{dept.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setEditingDept(dept.id)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}>
-                          <Edit size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                        </button>
-                        <button onClick={() => removeDepartment(dept.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30">
-                          <Trash2 size={14} className="text-red-500" />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-
-          {/* Öncelik Yönetimi */}
-          <CollapsibleSection isDark={isDark} title="Öncelik Yönetimi" subtitle="Görev öncelik seviyelerini yönetin" icon={Shield} gradient="from-amber-500 to-red-500">
-
-            {/* Ekleme */}
-            <div className="flex gap-3 mb-4">
-              <input
-                type="text"
-                value={newPriorityLabel}
-                onChange={(e) => setNewPriorityLabel(e.target.value)}
-                placeholder="Yeni öncelik adı..."
-                className={`flex-1 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
-                onKeyDown={(e) => e.key === 'Enter' && addPriority()}
-              />
-              <ColorPicker value={newPriorityColor} onChange={setNewPriorityColor} isDark={isDark} />
-              <button
-                onClick={addPriority}
-                className="px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors flex items-center gap-1"
-              >
-                <Plus size={16} />
-                Ekle
-              </button>
-            </div>
-
-            {/* Liste */}
-            <div className="space-y-2">
-              {priorityList.map(priority => (
-                <div key={priority.id} className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                  {editingPriority === priority.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="text"
-                        defaultValue={priority.label}
-                        className={`flex-1 ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-lg px-3 py-1.5 text-sm`}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') updatePriority(priority.id, { label: e.target.value });
-                          if (e.key === 'Escape') setEditingPriority(null);
-                        }}
-                        autoFocus
-                      />
-                      <ColorPicker value={priority.color} onChange={(c) => updatePriority(priority.id, { color: c })} isDark={isDark} />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: priority.color }} />
-                        <span className={`font-medium text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{priority.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setEditingPriority(priority.id)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}>
-                          <Edit size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                        </button>
-                        <button onClick={() => removePriority(priority.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30">
-                          <Trash2 size={14} className="text-red-500" />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        </>
       )}
 
       <button className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
