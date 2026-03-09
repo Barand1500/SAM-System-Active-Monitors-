@@ -142,7 +142,7 @@ const LoginPage = ({ onSwitchToRegister }) => {
                   name="companyCode"
                   value={formData.companyCode}
                   onChange={handleChange}
-                  placeholder="Örn: TPY2024X"
+                  placeholder="Örn: GZL2026X"
                   className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
                            text-slate-800 placeholder-slate-400 uppercase tracking-wider
                            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500

@@ -20,7 +20,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../Backend/public',
+    outDir: 'panel',
     emptyOutDir: true,
   },
 })

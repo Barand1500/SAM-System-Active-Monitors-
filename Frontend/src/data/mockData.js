@@ -4,7 +4,7 @@
 export const company = {
   id: 1,
   name: 'TechPro Yazılım A.Ş.',
-  companyCode: 'TPY2024X',
+  companyCode: 'GZL2026X',
   description: 'Kurumsal yazılım çözümleri',
   industry: 'Teknoloji',
   address: 'İstanbul, Türkiye',
