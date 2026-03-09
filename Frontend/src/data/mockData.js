@@ -17,7 +17,7 @@ export const users = [
   {
     id: 1,
     companyId: 1,
-    email: 'patron@techpro.com',
+    email: 'patron@demo.com',
     firstName: 'Ahmet',
     lastName: 'Yılmaz',
     role: 'boss',
@@ -35,7 +35,7 @@ export const users = [
   {
     id: 2,
     companyId: 1,
-    email: 'mehmet@techpro.com',
+    email: 'yonetici@demo.com',
     firstName: 'Mehmet',
     lastName: 'Kaya',
     role: 'manager',
@@ -56,7 +56,7 @@ export const users = [
   {
     id: 3,
     companyId: 1,
-    email: 'ayse@techpro.com',
+    email: 'calisan@demo.com',
     firstName: 'Ayşe',
     lastName: 'Demir',
     role: 'employee',

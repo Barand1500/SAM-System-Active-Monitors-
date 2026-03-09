@@ -246,9 +246,9 @@ const LoginPage = ({ onSwitchToRegister }) => {
             <p className="text-indigo-800 font-medium text-sm mb-2">Demo Giriş Bilgileri:</p>
             <div className="text-xs text-indigo-600 space-y-1">
               <p><span className="font-semibold">Şirket Kodu:</span> GZL2026X</p>
-              <p><span className="font-semibold">Patron:</span> patron@techpro.com</p>
-              <p><span className="font-semibold">Yönetici:</span> mehmet@techpro.com</p>
-              <p><span className="font-semibold">Çalışan:</span> ayse@techpro.com</p>
+              <p><span className="font-semibold">Patron:</span> patron@demo.com</p>
+              <p><span className="font-semibold">Yönetici:</span> yonetici@demo.com</p>
+              <p><span className="font-semibold">Çalışan:</span> calisan@demo.com</p>
               <p><span className="font-semibold">Şifre (tümü):</span> 123456</p>
             </div>
           </div>
