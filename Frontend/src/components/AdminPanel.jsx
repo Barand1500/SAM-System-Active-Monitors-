@@ -1,11 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+import ConfirmDialog from './ConfirmDialog';
+import BaseModal from './BaseModal';
+import { logChange } from './ChangeHistory';
 import {
   Building2, Plus, Edit, Trash2, CheckCircle2, Shield, ChevronDown,
   Phone, Mail, Globe, MapPin, FileText, Banknote, Hash, Users,
   AlertTriangle, Tag, Palette, Crown, UserCog, ClipboardList, Pipette,
-  Eye, EyeOff, Info
+  Eye, EyeOff, Info, GripVertical, Settings, CheckSquare, Briefcase,
+  BarChart3, Megaphone, Calendar, Printer, Download
 } from 'lucide-react';
+import { 
+  validateEmail, 
+  validatePhone, 
+  validateTaxNumber, 
+  validateMersisNumber, 
+  validateTradeRegistryNumber, 
+  validateURL, 
+  validateRequired 
+} from '../utils/validation';
+import { PERMISSIONS, PERMISSION_LABELS } from '../utils/rbac';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Hazır Renkler
 const PRESET_COLORS = [
@@ -37,7 +68,7 @@ const formatPhone = (value) => {
 };
 
 // ===== YARDIMCI BİLEŞENLER =====
-const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, children, defaultOpen = false }) => {
+const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, children, defaultOpen = false, headerActions = null }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'} overflow-hidden`}>
@@ -55,7 +86,14 @@ const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, chi
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{subtitle}</p>
           </div>
         </div>
-        <ChevronDown size={20} className={`${isDark ? 'text-slate-400' : 'text-slate-500'} transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
+        <div className="flex items-center gap-2">
+          {headerActions && (
+            <div className="print:hidden" onClick={(e) => e.stopPropagation()}>
+              {headerActions}
+            </div>
+          )}
+          <ChevronDown size={20} className={`${isDark ? 'text-slate-400' : 'text-slate-500'} transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
+        </div>
       </button>
       {isOpen && <div className="px-5 pb-5">{children}</div>}
     </div>
@@ -143,11 +181,129 @@ const ColorPicker = ({ value, onChange, isDark }) => {
   );
 };
 
+// Yetki Grubu Bileşeni - Modernize
+const PermissionGroup = ({ title, icon: Icon, permissions, selectedPermissions, onToggle, onToggleAll, isDark, color = 'blue' }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const allSelected = permissions.every(p => selectedPermissions.includes(p));
+  const someSelected = permissions.some(p => selectedPermissions.includes(p));
+  const selectedCount = permissions.filter(p => selectedPermissions.includes(p)).length;
+
+  const colorClasses = {
+    blue: { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-200', lightBg: 'bg-blue-50', darkBg: 'bg-blue-500/10', darkBorder: 'border-blue-500/30' },
+    emerald: { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-200', lightBg: 'bg-emerald-50', darkBg: 'bg-emerald-500/10', darkBorder: 'border-emerald-500/30' },
+    purple: { bg: 'bg-purple-500', text: 'text-purple-600', border: 'border-purple-200', lightBg: 'bg-purple-50', darkBg: 'bg-purple-500/10', darkBorder: 'border-purple-500/30' },
+    orange: { bg: 'bg-orange-500', text: 'text-orange-600', border: 'border-orange-200', lightBg: 'bg-orange-50', darkBg: 'bg-orange-500/10', darkBorder: 'border-orange-500/30' },
+    rose: { bg: 'bg-rose-500', text: 'text-rose-600', border: 'border-rose-200', lightBg: 'bg-rose-50', darkBg: 'bg-rose-500/10', darkBorder: 'border-rose-500/30' },
+    cyan: { bg: 'bg-cyan-500', text: 'text-cyan-600', border: 'border-cyan-200', lightBg: 'bg-cyan-50', darkBg: 'bg-cyan-500/10', darkBorder: 'border-cyan-500/30' },
+    amber: { bg: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-200', lightBg: 'bg-amber-50', darkBg: 'bg-amber-500/10', darkBorder: 'border-amber-500/30' },
+  };
+  const cc = colorClasses[color] || colorClasses.blue;
+
+  return (
+    <div className={`rounded-xl border overflow-hidden ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'}`}>
+      {/* Header */}
+      <div className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${isDark ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50'}`} onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-lg ${cc.bg} flex items-center justify-center`}>
+            <Icon size={18} className="text-white" />
+          </div>
+          <div>
+            <h4 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {title}
+            </h4>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {selectedCount}/{permissions.length} yetki seçili
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectedCount > 0 && (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${isDark ? cc.darkBg + ' ' + cc.text : cc.lightBg + ' ' + cc.text}`}>
+              {selectedCount}
+            </span>
+          )}
+          <ChevronDown size={18} className={`transition-transform ${isExpanded ? '' : '-rotate-90'} ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+        </div>
+      </div>
+
+      {/* Content */}
+      {isExpanded && (
+        <div className={`p-4 pt-0 border-t ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-end gap-2 mb-3">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleAll(permissions, true); }}
+              disabled={allSelected}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                allSelected
+                  ? isDark ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : isDark ? cc.darkBg + ' text-' + color + '-300 hover:bg-' + color + '-500/20' : cc.lightBg + ' ' + cc.text + ' hover:bg-' + color + '-100'
+              }`}
+            >
+              ✓ Tümünü Seç
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleAll(permissions, false); }}
+              disabled={!someSelected}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                !someSelected
+                  ? isDark ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+              }`}
+            >
+              ✕ Temizle
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {permissions.map(permKey => (
+              <label
+                key={permKey}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all group ${
+                  selectedPermissions.includes(permKey)
+                    ? isDark ? cc.darkBg + ' border ' + cc.darkBorder : cc.lightBg + ' border ' + cc.border
+                    : isDark ? 'hover:bg-slate-700/50 border border-transparent' : 'hover:bg-slate-50 border border-transparent'
+                }`}
+              >
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedPermissions.includes(permKey)}
+                    onChange={() => onToggle(permKey)}
+                    className="w-4 h-4 rounded border-2 cursor-pointer transition-all checked:bg-gradient-to-br checked:from-blue-500 checked:to-blue-600 checked:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  />
+                </div>
+                <span className={`flex-1 text-sm font-medium transition-colors ${
+                  selectedPermissions.includes(permKey)
+                    ? isDark ? 'text-white' : 'text-slate-900'
+                    : isDark ? 'text-slate-300 group-hover:text-slate-200' : 'text-slate-600 group-hover:text-slate-900'
+                }`}>
+                  {PERMISSION_LABELS[permKey] || permKey}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ===== ANA BİLEŞEN =====
 const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   const { company, updateCompany } = useAuth();
+  const { addToast } = useNotification();
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
+
+  // Confirm Dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    type: 'warning',
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   // ===== ŞİRKET PROFİLİ =====
   const [companyProfile, setCompanyProfile] = useState(() => loadFromStorage('sam_company_profile', {
@@ -186,6 +342,15 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   }));
   const [profileSaved, setProfileSaved] = useState(false);
 
+  // Print & PDF fonksiyonları
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+  };
+
   const updateProfile = (field, value) => {
     setCompanyProfile(prev => ({ ...prev, [field]: value }));
     setProfileSaved(false);
@@ -200,8 +365,89 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   };
 
   const saveProfile = () => {
+    // Validasyon kontrolleri
+    const errors = [];
+
+    // Email validasyonu
+    if (companyProfile.emails && companyProfile.emails.length > 0) {
+      companyProfile.emails.forEach((email, idx) => {
+        if (email.value) {
+          const validation = validateEmail(email.value);
+          if (!validation.isValid) {
+            errors.push(`Email ${idx + 1}: ${validation.error}`);
+          }
+        }
+      });
+    }
+
+    // Telefon validasyonu
+    if (companyProfile.telefonlar && companyProfile.telefonlar.length > 0) {
+      companyProfile.telefonlar.forEach((tel, idx) => {
+        if (tel.value) {
+          const validation = validatePhone(tel.value);
+          if (!validation.isValid) {
+            errors.push(`Telefon ${idx + 1}: ${validation.error}`);
+          }
+        }
+      });
+    }
+
+    // Website validasyonu
+    if (companyProfile.websites && companyProfile.websites.length > 0) {
+      companyProfile.websites.forEach((site, idx) => {
+        if (site.value) {
+          const validation = validateURL(site.value);
+          if (!validation.isValid) {
+            errors.push(`Website ${idx + 1}: ${validation.error}`);
+          }
+        }
+      });
+    }
+
+    // Vergi numarası validasyonu
+    if (companyProfile.vergiNo) {
+      const validation = validateTaxNumber(companyProfile.vergiNo);
+      if (!validation.isValid) {
+        errors.push(validation.error);
+      }
+    }
+
+    // Mersis numarası validasyonu
+    if (companyProfile.mersisNo) {
+      const validation = validateMersisNumber(companyProfile.mersisNo);
+      if (!validation.isValid) {
+        errors.push(validation.error);
+      }
+    }
+
+    // Ticaret sicil numarası validasyonu
+    if (companyProfile.ticaretSicilNo) {
+      const validation = validateTradeRegistryNumber(companyProfile.ticaretSicilNo);
+      if (!validation.isValid) {
+        errors.push(validation.error);
+      }
+    }
+
+    // Hata varsa göster
+    if (errors.length > 0) {
+      addToast({
+        type: 'error',
+        title: 'Doğrulama Hatası',
+        message: errors[0], // İlk hatayı göster
+        duration: 5000
+      });
+      return;
+    }
+
+    // Kaydet
     saveToStorage('sam_company_profile', companyProfile);
     setProfileSaved(true);
+    addToast({
+      type: 'success',
+      title: 'Başarılı',
+      message: 'Şirket profili kaydedildi',
+      duration: 3000
+    });
     setTimeout(() => setProfileSaved(false), 2500);
   };
 
@@ -223,11 +469,33 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   };
 
   const removeDynamicItem = (listKey, id) => {
-    setCompanyProfile(prev => ({
-      ...prev,
-      [listKey]: prev[listKey].filter(item => item.id !== id)
-    }));
-    setProfileSaved(false);
+    const itemTypeNames = {
+      adresler: 'adresi',
+      telefonlar: 'telefon numarasını',
+      emails: 'email adresini',
+      websites: 'website adresini'
+    };
+
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Silme Onayı',
+      message: `Bu ${itemTypeNames[listKey] || 'öğeyi'} silmek istediğinize emin misiniz?`,
+      onConfirm: () => {
+        setCompanyProfile(prev => ({
+          ...prev,
+          [listKey]: prev[listKey].filter(item => item.id !== id)
+        }));
+        setProfileSaved(false);
+        addToast({
+          type: 'success',
+          title: 'Silindi',
+          message: `${itemTypeNames[listKey]?.charAt(0).toUpperCase() + itemTypeNames[listKey]?.slice(1)} başarıyla silindi`,
+          duration: 2000
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
   };
 
   const updateDynamicItem = (listKey, id, field, val) => {
@@ -253,6 +521,21 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     setProfileSaved(false);
   };
 
+  // Tümünü göster/gizle
+  const toggleAllVisibility = (listKey, visible) => {
+    setCompanyProfile(prev => ({
+      ...prev,
+      [listKey]: prev[listKey].map(item => ({ ...item, visible }))
+    }));
+    setProfileSaved(false);
+    addToast({
+      type: 'info',
+      title: 'Güncellendi',
+      message: `Tüm öğeler ${visible ? 'görünür' : 'gizli'} olarak ayarlandı`,
+      duration: 2000
+    });
+  };
+
   // ===== DEPARTMAN YÖNETİMİ =====
   const [deptList, setDeptList] = useState(() => loadFromStorage('sam_departments', initialDepartments));
   const [newDeptName, setNewDeptName] = useState('');
@@ -263,12 +546,40 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
 
   const addDepartment = () => {
     if (!newDeptName.trim()) return;
-    setDeptList(prev => [...prev, { id: Date.now(), name: newDeptName.trim(), color: newDeptColor, employeeCount: 0 }]);
+    const newDept = { id: Date.now(), name: newDeptName.trim(), color: newDeptColor, employeeCount: 0 };
+    setDeptList(prev => [...prev, newDept]);
+    logChange('department', 'create', `Yeni departman eklendi: ${newDept.name}`, null, newDept.name, newDept.name);
     setNewDeptName('');
     setNewDeptColor('#6366f1');
   };
-  const removeDepartment = (id) => setDeptList(prev => prev.filter(d => d.id !== id));
-  const updateDepartment = (id, updates) => { setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d)); setEditingDept(null); };
+  const removeDepartment = (id) => {
+    const dept = deptList.find(d => d.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Departman Sil',
+      message: `"${dept?.name}" departmanını silmek istediğinize emin misiniz?`,
+      onConfirm: () => {
+        setDeptList(prev => prev.filter(d => d.id !== id));
+        logChange('department', 'delete', `Departman silindi: ${dept?.name}`, dept?.name, null, dept?.name);
+        addToast({
+          type: 'success',
+          title: 'Silindi',
+          message: 'Departman başarıyla silindi',
+          duration: 2000
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
+  };
+  const updateDepartment = (id, updates) => { 
+    const oldDept = deptList.find(d => d.id === id);
+    setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d)); 
+    if (updates.name && oldDept?.name !== updates.name) {
+      logChange('department', 'update', `Departman adı değiştirildi`, oldDept?.name, updates.name, oldDept?.name);
+    }
+    setEditingDept(null); 
+  };
 
   // ===== ÖNCELİK YÖNETİMİ =====
   const defaultPriorities = [
@@ -291,7 +602,26 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     setNewPriorityLabel('');
     setNewPriorityColor('#6366f1');
   };
-  const removePriority = (id) => setPriorityList(prev => prev.filter(p => p.id !== id));
+  const removePriority = (id) => {
+    const priority = priorityList.find(p => p.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Öncelik Sil',
+      message: `"${priority?.label}" önceliğini silmek istediğinize emin misiniz?`,
+      onConfirm: () => {
+        setPriorityList(prev => prev.filter(p => p.id !== id));
+        logChange('priority', 'delete', `Öncelik silindi: ${priority?.label}`, priority?.label, null, priority?.label);
+        addToast({
+          type: 'success',
+          title: 'Silindi',
+          message: 'Öncelik başarıyla silindi',
+          duration: 2000
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
+  };
   const updatePriority = (id, updates) => { setPriorityList(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)); setEditingPriority(null); };
 
   // ===== ROL YÖNETİMİ =====
@@ -304,6 +634,8 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   const [newRoleLabel, setNewRoleLabel] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('#6366f1');
   const [editingRole, setEditingRole] = useState(null);
+  const [editingRolePermissions, setEditingRolePermissions] = useState(null);
+  const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
 
   useEffect(() => { saveToStorage('sam_roles', roleList); }, [roleList]);
 
@@ -315,10 +647,102 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     setNewRoleColor('#6366f1');
   };
   const removeRole = (id) => {
-    if (['boss', 'manager', 'employee'].includes(id)) return;
-    setRoleList(prev => prev.filter(r => r.id !== id));
+    if (['boss', 'manager', 'employee'].includes(id)) {
+      addToast({
+        type: 'error',
+        title: 'Silinemez',
+        message: 'Varsayılan roller silinemez',
+        duration: 3000
+      });
+      return;
+    }
+    const role = roleList.find(r => r.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Rol Sil',
+      message: `"${role?.label}" rolünü silmek istediğinize emin misiniz?`,
+      onConfirm: () => {
+        setRoleList(prev => prev.filter(r => r.id !== id));
+        logChange('role', 'delete', `Rol silindi: ${role?.label}`, role?.label, null, role?.label);
+        addToast({
+          type: 'success',
+          title: 'Silindi',
+          message: 'Rol başarıyla silindi',
+          duration: 2000
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
   };
-  const updateRole = (id, updates) => { setRoleList(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); setEditingRole(null); };
+  const updateRole = (id, updates) => { 
+    setRoleList(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); 
+    setEditingRole(null); 
+  };
+  
+  const openRolePermissionsModal = (role) => {
+    setEditingRolePermissions({ ...role, permissions: role.permissions || [] });
+    setShowRolePermissionsModal(true);
+  };
+  
+  const saveRolePermissions = () => {
+    if (editingRolePermissions) {
+      setRoleList(prev => prev.map(r => 
+        r.id === editingRolePermissions.id 
+          ? { ...r, permissions: editingRolePermissions.permissions }
+          : r
+      ));
+      
+      logChange(
+        'role',
+        'update',
+        `"${editingRolePermissions.label}" rolünün yetkileri güncellendi`,
+        'Eski yetkiler',
+        'Yeni yetkiler',
+        editingRolePermissions.label
+      );
+      
+      addToast({
+        type: 'success',
+        title: 'Kaydedildi',
+        message: 'Rol yetkileri güncellendi',
+        duration: 2000
+      });
+      
+      setShowRolePermissionsModal(false);
+      setEditingRolePermissions(null);
+    }
+  };
+  
+  const togglePermission = (permissionKey) => {
+    setEditingRolePermissions(prev => {
+      const permissions = prev.permissions || [];
+      const hasPermission = permissions.includes(permissionKey);
+      
+      return {
+        ...prev,
+        permissions: hasPermission
+          ? permissions.filter(p => p !== permissionKey)
+          : [...permissions, permissionKey]
+      };
+    });
+  };
+  
+  const toggleAllPermissions = (permissions, add) => {
+    setEditingRolePermissions(prev => {
+      const currentPermissions = prev.permissions || [];
+      
+      if (add) {
+        const newPermissions = [...new Set([...currentPermissions, ...permissions])];
+        return { ...prev, permissions: newPermissions };
+      } else {
+        return {
+          ...prev,
+          permissions: currentPermissions.filter(p => !permissions.includes(p))
+        };
+      }
+    });
+  };
 
   // ===== DURUM YÖNETİMİ =====
   const defaultStatuses = [
@@ -338,17 +762,180 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   const addStatus = () => {
     if (!newStatusLabel.trim()) return;
     const id = newStatusLabel.trim().toLowerCase().replace(/\s+/g, '_');
-    setStatusList(prev => [...prev, { id, label: newStatusLabel.trim(), color: newStatusColor, order: prev.length + 1 }]);
+    const newStatus = { id, label: newStatusLabel.trim(), color: newStatusColor, order: 0 };
+    setStatusList(prev => [...prev, newStatus]);
+    logChange('status', 'create', `Yeni durum eklendi: ${newStatus.label}`, null, newStatus.label, newStatus.label);
     setNewStatusLabel('');
     setNewStatusColor('#6366f1');
   };
   const removeStatus = (id) => {
-    if (['pending', 'in_progress', 'completed'].includes(id)) return;
-    setStatusList(prev => prev.filter(s => s.id !== id));
+    if (['pending', 'in_progress', 'completed'].includes(id)) {
+      addToast({
+        type: 'error',
+        title: 'Silinemez',
+        message: 'Varsayılan durumlar silinemez',
+        duration: 3000
+      });
+      return;
+    }
+    const status = statusList.find(s => s.id === id);
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Durum Sil',
+      message: `"${status?.label}" durumunu silmek istediğinize emin misiniz?`,
+      onConfirm: () => {
+        setStatusList(prev => prev.filter(s => s.id !== id));
+        logChange('status', 'delete', `Durum silindi: ${status?.label}`, status?.label, null, status?.label);
+        addToast({
+          type: 'success',
+          title: 'Silindi',
+          message: 'Durum başarıyla silindi',
+          duration: 2000
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
   };
   const updateStatus = (id, updates) => { setStatusList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s)); setEditingStatus(null); };
 
+  // ===== DRAG & DROP CONFIGURATION =====
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDepartmentDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setDeptList((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleRoleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setRoleList((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleStatusDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setStatusList((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handlePriorityDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setPriorityList((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   // ===== RENDER HELPERS =====
+  // ===== SORTABLE LIST ITEM COMPONENT =====
+  const SortableListItem = ({ item, isEditing, onEdit, onUpdate, onRemove, onEditPermissions = null, isProtected = false, isDark }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: item.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`flex items-center gap-2 px-4 py-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'} ${isDragging ? 'shadow-lg z-50' : ''}`}
+      >
+        {/* Drag Handle */}
+        {!isEditing && (
+          <div
+            {...attributes}
+            {...listeners}
+            className={`cursor-grab active:cursor-grabbing p-1 ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <GripVertical size={16} />
+          </div>
+        )}
+
+        <div className="flex-1 flex items-center justify-between">
+          {isEditing ? (
+            <div className="flex items-center gap-2 flex-1">
+              <input
+                type="text"
+                defaultValue={item.label || item.name}
+                className={`flex-1 ${isDark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-lg px-3 py-1.5 text-sm`}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onUpdate(item.id, item.label !== undefined ? { label: e.target.value } : { name: e.target.value });
+                  if (e.key === 'Escape') onEdit(null);
+                }}
+                autoFocus
+              />
+              <ColorPicker value={item.color} onChange={(c) => onUpdate(item.id, { color: c })} isDark={isDark} />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className={`font-medium text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{item.label || item.name}</span>
+                {isProtected && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? 'bg-slate-600 text-slate-400' : 'bg-slate-200 text-slate-500'}`}>Varsayılan</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {onEditPermissions && (
+                  <button 
+                    onClick={() => onEditPermissions(item)} 
+                    className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}
+                    title="Yetkileri Düzenle"
+                  >
+                    <Settings size={14} className={isDark ? 'text-blue-400' : 'text-blue-500'} />
+                  </button>
+                )}
+                <button onClick={() => onEdit(item.id)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-200'}`}>
+                  <Edit size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+                </button>
+                {!isProtected && (
+                  <button onClick={() => onRemove(item.id)} className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30">
+                    <Trash2 size={14} className="text-red-500" />
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderListItem = ({ item, isEditing, onEdit, onUpdate, onRemove, isProtected = false }) => (
     <div key={item.id} className={`flex items-center justify-between px-4 py-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
       {isEditing ? (
@@ -471,7 +1058,34 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       </div>
 
       {/* ===== ŞİRKET PROFİLİ ===== */}
-      <CollapsibleSection isDark={isDark} title="Şirket Profili" subtitle="Ünvan, adresler, iletişim ve ticari bilgiler" icon={Building2} gradient="from-blue-500 to-cyan-500" defaultOpen={true}>
+      <CollapsibleSection 
+        isDark={isDark} 
+        title="Şirket Profili" 
+        subtitle="Ünvan, adresler, iletişim ve ticari bilgiler" 
+        icon={Building2} 
+        gradient="from-blue-500 to-cyan-500" 
+        defaultOpen={true}
+        headerActions={
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className={`p-1.5 rounded-lg transition-all hover:scale-105 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+              title="Yazdır"
+            >
+              <Printer size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all hover:scale-105"
+              title="PDF olarak kaydet"
+            >
+              <Download size={16} />
+            </button>
+          </div>
+        }
+      >
         <div className="space-y-5">
           {/* Görünürlük Bilgilendirmesi */}
           <div className={`flex items-start gap-3 p-4 rounded-xl border-2 ${
@@ -504,13 +1118,31 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
               <p className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <MapPin size={14} /> Adresler
               </p>
-              <button
-                type="button"
-                onClick={() => addDynamicItem('adresler')}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                <Plus size={14} /> Adres Ekle
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('adresler', true)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Göster"
+                >
+                  <Eye size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('adresler', false)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Gizle"
+                >
+                  <EyeOff size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addDynamicItem('adresler')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Plus size={14} /> Adres Ekle
+                </button>
+              </div>
             </div>
             <div className="space-y-4">
               {companyProfile.adresler.map((addr) => (
@@ -622,13 +1254,31 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
               <p className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <Phone size={14} /> Telefon Numaraları
               </p>
-              <button
-                type="button"
-                onClick={() => addDynamicItem('telefonlar')}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                <Plus size={14} /> Telefon Ekle
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('telefonlar', true)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Göster"
+                >
+                  <Eye size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('telefonlar', false)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Gizle"
+                >
+                  <EyeOff size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addDynamicItem('telefonlar')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Plus size={14} /> Telefon Ekle
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {companyProfile.telefonlar.map((tel) => (
@@ -680,13 +1330,31 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
               <p className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <Globe size={14} /> Web Siteleri
               </p>
-              <button
-                type="button"
-                onClick={() => addDynamicItem('websites')}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                <Plus size={14} /> Web Sitesi Ekle
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('websites', true)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Göster"
+                >
+                  <Eye size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('websites', false)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Gizle"
+                >
+                  <EyeOff size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addDynamicItem('websites')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Plus size={14} /> Web Sitesi Ekle
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {companyProfile.websites.map((site) => (
@@ -738,13 +1406,31 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
               <p className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <Mail size={14} /> E-posta Adresleri
               </p>
-              <button
-                type="button"
-                onClick={() => addDynamicItem('emails')}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                <Plus size={14} /> E-posta Ekle
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('emails', true)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Göster"
+                >
+                  <Eye size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAllVisibility('emails', false)}
+                  className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                  title="Tümünü Gizle"
+                >
+                  <EyeOff size={12} /> Tümü
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addDynamicItem('emails')}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  <Plus size={14} /> E-posta Ekle
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {companyProfile.emails.map((email) => (
@@ -827,12 +1513,23 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
           color: newDeptColor, setColor: setNewDeptColor,
           onAdd: addDepartment, placeholder: 'Yeni departman adı...'
         })}
-        <div className="space-y-2">
-          {deptList.map(dept => renderListItem({
-            item: dept, isEditing: editingDept === dept.id,
-            onEdit: setEditingDept, onUpdate: updateDepartment, onRemove: removeDepartment
-          }))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDepartmentDragEnd}>
+          <SortableContext items={deptList.map(d => d.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {deptList.map(dept => (
+                <SortableListItem
+                  key={dept.id}
+                  item={dept}
+                  isEditing={editingDept === dept.id}
+                  onEdit={setEditingDept}
+                  onUpdate={updateDepartment}
+                  onRemove={removeDepartment}
+                  isDark={isDark}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </CollapsibleSection>
 
       {/* ===== ROL YÖNETİMİ ===== */}
@@ -843,13 +1540,25 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
           onAdd: addRole, placeholder: 'Yeni rol adı...',
           buttonColor: 'bg-amber-500 hover:bg-amber-600'
         })}
-        <div className="space-y-2">
-          {roleList.map(role => renderListItem({
-            item: role, isEditing: editingRole === role.id,
-            onEdit: setEditingRole, onUpdate: updateRole, onRemove: removeRole,
-            isProtected: ['boss', 'manager', 'employee'].includes(role.id)
-          }))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
+          <SortableContext items={roleList.map(r => r.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {roleList.map(role => (
+                <SortableListItem
+                  key={role.id}
+                  item={role}
+                  isEditing={editingRole === role.id}
+                  onEdit={setEditingRole}
+                  onUpdate={updateRole}
+                  onRemove={removeRole}
+                  onEditPermissions={openRolePermissionsModal}
+                  isProtected={['boss', 'manager', 'employee'].includes(role.id)}
+                  isDark={isDark}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </CollapsibleSection>
 
       {/* ===== DURUM YÖNETİMİ ===== */}
@@ -860,13 +1569,24 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
           onAdd: addStatus, placeholder: 'Yeni durum adı...',
           buttonColor: 'bg-emerald-500 hover:bg-emerald-600'
         })}
-        <div className="space-y-2">
-          {statusList.map(status => renderListItem({
-            item: status, isEditing: editingStatus === status.id,
-            onEdit: setEditingStatus, onUpdate: updateStatus, onRemove: removeStatus,
-            isProtected: ['pending', 'in_progress', 'completed'].includes(status.id)
-          }))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStatusDragEnd}>
+          <SortableContext items={statusList.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {statusList.map(status => (
+                <SortableListItem
+                  key={status.id}
+                  item={status}
+                  isEditing={editingStatus === status.id}
+                  onEdit={setEditingStatus}
+                  onUpdate={updateStatus}
+                  onRemove={removeStatus}
+                  isProtected={['pending', 'in_progress', 'completed'].includes(status.id)}
+                  isDark={isDark}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </CollapsibleSection>
 
       {/* ===== ÖNCELİK YÖNETİMİ ===== */}
@@ -877,13 +1597,250 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
           onAdd: addPriority, placeholder: 'Yeni öncelik adı...',
           buttonColor: 'bg-amber-500 hover:bg-amber-600'
         })}
-        <div className="space-y-2">
-          {priorityList.map(priority => renderListItem({
-            item: priority, isEditing: editingPriority === priority.id,
-            onEdit: setEditingPriority, onUpdate: updatePriority, onRemove: removePriority
-          }))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePriorityDragEnd}>
+          <SortableContext items={priorityList.map(p => p.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {priorityList.map(priority => (
+                <SortableListItem
+                  key={priority.id}
+                  item={priority}
+                  isEditing={editingPriority === priority.id}
+                  onEdit={setEditingPriority}
+                  onUpdate={updatePriority}
+                  onRemove={removePriority}
+                  isDark={isDark}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </CollapsibleSection>
+
+      {/* ===== ROL YETKİLERİ MODAL ===== */}
+      <BaseModal
+        isOpen={showRolePermissionsModal}
+        onClose={() => setShowRolePermissionsModal(false)}
+        title={editingRolePermissions ? `${editingRolePermissions.label} - Yetki Yönetimi` : 'Yetki Yönetimi'}
+        isDark={isDark}
+        size="lg"
+        footer={
+          <>
+            <button
+              onClick={() => setShowRolePermissionsModal(false)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              İptal
+            </button>
+            <button
+              onClick={saveRolePermissions}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+            >
+              Kaydet
+            </button>
+          </>
+        }
+      >
+        {editingRolePermissions && (
+          <div className="space-y-6">
+            {/* Rol Bilgisi */}
+            <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: editingRolePermissions.color }} />
+                <div>
+                  <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {editingRolePermissions.label}
+                  </h4>
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {(editingRolePermissions.permissions || []).length} yetki seçili
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Yetki Grupları */}
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {/* Görev Yönetimi */}
+              <PermissionGroup
+                title="Görev Yönetimi"
+                icon={CheckSquare}
+                color="blue"
+                permissions={[
+                  PERMISSIONS.TASK_VIEW_ALL,
+                  PERMISSIONS.TASK_VIEW_OWN,
+                  PERMISSIONS.TASK_VIEW_TEAM,
+                  PERMISSIONS.TASK_CREATE,
+                  PERMISSIONS.TASK_EDIT_ALL,
+                  PERMISSIONS.TASK_EDIT_OWN,
+                  PERMISSIONS.TASK_DELETE_ALL,
+                  PERMISSIONS.TASK_DELETE_OWN,
+                  PERMISSIONS.TASK_ASSIGN
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Çalışan Yönetimi */}
+              <PermissionGroup
+                title="Çalışan Yönetimi"
+                icon={Users}
+                color="emerald"
+                permissions={[
+                  PERMISSIONS.EMPLOYEE_VIEW_ALL,
+                  PERMISSIONS.EMPLOYEE_VIEW_TEAM,
+                  PERMISSIONS.EMPLOYEE_CREATE,
+                  PERMISSIONS.EMPLOYEE_EDIT_ALL,
+                  PERMISSIONS.EMPLOYEE_EDIT_OWN,
+                  PERMISSIONS.EMPLOYEE_DELETE,
+                  PERMISSIONS.EMPLOYEE_MANAGE_ROLES
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Departman Yönetimi */}
+              <PermissionGroup
+                title="Departman Yönetimi"
+                icon={Briefcase}
+                color="purple"
+                permissions={[
+                  PERMISSIONS.DEPARTMENT_VIEW,
+                  PERMISSIONS.DEPARTMENT_CREATE,
+                  PERMISSIONS.DEPARTMENT_EDIT,
+                  PERMISSIONS.DEPARTMENT_DELETE,
+                  PERMISSIONS.DEPARTMENT_MANAGE
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* İzin Yönetimi */}
+              <PermissionGroup
+                title="İzin Yönetimi"
+                icon={Calendar}
+                color="orange"
+                permissions={[
+                  PERMISSIONS.LEAVE_VIEW_ALL,
+                  PERMISSIONS.LEAVE_VIEW_OWN,
+                  PERMISSIONS.LEAVE_VIEW_TEAM,
+                  PERMISSIONS.LEAVE_CREATE,
+                  PERMISSIONS.LEAVE_APPROVE,
+                  PERMISSIONS.LEAVE_REJECT
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Rapor Yönetimi */}
+              <PermissionGroup
+                title="Rapor Yönetimi"
+                icon={BarChart3}
+                color="cyan"
+                permissions={[
+                  PERMISSIONS.REPORT_VIEW_BASIC,
+                  PERMISSIONS.REPORT_VIEW_ADVANCED,
+                  PERMISSIONS.REPORT_VIEW_FINANCIAL,
+                  PERMISSIONS.REPORT_EXPORT
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Şirket Yönetimi */}
+              <PermissionGroup
+                title="Şirket Yönetimi"
+                icon={Building2}
+                color="rose"
+                permissions={[
+                  PERMISSIONS.COMPANY_VIEW_INFO,
+                  PERMISSIONS.COMPANY_EDIT_INFO,
+                  PERMISSIONS.COMPANY_SETTINGS
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Sistem Yönetimi */}
+              <PermissionGroup
+                title="Sistem Yönetimi"
+                icon={Shield}
+                color="amber"
+                permissions={[
+                  PERMISSIONS.SYSTEM_ADMIN,
+                  PERMISSIONS.SYSTEM_LOGS,
+                  PERMISSIONS.SYSTEM_BACKUP
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Duyuru Yönetimi */}
+              <PermissionGroup
+                title="Duyuru Yönetimi"
+                icon={Megaphone}
+                color="blue"
+                permissions={[
+                  PERMISSIONS.ANNOUNCEMENT_VIEW,
+                  PERMISSIONS.ANNOUNCEMENT_CREATE,
+                  PERMISSIONS.ANNOUNCEMENT_EDIT_ALL,
+                  PERMISSIONS.ANNOUNCEMENT_DELETE
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+
+              {/* Dosya Yönetimi */}
+              <PermissionGroup
+                title="Dosya Yönetimi"
+                icon={FileText}
+                color="emerald"
+                permissions={[
+                  PERMISSIONS.FILE_VIEW_ALL,
+                  PERMISSIONS.FILE_VIEW_OWN,
+                  PERMISSIONS.FILE_VIEW_TEAM,
+                  PERMISSIONS.FILE_UPLOAD,
+                  PERMISSIONS.FILE_DELETE_ALL,
+                  PERMISSIONS.FILE_DELETE_OWN
+                ]}
+                selectedPermissions={editingRolePermissions.permissions || []}
+                onToggle={togglePermission}
+                onToggleAll={toggleAllPermissions}
+                isDark={isDark}
+              />
+            </div>
+          </div>
+        )}
+      </BaseModal>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText="Sil"
+        cancelText="İptal"
+        isDark={isDark}
+      />
     </div>
   );
 };

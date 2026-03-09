@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Building2, MapPin, Phone, Mail, Globe, FileText, Banknote, Hash, 
-  Info, Eye, ChevronDown 
+  Info, Eye, ChevronDown, Printer, Download 
 } from 'lucide-react';
 
 const CompanyInfo = ({ isDark }) => {
@@ -25,6 +25,15 @@ const CompanyInfo = ({ isDark }) => {
 
   const toggleSection = (section) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    // Tarayıcının PDF özelliğini kullan
+    window.print();
   };
 
   // Eğer veri yoksa
@@ -98,17 +107,37 @@ const CompanyInfo = ({ isDark }) => {
       <div className={`relative overflow-hidden rounded-2xl border ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700' : 'bg-gradient-to-br from-white to-slate-50 border-slate-200'}`}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
         <div className="relative px-8 py-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
-              <Building2 size={32} className="text-blue-500" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'}`}>
+                <Building2 size={32} className="text-blue-500" />
+              </div>
+              <div>
+                <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {companyProfile.unvan || 'Şirket Bilgileri'}
+                </h1>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Şirketimiz hakkında bilgiler
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                {companyProfile.unvan || 'Şirket Bilgileri'}
-              </h1>
-              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Şirketimiz hakkında bilgiler
-              </p>
+            <div className="flex items-center gap-2 print:hidden">
+              <button
+                onClick={handlePrint}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                title="Yazdır"
+              >
+                <Printer size={18} />
+                Yazdır
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium text-sm transition-colors"
+                title="PDF olarak kaydet"
+              >
+                <Download size={18} />
+                PDF
+              </button>
             </div>
           </div>
         </div>

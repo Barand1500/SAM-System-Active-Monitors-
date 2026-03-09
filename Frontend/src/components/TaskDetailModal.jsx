@@ -34,6 +34,17 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
     return () => clearInterval(timer);
   }, []);
 
+  // ESC tuşu ile kapanma
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   // Mock alt görevler
   const [subtasks, setSubtasks] = useState([
     { id: 1, title: 'Veritabanı şemasını tasarla', completed: true },
@@ -119,7 +130,10 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className={`w-full max-w-3xl my-8 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-white'} shadow-2xl`}>
+      <div 
+        className={`w-full max-w-3xl my-8 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-white'} shadow-2xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
           <div className="flex items-start justify-between">

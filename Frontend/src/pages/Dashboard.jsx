@@ -63,7 +63,8 @@ import {
   Headphones,
   FolderOpen,
   Vote,
-  Contact
+  Contact,
+  History
 } from 'lucide-react';
 
 // Yeni bileşenleri import et
@@ -80,6 +81,16 @@ import FileSharing from '../components/FileSharing';
 import SurveySystem from '../components/SurveySystem';
 import AdminPanel from '../components/AdminPanel';
 import CompanyInfo from '../components/CompanyInfo';
+import UserProfile from '../components/UserProfile';
+import ChangeHistory, { logChange } from '../components/ChangeHistory';
+import { 
+  TaskStatsWidget, 
+  WeeklyHoursWidget, 
+  UpcomingTasksWidget, 
+  TeamPerformanceWidget, 
+  RecentActivitiesWidget, 
+  NotificationSummaryWidget
+} from '../components/DashboardWidgets';
 
 // Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
 const DATA_VERSION = 2;
@@ -257,14 +268,57 @@ const Dashboard = () => {
       actualHours: 0
     };
     setTasks(prev => [newTask, ...prev]);
+    
+    // Değişiklik geçmişine kaydet
+    logChange(
+      'task',
+      'create',
+      `"${taskData.title}" görevi oluşturuldu`,
+      null,
+      taskData.title,
+      taskData.title
+    );
   };
 
   const updateTask = (taskId, updates) => {
+    const oldTask = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    
+    // Değişiklik geçmişine kaydet
+    if (oldTask) {
+      const changes = [];
+      if (updates.status && updates.status !== oldTask.status) changes.push(`Durum: ${updates.status}`);
+      if (updates.title && updates.title !== oldTask.title) changes.push(`Başlık değişti`);
+      if (updates.assignedTo) changes.push(`Atanan kişi değişti`);
+      
+      if (changes.length > 0) {
+        logChange(
+          'task',
+          'update',
+          `"${oldTask.title}" görevi güncellendi: ${changes.join(', ')}`,
+          oldTask.status,
+          updates.status || oldTask.status,
+          oldTask.title
+        );
+      }
+    }
   };
 
   const deleteTask = (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    
+    // Değişiklik geçmişine kaydet
+    if (task) {
+      logChange(
+        'task',
+        'delete',
+        `"${task.title}" görevi silindi`,
+        task.title,
+        null,
+        task.title
+      );
+    }
   };
 
   const leaveTask = (taskId) => {
@@ -288,14 +342,50 @@ const Dashboard = () => {
       avatar: null
     };
     setEmployees(prev => [...prev, newEmployee]);
+    
+    // Değişiklik geçmişine kaydet
+    logChange(
+      'employee',
+      'create',
+      `"${empData.firstName} ${empData.lastName}" çalışanı eklendi`,
+      null,
+      `${empData.firstName} ${empData.lastName}`,
+      `${empData.firstName} ${empData.lastName}`
+    );
   };
 
   const updateEmployee = (empId, updates) => {
+    const oldEmp = employees.find(e => e.id === empId);
     setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updates } : e));
+    
+    // Değişiklik geçmişine kaydet
+    if (oldEmp) {
+      logChange(
+        'employee',
+        'update',
+        `"${oldEmp.firstName} ${oldEmp.lastName}" çalışanı güncellendi`,
+        `${oldEmp.firstName} ${oldEmp.lastName}`,
+        updates.firstName ? `${updates.firstName} ${updates.lastName || oldEmp.lastName}` : `${oldEmp.firstName} ${oldEmp.lastName}`,
+        `${oldEmp.firstName} ${oldEmp.lastName}`
+      );
+    }
   };
 
   const deleteEmployee = (empId) => {
+    const emp = employees.find(e => e.id === empId);
     setEmployees(prev => prev.filter(e => e.id !== empId));
+    
+    // Değişiklik geçmişine kaydet
+    if (emp) {
+      logChange(
+        'employee',
+        'delete',
+        `"${emp.firstName} ${emp.lastName}" çalışanı silindi`,
+        `${emp.firstName} ${emp.lastName}`,
+        null,
+        `${emp.firstName} ${emp.lastName}`
+      );
+    }
   };
 
   const addAnnouncement = (annData) => {
@@ -306,14 +396,50 @@ const Dashboard = () => {
       createdBy: { id: user.id, firstName: user.firstName, lastName: user.lastName }
     };
     setAnnouncementsList(prev => [newAnn, ...prev]);
+    
+    // Değişiklik geçmişine kaydet
+    logChange(
+      'announcement',
+      'create',
+      `"${annData.title}" duyurusu oluşturuldu`,
+      null,
+      annData.title,
+      annData.title
+    );
   };
 
   const updateAnnouncement = (annId, updates) => {
+    const oldAnn = announcementsList.find(a => a.id === annId);
     setAnnouncementsList(prev => prev.map(a => a.id === annId ? { ...a, ...updates } : a));
+    
+    // Değişiklik geçmişine kaydet
+    if (oldAnn) {
+      logChange(
+        'announcement',
+        'update',
+        `"${oldAnn.title}" duyurusu güncellendi`,
+        oldAnn.title,
+        updates.title || oldAnn.title,
+        oldAnn.title
+      );
+    }
   };
 
   const deleteAnnouncement = (annId) => {
+    const ann = announcementsList.find(a => a.id === annId);
     setAnnouncementsList(prev => prev.filter(a => a.id !== annId));
+    
+    // Değişiklik geçmişine kaydet
+    if (ann) {
+      logChange(
+        'announcement',
+        'delete',
+        `"${ann.title}" duyurusu silindi`,
+        ann.title,
+        null,
+        ann.title
+      );
+    }
   };
 
   // Görev Ekleme Modal
@@ -435,6 +561,14 @@ const Dashboard = () => {
                         className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
                         <Building2 size={16} />
                         Şirket Ayarları
+                      </button>
+                    )}
+                    {(isBoss || canManage) && (
+                      <button 
+                        onClick={() => { setActiveTab('history'); setShowUserMenu(false); }}
+                        className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <History size={16} />
+                        Değişiklik Geçmişi
                       </button>
                     )}
                     <button 
@@ -567,6 +701,7 @@ const Dashboard = () => {
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
         {activeTab === 'companyInfo' && <CompanyInfo isDark={isDark} />}
         {activeTab === 'admin' && isBoss && <AdminPanel isDark={isDark} departments={departments} />}
+        {activeTab === 'history' && (isBoss || canManage) && <ChangeHistory isDark={isDark} />}
         {activeTab === 'settings' && <SettingsTab isDark={isDark} isBoss={isBoss} canManage={canManage} />}
       </div>
 
@@ -2072,22 +2207,14 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
         </div>
       </div>
 
-      {/* İstatistikler */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <div key={index} className={`${stat.bg} rounded-2xl p-5 border ${isDark ? 'border-slate-700/60' : 'border-slate-200/60'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg`}>
-                  <Icon size={20} className="text-white" />
-                </div>
-                <span className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stat.value}</span>
-              </div>
-              <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{stat.label}</p>
-            </div>
-          );
-        })}
+      {/* Dashboard Widgets - Modern Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <TaskStatsWidget tasks={tasks} isDark={isDark} />
+        <WeeklyHoursWidget isDark={isDark} />
+        <UpcomingTasksWidget tasks={displayTasks} isDark={isDark} onTaskClick={(task) => console.log('Task clicked:', task)} />
+        <TeamPerformanceWidget employees={employees} tasks={tasks} isDark={isDark} />
+        <RecentActivitiesWidget isDark={isDark} />
+        <NotificationSummaryWidget isDark={isDark} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -2109,7 +2236,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
                   <div className="flex-1 min-w-0">
                     <h4 className={`font-medium truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{task.title}</h4>
                     <p className={`text-sm mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'Atanmadı'}
+                      {task.assignedTo?.firstName && task.assignedTo?.lastName ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'Atanmadı'}
                     </p>
                   </div>
                   <StatusBadge status={task.status} />
@@ -2244,7 +2371,7 @@ const TasksTab = ({ tasks, employees, canManage, isDark, onTaskClick, onUpdateTa
                 <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{task.description}</p>
                 
                 <div className="flex items-center gap-4 text-sm">
-                  {task.assignedTo ? (
+                  {task.assignedTo && task.assignedTo.firstName && task.assignedTo.lastName ? (
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg flex items-center justify-center text-white text-xs font-medium">
                         {task.assignedTo.firstName[0]}{task.assignedTo.lastName[0]}
@@ -2813,6 +2940,7 @@ const ColorPicker = ({ value, onChange, isDark }) => {
 
 const SettingsTab = ({ isDark, isBoss, canManage }) => {
   const { user, company, updateCompany, checkCompanyCodeAvailability } = useAuth();
+  const [activeSettingsTab, setActiveSettingsTab] = useState('profile'); // profile | company
 
   // Mevcut kodu parçalara ayır
   const parseExistingCode = (code) => {
@@ -2905,45 +3033,54 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
     setTimeout(() => setCompanySaved(false), 2500);
   };
 
-
-
   return (
-    <div className="max-w-3xl space-y-6">
-      {/* Profil Bilgileri */}
-      <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
-        <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Profil Bilgileri</h3>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ad</label>
-              <input
-                type="text"
-                defaultValue={user?.firstName}
-                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-2.5`}
-              />
-            </div>
-            <div>
-              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Soyad</label>
-              <input
-                type="text"
-                defaultValue={user?.lastName}
-                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-2.5`}
-              />
-            </div>
+    <div className="space-y-6">
+      {/* Sekme Başlıkları */}
+      <div className={`flex gap-2 p-1.5 rounded-xl ${isDark ? 'bg-slate-800/50 border border-slate-700' : 'bg-slate-100 border border-slate-200'}`}>
+        <button
+          onClick={() => setActiveSettingsTab('profile')}
+          className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
+            activeSettingsTab === 'profile'
+              ? isDark
+                ? 'bg-blue-500 text-white shadow-lg'
+                : 'bg-white text-blue-600 shadow-md'
+              : isDark
+                ? 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <User size={18} />
+            Profil Bilgilerim
           </div>
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>E-posta</label>
-            <input
-              type="email"
-              defaultValue={user?.email}
-              className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 py-2.5`}
-            />
-          </div>
-        </div>
+        </button>
+        {isBoss && (
+          <button
+            onClick={() => setActiveSettingsTab('company')}
+            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              activeSettingsTab === 'company'
+                ? isDark
+                  ? 'bg-blue-500 text-white shadow-lg'
+                  : 'bg-white text-blue-600 shadow-md'
+                : isDark
+                  ? 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Building2 size={18} />
+              Şirket Ayarları
+            </div>
+          </button>
+        )}
       </div>
 
-      {/* Şirket Bilgileri - Sadece Boss */}
-      {isBoss && (
+      {/* Sekme İçerikleri */}
+      {activeSettingsTab === 'profile' && (
+        <UserProfile isDark={isDark} />
+      )}
+
+      {activeSettingsTab === 'company' && isBoss && (
       <div className={`${isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60'} rounded-2xl border p-6`}>
         <div className="flex items-center justify-between mb-5">
           <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Şirket Bilgileri</h3>
@@ -3152,11 +3289,6 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
         </div>
       </div>
       )}
-
-      <button className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
-                       hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25">
-        Değişiklikleri Kaydet
-      </button>
     </div>
   );
 };
@@ -3211,6 +3343,17 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
   const [newGroupEmoji, setNewGroupEmoji] = useState('👥');
   const [newGroupMembers, setNewGroupMembers] = useState([]);
   const [groupSearchTerm, setGroupSearchTerm] = useState('');
+
+  // ESC tuşu ile kapanma
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   const activeEmployees = employees.filter(e => e.role !== 'boss' && e.status === 'active');
   const filteredEmployees = activeEmployees.filter(emp =>
@@ -3308,8 +3451,13 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+      {/* Overlay - Tıklamada kapanmaz */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      {/* Modal Container - propagation durduruluyor */}
+      <div 
+        className={`relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
