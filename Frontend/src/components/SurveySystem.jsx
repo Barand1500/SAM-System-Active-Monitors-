@@ -73,6 +73,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
   const [surveys, setSurveys] = useState(loadSurveys);
   const [view, setView] = useState('list');
   const [statsId, setStatsId] = useState(null);
+  const [voteFormSurveyId, setVoteFormSurveyId] = useState(null);
 
   useEffect(() => { localStorage.setItem('sam_surveys', JSON.stringify(surveys)); }, [surveys]);
 
@@ -767,7 +768,6 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
     const total = survey.responses.length;
     const daysLeft = Math.max(0, Math.ceil((new Date(survey.expiresAt) - new Date()) / 86400000));
     const condCount = survey.questions.filter(q => q.condition).length;
-    const [showVoteForm, setShowVoteForm] = useState(false);
 
     // ilk sorunun sonuçları göstermek için
     const firstQ = survey.questions[0];
@@ -900,7 +900,7 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
 
             {/* Vote button */}
             {!isExpired && !responded && (
-              <button onClick={() => setShowVoteForm(true)}
+              <button onClick={() => setVoteFormSurveyId(survey.id)}
                 className="w-full py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25">
                 Oy Kullan
               </button>
@@ -912,7 +912,6 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
             )}
           </div>
         </div>
-        {showVoteForm && <VoteForm survey={survey} onClose={() => setShowVoteForm(false)} />}
       </>
     );
   };
@@ -977,6 +976,10 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
       )}
 
       {statsSurvey && <StatsView survey={statsSurvey} onClose={() => setStatsId(null)} />}
+      {voteFormSurveyId && (() => {
+        const voteSurvey = surveys.find(s => s.id === voteFormSurveyId);
+        return voteSurvey ? <VoteForm survey={voteSurvey} onClose={() => setVoteFormSurveyId(null)} /> : null;
+      })()}
     </div>
   );
 };

@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Check,
   Copy,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown
 } from 'lucide-react';
 
 const INDUSTRY_OPTIONS = [
@@ -50,6 +51,8 @@ const RegisterPage = ({ onSwitchToLogin }) => {
   const [success, setSuccess] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [customIndustry, setCustomIndustry] = useState('');
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+  const [industrySearch, setIndustrySearch] = useState('');
   
   // E-posta doğrulama
   const [emailVerificationStep, setEmailVerificationStep] = useState(false);
@@ -364,19 +367,62 @@ const RegisterPage = ({ onSwitchToLogin }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Sektör</label>
-                    <select
-                      name="industry"
-                      value={formData.industry}
-                      onChange={handleIndustryChange}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5
-                               text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    >
-                      <option value="">Sektör seçin</option>
-                      {INDUSTRY_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                      <option value="custom">✏️ Kendim Girmek İstiyorum</option>
-                    </select>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5
+                                 text-left text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 flex items-center justify-between"
+                      >
+                        <span className={formData.industry ? 'text-slate-800' : 'text-slate-400'}>
+                          {formData.industry === 'custom' ? '✏️ Kendim Girmek İstiyorum' :
+                           formData.industry ? INDUSTRY_OPTIONS.find(o => o.value === formData.industry)?.label : 'Sektör seçin'}
+                        </span>
+                        <ChevronDown size={18} className={`text-slate-400 transition-transform ${showIndustryDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+                      {showIndustryDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setShowIndustryDropdown(false)} />
+                          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                            <div className="p-2 border-b border-slate-100">
+                              <input
+                                type="text"
+                                value={industrySearch}
+                                onChange={e => setIndustrySearch(e.target.value)}
+                                placeholder="Sektör ara..."
+                                autoFocus
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm
+                                         text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                              />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {INDUSTRY_OPTIONS
+                                .filter(opt => opt.label.toLowerCase().includes(industrySearch.toLowerCase()))
+                                .map(opt => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => { handleIndustryChange({ target: { value: opt.value } }); setShowIndustryDropdown(false); setIndustrySearch(''); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors
+                                    ${formData.industry === opt.value ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => { handleIndustryChange({ target: { value: 'custom' } }); setShowIndustryDropdown(false); setIndustrySearch(''); }}
+                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 border-t border-slate-100 transition-colors
+                                  ${formData.industry === 'custom' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
+                              >
+                                ✏️ Kendim Girmek İstiyorum
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {formData.industry === 'custom' && (
                       <input
                         type="text"

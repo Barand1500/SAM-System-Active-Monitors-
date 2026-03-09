@@ -9,7 +9,9 @@ import {
   X,
   Save,
   Trash2,
-  Edit
+  Edit,
+  ClipboardList,
+  ListTodo
 } from 'lucide-react';
 
 const loadPersonalNotes = () => {
@@ -36,6 +38,7 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
   const [noteModal, setNoteModal] = useState(null); // dateStr or null
   const [noteText, setNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
+  const [dateActionModal, setDateActionModal] = useState(null); // { dateStr, dayTasks } or null
 
   useEffect(() => {
     localStorage.setItem('sam_personal_notes', JSON.stringify(personalNotes));
@@ -161,7 +164,19 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
 
   const handleDateClick = (date) => {
     const dateStr = date.toISOString().split('T')[0];
-    onAddTask?.(dateStr);
+    const dayTasks = getTasksForDate(date);
+    
+    if (onAddTask) {
+      // Patron/Yönetici: Not mu? Görev mi? seçim ekranı
+      setDateActionModal({ dateStr, dayTasks });
+    } else {
+      // Çalışan: görev varsa seçim ekranı, yoksa not
+      if (dayTasks.length > 0) {
+        setDateActionModal({ dateStr, dayTasks });
+      } else {
+        openNoteModal(dateStr, { stopPropagation: () => {} });
+      }
+    }
   };
 
   const days = view === 'month' ? getDaysInMonth(currentDate) : getWeekDays(currentDate);
@@ -339,6 +354,63 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
           );
         })}
       </div>
+
+      {/* Tarih Seçim Modalı */}
+      {dateActionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDateActionModal(null)}>
+          <div onClick={e => e.stopPropagation()} className={`w-full max-w-sm rounded-2xl border shadow-2xl ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+              <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                {new Date(dateActionModal.dateStr + 'T12:00:00').toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </h3>
+              <button onClick={() => setDateActionModal(null)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* Görev varsa listele */}
+              {dateActionModal.dayTasks.length > 0 && (
+                <div className="space-y-2 mb-2">
+                  <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Bu tarihteki görevler ({dateActionModal.dayTasks.length})
+                  </p>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {dateActionModal.dayTasks.map(task => (
+                      <button key={task.id}
+                        onClick={() => { onTaskClick?.(task); setDateActionModal(null); }}
+                        className={`w-full text-left p-2.5 rounded-xl border text-sm transition-all ${isDark ? 'border-slate-600 bg-slate-700/50 text-slate-200 hover:bg-slate-700' : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'}`}>
+                        <div className="flex items-center gap-2">
+                          <ListTodo size={14} className={isDark ? 'text-indigo-400' : 'text-indigo-500'} />
+                          <span className="truncate">{task.title}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className={`grid ${onAddTask ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                <button
+                  onClick={() => { setDateActionModal(null); openNoteModal(dateActionModal.dateStr, { stopPropagation: () => {} }); }}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] ${isDark ? 'border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700'}`}
+                >
+                  <StickyNote size={24} />
+                  <span className="text-sm font-semibold">Not Ekle</span>
+                </button>
+                {onAddTask && (
+                  <button
+                    onClick={() => { onAddTask(dateActionModal.dateStr); setDateActionModal(null); }}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] ${isDark ? 'border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700'}`}
+                  >
+                    <ClipboardList size={24} />
+                    <span className="text-sm font-semibold">Görev Ekle</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Kişisel Not Modal */}
       {noteModal && (
