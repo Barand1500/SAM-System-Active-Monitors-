@@ -601,6 +601,15 @@ const Dashboard = () => {
     setEditingAnnouncement(ann);
     setShowAnnouncementModal(true);
   };
+  
+  // Görev Tarihi Güncelle (Calendar Drag & Drop için)
+  const updateTaskDate = async (taskId, newDate) => {
+    try {
+      await updateTask(taskId, { dueDate: newDate });
+    } catch (err) {
+      console.error('Görev tarihi güncellenirken hata:', err);
+    }
+  };
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50'}`}>
@@ -830,7 +839,7 @@ const Dashboard = () => {
         {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} onLeaveTask={leaveTask} />}
         {activeTab === 'pool' && !canManage && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
-        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={canManage ? (date) => openTaskModal(null, date) : undefined} />}
+        {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={canManage ? (date) => openTaskModal(null, date) : undefined} onUpdateTaskDate={updateTaskDate} />}
         {activeTab === 'timetracker' && <TimeTracker user={user} isDark={isDark} />}
         {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={employees} isDark={isDark} departments={departments} />}
         {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} />}

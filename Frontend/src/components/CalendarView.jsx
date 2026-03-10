@@ -11,8 +11,20 @@ import {
   Trash2,
   Edit,
   ClipboardList,
-  ListTodo
+  ListTodo,
+  GripVertical
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  useDraggable,
+  useDroppable
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
 const loadPersonalNotes = () => {
   try {
@@ -31,7 +43,132 @@ const loadPersonalNotes = () => {
   } catch { return {}; }
 };
 
-const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
+// ===== DRAGGABLE TASK COMPONENT =====
+const DraggableTask = ({ task, isDark, onClick, statusColors }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+  });
+  
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+  };
+  
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => { e.stopPropagation(); if (!isDragging) onClick?.(task); }}
+      className={`text-xs p-1.5 rounded-md truncate border-l-2 cursor-grab active:cursor-grabbing transition-all
+                ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}
+                ${statusColors[task.status]}`}
+    >
+      <div className="flex items-center gap-1">
+        <GripVertical size={10} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
+        <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{task.title}</span>
+      </div>
+    </div>
+  );
+};
+
+// ===== DROPPABLE DAY CELL COMPONENT =====
+const DroppableDay = ({ 
+  dateStr, 
+  day, 
+  index, 
+  today, 
+  dayTasks, 
+  hasNote, 
+  noteList, 
+  view, 
+  isDark, 
+  onDateClick, 
+  onNoteClick, 
+  onTaskClick, 
+  onAddTask,
+  statusColors 
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateStr,
+  });
+  
+  const minH = view === 'week' ? 'min-h-52' : 'min-h-28';
+  
+  return (
+    <div 
+      ref={setNodeRef}
+      key={index}
+      onClick={() => onDateClick(day.date)}
+      className={`${minH} p-2 border-b border-r cursor-pointer transition-all group
+                ${isDark ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-100 hover:bg-indigo-50/30'}
+                ${!day.isCurrentMonth ? (isDark ? 'bg-slate-800/50' : 'bg-slate-50/50') : ''}
+                ${today ? (isDark ? 'bg-indigo-500/5' : 'bg-indigo-50/50') : ''}
+                ${isOver ? (isDark ? 'ring-2 ring-indigo-500/50 bg-indigo-500/10' : 'ring-2 ring-indigo-400 bg-indigo-100') : ''}`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1">
+          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium
+                        ${today 
+                          ? 'bg-indigo-500 text-white' 
+                          : day.isCurrentMonth 
+                            ? (isDark ? 'text-white' : 'text-slate-800')
+                            : (isDark ? 'text-slate-600' : 'text-slate-400')}`}>
+            {day.date.getDate()}
+          </div>
+          {hasNote && (
+            <button onClick={(e) => onNoteClick(dateStr, e)} title={`${noteList.length} not`}>
+              <div className="flex items-center gap-0.5">
+                <StickyNote size={12} className="text-amber-500" />
+                {noteList.length > 1 && <span className="text-[10px] font-bold text-amber-500">{noteList.length}</span>}
+              </div>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5">
+          <div onClick={(e) => onNoteClick(dateStr, e)}
+            className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-amber-100'}`}
+            title="Not ekle">
+            <StickyNote size={13} className={isDark ? 'text-amber-400' : 'text-amber-500'} />
+          </div>
+          {onAddTask && (
+          <div className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-indigo-100'}`}>
+            <Plus size={14} className={isDark ? 'text-slate-400' : 'text-indigo-500'} />
+          </div>
+          )}
+        </div>
+      </div>
+
+      {/* Kişisel not gösterimi */}
+      {hasNote && (
+        <div onClick={(e) => onNoteClick(dateStr, e)}
+          className={`text-xs p-1.5 rounded-md mb-1 truncate cursor-pointer ${isDark ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+          📝 {noteList[0].text}{noteList.length > 1 ? ` (+${noteList.length - 1})` : ''}
+        </div>
+      )}
+      
+      <div className="space-y-1">
+        {dayTasks.slice(0, view === 'week' ? 5 : 3).map(task => (
+          <DraggableTask
+            key={task.id}
+            task={task}
+            isDark={isDark}
+            onClick={onTaskClick}
+            statusColors={statusColors}
+          />
+        ))}
+        {dayTasks.length > (view === 'week' ? 5 : 3) && (
+          <div className={`text-xs px-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            +{dayTasks.length - (view === 'week' ? 5 : 3)} daha
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month');
   const [personalNotes, setPersonalNotes] = useState(loadPersonalNotes);
@@ -39,6 +176,17 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
   const [noteText, setNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [dateActionModal, setDateActionModal] = useState(null); // { dateStr, dayTasks } or null
+  
+  // Drag & Drop States
+  const [activeTask, setActiveTask] = useState(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
 
   useEffect(() => {
     localStorage.setItem('sam_personal_notes', JSON.stringify(personalNotes));
@@ -178,6 +326,38 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
       }
     }
   };
+  
+  // ===== DRAG & DROP HANDLERS =====
+  
+  const handleDragStart = (event) => {
+    const { active } = event;
+    const task = tasks.find(t => t.id === active.id);
+    setActiveTask(task);
+  };
+  
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    
+    if (!over || !onUpdateTaskDate) {
+      setActiveTask(null);
+      return;
+    }
+    
+    const taskId = active.id;
+    const newDate = over.id; // over.id is the dateStr
+    
+    // Tarih değişti mi kontrol et
+    const task = tasks.find(t => t.id === taskId);
+    if (task && task.dueDate !== newDate) {
+      onUpdateTaskDate(taskId, newDate);
+    }
+    
+    setActiveTask(null);
+  };
+  
+  const handleDragCancel = () => {
+    setActiveTask(null);
+  };
 
   const days = view === 'month' ? getDaysInMonth(currentDate) : getWeekDays(currentDate);
 
@@ -206,7 +386,14 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
   };
 
   return (
-    <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
       {/* Header */}
       <div className={`p-4 border-b ${isDark ? 'border-slate-700' : 'border-slate-200'} flex items-center justify-between`}>
         <div className="flex items-center gap-4">
@@ -277,80 +464,28 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
         {days.map((day, index) => {
           const dayTasks = getTasksForDate(day.date);
           const today = isToday(day.date);
-          const minH = view === 'week' ? 'min-h-52' : 'min-h-28';
           const dateStr = day.date.toISOString().split('T')[0];
           const noteList = personalNotes[dateStr] || [];
           const hasNote = noteList.length > 0;
           
           return (
-            <div 
+            <DroppableDay
               key={index}
-              onClick={() => handleDateClick(day.date)}
-              className={`${minH} p-2 border-b border-r cursor-pointer transition-colors group
-                        ${isDark ? 'border-slate-700 hover:bg-slate-700/50' : 'border-slate-100 hover:bg-indigo-50/30'}
-                        ${!day.isCurrentMonth ? (isDark ? 'bg-slate-800/50' : 'bg-slate-50/50') : ''}
-                        ${today ? (isDark ? 'bg-indigo-500/5' : 'bg-indigo-50/50') : ''}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium
-                                ${today 
-                                  ? 'bg-indigo-500 text-white' 
-                                  : day.isCurrentMonth 
-                                    ? (isDark ? 'text-white' : 'text-slate-800')
-                                    : (isDark ? 'text-slate-600' : 'text-slate-400')}`}>
-                    {day.date.getDate()}
-                  </div>
-                  {hasNote && (
-                    <button onClick={(e) => openNoteModal(dateStr, e)} title={`${noteList.length} not`}>
-                      <div className="flex items-center gap-0.5">
-                        <StickyNote size={12} className="text-amber-500" />
-                        {noteList.length > 1 && <span className="text-[10px] font-bold text-amber-500">{noteList.length}</span>}
-                      </div>
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-0.5">
-                  <div onClick={(e) => openNoteModal(dateStr, e)}
-                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-amber-100'}`}
-                    title="Not ekle">
-                    <StickyNote size={13} className={isDark ? 'text-amber-400' : 'text-amber-500'} />
-                  </div>
-                  {onAddTask && (
-                  <div className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-indigo-100'}`}>
-                    <Plus size={14} className={isDark ? 'text-slate-400' : 'text-indigo-500'} />
-                  </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Kişisel not gösterimi */}
-              {hasNote && (
-                <div onClick={(e) => openNoteModal(dateStr, e)}
-                  className={`text-xs p-1.5 rounded-md mb-1 truncate cursor-pointer ${isDark ? 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
-                  📝 {noteList[0].text}{noteList.length > 1 ? ` (+${noteList.length - 1})` : ''}
-                </div>
-              )}
-              
-              <div className="space-y-1">
-                {dayTasks.slice(0, view === 'week' ? 5 : 3).map(task => (
-                  <div
-                    key={task.id}
-                    onClick={(e) => { e.stopPropagation(); onTaskClick?.(task); }}
-                    className={`text-xs p-1.5 rounded-md truncate border-l-2 cursor-pointer transition-colors
-                              ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-100 hover:bg-slate-200'}
-                              ${statusColors[task.status]}`}
-                  >
-                    <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{task.title}</span>
-                  </div>
-                ))}
-                {dayTasks.length > (view === 'week' ? 5 : 3) && (
-                  <div className={`text-xs px-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    +{dayTasks.length - (view === 'week' ? 5 : 3)} daha
-                  </div>
-                )}
-              </div>
-            </div>
+              dateStr={dateStr}
+              day={day}
+              index={index}
+              today={today}
+              dayTasks={dayTasks}
+              hasNote={hasNote}
+              noteList={noteList}
+              view={view}
+              isDark={isDark}
+              onDateClick={handleDateClick}
+              onNoteClick={openNoteModal}
+              onTaskClick={onTaskClick}
+              onAddTask={onAddTask}
+              statusColors={statusColors}
+            />
           );
         })}
       </div>
@@ -489,7 +624,24 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+      
+      {/* Drag Overlay - Sürüklenen görev preview'ı */}
+      <DragOverlay>
+        {activeTask ? (
+          <div className={`text-xs p-2 rounded-md border-l-2 shadow-2xl cursor-grabbing
+            ${isDark ? 'bg-slate-700' : 'bg-white'}
+            ${statusColors[activeTask.status]}`}
+            style={{ width: '200px' }}
+          >
+            <div className="flex items-center gap-1.5">
+              <GripVertical size={12} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
+              <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{activeTask.title}</span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 
