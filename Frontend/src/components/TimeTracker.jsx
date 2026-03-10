@@ -49,13 +49,20 @@ const TimeTracker = ({ user, isDark }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [breakLogs, setBreakLogs] = useState(savedState?.breakLogs || []);
   const [workLogs, setWorkLogs] = useState(savedState?.workLogs || []);
-  const [weeklyLogs, setWeeklyLogs] = useState([
-    { date: '2024-02-12', checkIn: '09:00', checkOut: '18:15', breakMinutes: 60, totalHours: 8.25 },
-    { date: '2024-02-11', checkIn: '08:45', checkOut: '17:30', breakMinutes: 45, totalHours: 8.0 },
-    { date: '2024-02-10', checkIn: '09:15', checkOut: '18:00', breakMinutes: 60, totalHours: 7.75 },
-    { date: '2024-02-09', checkIn: '09:00', checkOut: '17:45', breakMinutes: 45, totalHours: 8.0 },
-    { date: '2024-02-08', checkIn: '08:30', checkOut: '17:30', breakMinutes: 60, totalHours: 8.0 },
-  ]);
+  const [weeklyLogs, setWeeklyLogs] = useState([]);
+
+  // Haftalık logları backend'den yükle
+  useEffect(() => {
+    const loadWeeklyLogs = async () => {
+      try {
+        const res = await attendanceAPI.myWeekly();
+        if (Array.isArray(res.data)) setWeeklyLogs(res.data);
+      } catch (e) {
+        console.error('Haftalık log yüklenemedi:', e);
+      }
+    };
+    loadWeeklyLogs();
+  }, [isWorking]);
 
   // localStorage'a kaydet
   useEffect(() => {
@@ -185,7 +192,7 @@ const TimeTracker = ({ user, isDark }) => {
   };
 
   const weeklyTotal = weeklyLogs.reduce((sum, log) => sum + log.totalHours, 0);
-  const avgDaily = (weeklyTotal / weeklyLogs.length).toFixed(1);
+  const avgDaily = weeklyLogs.length > 0 ? (weeklyTotal / weeklyLogs.length).toFixed(1) : '0.0';
 
   const getNetWorkTime = () => {
     if (!checkInTime) return '0s 0dk';

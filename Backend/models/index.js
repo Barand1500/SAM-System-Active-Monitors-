@@ -61,6 +61,9 @@ const TicketCategory = require("./TicketCategory")(sequelize, DataTypes);
 
 const PersonalNote = require("./PersonalNote")(sequelize, DataTypes);
 const Contact = require("./Contact")(sequelize, DataTypes);
+const Role = require("./Role")(sequelize, DataTypes);
+const SmsGroup = require("./SmsGroup")(sequelize, DataTypes);
+const SmsHistory = require("./SmsHistory")(sequelize, DataTypes);
 
 
 // ============================
@@ -239,6 +242,19 @@ PersonalNote.belongsTo(Company, { foreignKey: "company_id" });
 // CONTACTS (Rehber)
 Contact.belongsTo(Company, { foreignKey: "company_id" });
 
+// ROLES
+Role.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(Role, { foreignKey: "company_id" });
+
+// SMS
+SmsGroup.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(SmsGroup, { foreignKey: "company_id" });
+SmsGroup.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+
+SmsHistory.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(SmsHistory, { foreignKey: "company_id" });
+SmsHistory.belongsTo(User, { foreignKey: "sent_by", as: "sender" });
+
 
 // CUSTOMER
 Customer.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
@@ -368,5 +384,8 @@ module.exports = {
   TicketCategory,
 
   PersonalNote,
-  Contact
+  Contact,
+  Role,
+  SmsGroup,
+  SmsHistory
 };

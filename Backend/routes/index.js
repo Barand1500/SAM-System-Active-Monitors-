@@ -67,6 +67,9 @@ router.use("/contacts", require("./contacts"));
 // Tags (Etiketler)
 router.use("/tags", require("./tags"));
 
+// Roles (Roller)
+router.use("/roles", require("./roles"));
+
 // Dashboard Settings
 router.use("/dashboard-settings", require("./dashboardSettings"));
 
@@ -87,5 +90,8 @@ router.use("/task-statuses", require("./taskStatuses"));
 
 // Task Priorities
 router.use("/task-priorities", require("./taskPriorities"));
+
+// SMS
+router.use("/sms", require("./sms"));
 
 module.exports = router;

@@ -12,6 +12,9 @@ router.post("/check-out", authenticate, AttendanceController.checkOut);
 // Attendance list (manager/boss)
 router.get("/", authenticate, authorizeRoles("boss", "manager"), AttendanceController.list);
 
+// User's own weekly logs
+router.get("/my-weekly", authenticate, AttendanceController.myWeekly);
+
 // Breaks
 router.post("/breaks/start", authenticate, BreakController.startBreak);
 router.post("/breaks/end/:breakId", authenticate, BreakController.endBreak);

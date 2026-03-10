@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { fileAPI } from '../services/api';
 import { 
   Upload, 
   X, 
@@ -47,27 +48,29 @@ const FileUploadSystem = ({ isDark, onFilesChange, existingFiles = [], maxFiles 
     return { valid: true };
   };
 
-  // Dosya yükleme simülasyonu
-  const simulateUpload = (fileId) => {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 30;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setUploadProgress(prev => ({ ...prev, [fileId]: 100 }));
-      } else {
-        setUploadProgress(prev => ({ ...prev, [fileId]: Math.round(progress) }));
-      }
-    }, 200);
+  // Dosya yükleme (gerçek API)
+  const uploadFile = async (fileId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      setUploadProgress(prev => ({ ...prev, [fileId]: 10 }));
+      const res = await fileAPI.upload(formData);
+      setUploadProgress(prev => ({ ...prev, [fileId]: 100 }));
+      const uploaded = res.data?.data || res.data;
+      return uploaded;
+    } catch (err) {
+      console.error('Dosya yükleme hatası:', err);
+      setUploadProgress(prev => ({ ...prev, [fileId]: -1 }));
+      return null;
+    }
   };
 
   // Dosya ekleme
-  const handleFiles = useCallback((newFiles) => {
+  const handleFiles = useCallback(async (newFiles) => {
     const fileArray = Array.from(newFiles);
     const validFiles = [];
 
-    fileArray.forEach(file => {
+    for (const file of fileArray) {
       const validation = validateFile(file);
       if (validation.valid && files.length + validFiles.length < maxFiles) {
         const fileId = Date.now() + Math.random().toString(36).substr(2, 9);
@@ -81,14 +84,25 @@ const FileUploadSystem = ({ isDark, onFilesChange, existingFiles = [], maxFiles 
           file: file
         };
         validFiles.push(fileData);
-        simulateUpload(fileId);
       }
-    });
+    }
 
     if (validFiles.length > 0) {
       const updatedFiles = [...files, ...validFiles];
       setFiles(updatedFiles);
       onFilesChange?.(updatedFiles);
+
+      // Her dosyayı backend'e yükle
+      for (const f of validFiles) {
+        const uploaded = await uploadFile(f.id, f.file);
+        if (uploaded) {
+          setFiles(prev => prev.map(pf => 
+            pf.id === f.id 
+              ? { ...pf, serverId: uploaded.id, url: uploaded.url || uploaded.filePath || pf.url }
+              : pf
+          ));
+        }
+      }
     }
   }, [files, maxFiles, onFilesChange]);
 
@@ -118,7 +132,11 @@ const FileUploadSystem = ({ isDark, onFilesChange, existingFiles = [], maxFiles 
   };
 
   // Dosya silme
-  const removeFile = (fileId) => {
+  const removeFile = async (fileId) => {
+    const file = files.find(f => f.id === fileId);
+    if (file?.serverId) {
+      try { await fileAPI.delete(file.serverId); } catch {}
+    }
     const updatedFiles = files.filter(f => f.id !== fileId);
     setFiles(updatedFiles);
     onFilesChange?.(updatedFiles);

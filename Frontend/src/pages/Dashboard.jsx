@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
-import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI } from '../services/api';
+import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI, smsAPI } from '../services/api';
 import { 
   LayoutDashboard,
   Users,
@@ -242,8 +242,8 @@ const Dashboard = () => {
   const [calendarDate, setCalendarDate] = useState(null);
   const [showBulkEmployeeModal, setShowBulkEmployeeModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
-  const [smsHistory, setSmsHistory] = useState(() => loadFromStorage('app_sms_history', []));
-  const [smsGroups, setSmsGroups] = useState(() => loadFromStorage('app_sms_groups', []));
+  const [smsHistory, setSmsHistory] = useState([]);
+  const [smsGroups, setSmsGroups] = useState([]);
   
   // Görev Şablonları State
   const [taskTemplates, setTaskTemplates] = useState(() => loadFromStorage('task_templates', []));
@@ -357,6 +357,28 @@ const Dashboard = () => {
         if (config.defaultTaskListId) setDefaultTaskListId(config.defaultTaskListId);
       } catch (err) {
         console.error('Task config yüklerken hata:', err);
+      }
+
+      try {
+        const [groupsRes, historyRes] = await Promise.all([
+          smsAPI.listGroups(),
+          smsAPI.listHistory(),
+        ]);
+        const groups = Array.isArray(groupsRes.data) ? groupsRes.data : [];
+        setSmsGroups(groups.map(g => ({
+          ...g,
+          memberIds: g.memberIds || g.member_ids || [],
+        })));
+        const history = Array.isArray(historyRes.data) ? historyRes.data : [];
+        setSmsHistory(history.map(h => ({
+          ...h,
+          sentAt: h.sentAt || h.sent_at || h.created_at || h.createdAt,
+          sendTo: h.sendTo || h.send_to || 'all',
+          templateUsed: h.templateUsed || h.template_used || null,
+          recipients: h.recipients || [],
+        })));
+      } catch (err) {
+        console.error('SMS verileri yüklerken hata:', err);
       }
     };
 
@@ -1035,12 +1057,28 @@ const Dashboard = () => {
           isDark={isDark}
           smsHistory={smsHistory}
           smsGroups={smsGroups}
-          onGroupsChange={(groups) => { setSmsGroups(groups); saveToStorage('app_sms_groups', groups); }}
+          onGroupsChange={setSmsGroups}
+          onGroupCreate={async (group) => {
+            try {
+              const res = await smsAPI.createGroup(group);
+              setSmsGroups(prev => [...prev, res.data]);
+            } catch { /* toast varsa gösterilir */ }
+          }}
+          onGroupDelete={async (groupId) => {
+            try {
+              await smsAPI.deleteGroup(groupId);
+              setSmsGroups(prev => prev.filter(g => g.id !== groupId));
+            } catch { /* */ }
+          }}
           onClose={() => setShowSmsModal(false)}
-          onSend={(smsData) => {
-            const newHistory = [{ ...smsData, id: Date.now(), sentAt: new Date().toISOString() }, ...smsHistory];
-            setSmsHistory(newHistory);
-            saveToStorage('app_sms_history', newHistory);
+          onSend={async (smsData) => {
+            try {
+              const res = await smsAPI.send(smsData);
+              setSmsHistory(prev => [res.data, ...prev]);
+              return true;
+            } catch {
+              return false;
+            }
           }}
         />
       )}
@@ -4349,7 +4387,7 @@ const SMS_TEMPLATES = [
 
 const GROUP_EMOJIS = ['👥', '💼', '🏢', '⚙️', '📊', '🎯', '🔧', '📱', '💡', '🎨', '📋', '🏆', '🌟', '🔑', '📦', '🛡️', '🚀', '❤️', '🎓', '✅'];
 
-const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChange, onClose, onSend }) => {
+const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChange, onGroupCreate, onGroupDelete, onClose, onSend }) => {
   const [activeView, setActiveView] = useState('compose'); // compose | history | groups
   const [sendTo, setSendTo] = useState('all'); // all | selected | group
   const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -4358,6 +4396,7 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [sending, setSending] = useState(false);
   // Grup oluşturma
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -4393,24 +4432,22 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
     setSelectedEmployees(prev => prev.length === activeEmployees.length ? [] : [...activeEmployees]);
   };
 
-  const createGroup = () => {
+  const createGroup = async () => {
     if (!newGroupName.trim() || newGroupMembers.length === 0) return;
-    const group = {
-      id: Date.now(),
+    const groupData = {
       name: newGroupName.trim(),
       emoji: newGroupEmoji,
       memberIds: newGroupMembers.map(m => m.id),
-      createdAt: new Date().toISOString()
     };
-    onGroupsChange?.([...smsGroups, group]);
+    await onGroupCreate?.(groupData);
     setNewGroupName('');
     setNewGroupEmoji('👥');
     setNewGroupMembers([]);
     setShowGroupForm(false);
   };
 
-  const deleteGroup = (groupId) => {
-    onGroupsChange?.(smsGroups.filter(g => g.id !== groupId));
+  const deleteGroup = async (groupId) => {
+    await onGroupDelete?.(groupId);
     if (selectedGroup === groupId) setSelectedGroup(null);
   };
 
@@ -4434,8 +4471,8 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
     setMessage(template.message);
   };
 
-  const handleSend = () => {
-    if (!message.trim()) return;
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
     let recipients;
     if (sendTo === 'all') {
       recipients = activeEmployees.map(e => ({ id: e.id, name: `${e.firstName} ${e.lastName}` }));
@@ -4450,21 +4487,25 @@ const SmsModal = ({ employees, isDark, smsHistory, smsGroups = [], onGroupsChang
     }
     if (recipients.length === 0) return;
 
-    onSend({
+    setSending(true);
+    const success = await onSend({
       message: message.trim(),
       recipients,
       sendTo,
       templateUsed: SMS_TEMPLATES.find(t => t.id === selectedTemplate)?.title || null,
     });
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setMessage('');
-      setSelectedTemplate(null);
-      setSelectedEmployees([]);
-      setSelectedGroup(null);
-      setSendTo('all');
-    }, 2000);
+    setSending(false);
+    if (success !== false) {
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setMessage('');
+        setSelectedTemplate(null);
+        setSelectedEmployees([]);
+        setSelectedGroup(null);
+        setSendTo('all');
+      }, 2000);
+    }
   };
 
   const charCount = message.length;

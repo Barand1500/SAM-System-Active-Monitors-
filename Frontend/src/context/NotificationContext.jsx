@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { notificationAPI } from '../services/api';
 
 const NotificationContext = createContext();
 
@@ -14,6 +15,34 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [permission, setPermission] = useState('default');
+  const loadedRef = useRef(false);
+
+  // Backend'den bildirimlerı yükle
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    const loadNotifications = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        const res = await notificationAPI.list();
+        const data = res.data?.data || res.data;
+        if (Array.isArray(data)) {
+          setNotifications(data.map(n => ({
+            id: n.id,
+            title: n.title,
+            content: n.content || n.message,
+            type: n.type || 'info',
+            isRead: n.isRead || n.is_read || false,
+            createdAt: n.createdAt || n.created_at
+          })));
+        }
+      } catch (e) {
+        console.error('Bildirimler yüklenemedi:', e);
+      }
+    };
+    loadNotifications();
+  }, []);
 
   // Tarayıcı bildirim izni iste
   useEffect(() => {
@@ -105,17 +134,19 @@ export const NotificationProvider = ({ children }) => {
   }, [addToast, sendPushNotification]);
 
   // Bildirimi okundu olarak işaretle
-  const markAsRead = useCallback((id) => {
+  const markAsRead = useCallback(async (id) => {
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     );
+    try { await notificationAPI.markRead(id); } catch {}
   }, []);
 
   // Tümünü okundu olarak işaretle
-  const markAllAsRead = useCallback(() => {
+  const markAllAsRead = useCallback(async () => {
     setNotifications(prev => 
       prev.map(n => ({ ...n, isRead: true }))
     );
+    try { await notificationAPI.markAllRead(); } catch {}
   }, []);
 
   // Bildirimi sil

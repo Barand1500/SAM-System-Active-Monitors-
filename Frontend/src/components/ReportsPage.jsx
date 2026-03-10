@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -15,13 +15,32 @@ import {
   Briefcase,
   ChevronDown
 } from 'lucide-react';
+import { reportAPI } from '../services/api';
 
 const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [selectedPerson, setSelectedPerson] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [weeklyTrend, setWeeklyTrend] = useState([]);
+  const [taskTrends, setTaskTrends] = useState({ totalTrend: '0%', completedTrend: '0%' });
 
   const employees = users.filter(u => u.role !== 'boss');
+
+  useEffect(() => {
+    const loadReportData = async () => {
+      try {
+        const [trendRes, trendsRes] = await Promise.all([
+          reportAPI.weeklyTrend(),
+          reportAPI.taskTrends()
+        ]);
+        if (Array.isArray(trendRes.data)) setWeeklyTrend(trendRes.data);
+        if (trendsRes.data) setTaskTrends(trendsRes.data);
+      } catch (e) {
+        console.error('Rapor verileri yüklenemedi:', e);
+      }
+    };
+    loadReportData();
+  }, []);
 
   // ===== GENEL RAPOR =====
   const renderGeneralReport = () => {
@@ -51,16 +70,7 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
     ];
     const totalPriority = priorityDist.reduce((sum, p) => sum + p.count, 0);
 
-    const weeklyTrend = [
-      { day: 'Pzt', completed: 5, created: 3 },
-      { day: 'Sal', completed: 3, created: 4 },
-      { day: 'Çar', completed: 7, created: 5 },
-      { day: 'Per', completed: 4, created: 6 },
-      { day: 'Cum', completed: 6, created: 4 },
-      { day: 'Cmt', completed: 2, created: 1 },
-      { day: 'Paz', completed: 1, created: 2 },
-    ];
-    const maxWeeklyValue = Math.max(...weeklyTrend.map(d => Math.max(d.completed, d.created)));
+    const maxWeeklyValue = Math.max(1, ...weeklyTrend.map(d => Math.max(d.completed, d.created)));
 
     const employeePerformance = employees
       .map(emp => {
@@ -79,10 +89,10 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Toplam Görev', value: totalTasks, icon: ClipboardList, color: 'bg-indigo-100 dark:bg-indigo-900/30', iconColor: 'text-indigo-600', trend: '+12%', up: true },
-            { label: 'Tamamlanan', value: completedTasks, icon: CheckCircle2, color: 'bg-emerald-100 dark:bg-emerald-900/30', iconColor: 'text-emerald-600', trend: '+8%', up: true },
-            { label: 'Bekleyen', value: pendingTasks, icon: Clock, color: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600', trend: '-3%', up: false },
-            { label: 'Tamamlanma', value: `${completionRate}%`, icon: Target, color: 'bg-purple-100 dark:bg-purple-900/30', iconColor: 'text-purple-600', trend: '+5%', up: true },
+            { label: 'Toplam Görev', value: totalTasks, icon: ClipboardList, color: 'bg-indigo-100 dark:bg-indigo-900/30', iconColor: 'text-indigo-600', trend: taskTrends.totalTrend, up: !taskTrends.totalTrend?.startsWith('-') },
+            { label: 'Tamamlanan', value: completedTasks, icon: CheckCircle2, color: 'bg-emerald-100 dark:bg-emerald-900/30', iconColor: 'text-emerald-600', trend: taskTrends.completedTrend, up: !taskTrends.completedTrend?.startsWith('-') },
+            { label: 'Bekleyen', value: pendingTasks, icon: Clock, color: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600', trend: '', up: false },
+            { label: 'Tamamlanma', value: `${completionRate}%`, icon: Target, color: 'bg-purple-100 dark:bg-purple-900/30', iconColor: 'text-purple-600', trend: '', up: true },
           ].map((stat, i) => {
             const Icon = stat.icon;
             return (
@@ -91,10 +101,12 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
                   <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center`}>
                     <Icon size={24} className={stat.iconColor} />
                   </div>
-                  <span className={`flex items-center gap-1 text-sm font-medium ${stat.up ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {stat.up ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    {stat.trend}
-                  </span>
+                  {stat.trend && (
+                    <span className={`flex items-center gap-1 text-sm font-medium ${stat.up ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {stat.up ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                      {stat.trend}
+                    </span>
+                  )}
                 </div>
                 <p className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stat.value}</p>
                 <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stat.label}</p>

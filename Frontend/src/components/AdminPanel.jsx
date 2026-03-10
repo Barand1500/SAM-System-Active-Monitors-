@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { departmentAPI, taskStatusAPI, taskPriorityAPI, companyProfileAPI } from '../services/api';
+import { departmentAPI, taskStatusAPI, taskPriorityAPI, companyProfileAPI, roleAPI } from '../services/api';
 import ConfirmDialog from './ConfirmDialog';
 import BaseModal from './BaseModal';
 import { logChange } from './ChangeHistory';
@@ -44,19 +44,6 @@ const PRESET_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981',
   '#14b8a6', '#06b6d4', '#0ea5e9',
 ];
-
-const loadFromStorage = (key, defaultValue) => {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
-const saveToStorage = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
 
 // Telefon formatlaması (0XXX XXX XX XX)
 const formatPhone = (value) => {
@@ -923,24 +910,49 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     { id: 'manager', label: 'Yönetici', color: '#6366f1', permissions: ['manage_tasks', 'manage_employees', 'view_reports'] },
     { id: 'employee', label: 'Çalışan', color: '#10b981', permissions: ['view_tasks', 'update_own_tasks'] },
   ];
-  const [roleList, setRoleList] = useState(() => loadFromStorage('sam_roles', defaultRoles));
+  const [roleList, setRoleList] = useState([]);
   const [newRoleLabel, setNewRoleLabel] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('#6366f1');
   const [editingRole, setEditingRole] = useState(null);
   const [editingRolePermissions, setEditingRolePermissions] = useState(null);
   const [showRolePermissionsModal, setShowRolePermissionsModal] = useState(false);
 
-  useEffect(() => { saveToStorage('sam_roles', roleList); }, [roleList]);
+  const fetchRoles = useCallback(async () => {
+    try {
+      const res = await roleAPI.list();
+      const roles = res.data.map(r => ({
+        id: r.id,
+        roleKey: r.roleKey || r.role_key,
+        label: r.label,
+        color: r.color,
+        permissions: r.permissions || [],
+      }));
+      setRoleList(roles.length > 0 ? roles : defaultRoles);
+    } catch {
+      setRoleList(defaultRoles);
+    }
+  }, []);
 
-  const addRole = () => {
+  const addRole = async () => {
     if (!newRoleLabel.trim()) return;
-    const id = newRoleLabel.trim().toLowerCase().replace(/\s+/g, '_');
-    setRoleList(prev => [...prev, { id, label: newRoleLabel.trim(), color: newRoleColor, permissions: [] }]);
-    setNewRoleLabel('');
-    setNewRoleColor('#6366f1');
+    try {
+      const res = await roleAPI.create({ label: newRoleLabel.trim(), color: newRoleColor, permissions: [] });
+      setRoleList(prev => [...prev, {
+        id: res.data.id,
+        roleKey: res.data.roleKey || res.data.role_key,
+        label: res.data.label,
+        color: res.data.color,
+        permissions: res.data.permissions || [],
+      }]);
+      setNewRoleLabel('');
+      setNewRoleColor('#6366f1');
+    } catch {
+      addToast({ type: 'error', title: 'Hata', message: 'Rol eklenemedi', duration: 3000 });
+    }
   };
   const removeRole = (id) => {
-    if (['boss', 'manager', 'employee'].includes(id)) {
+    const role = roleList.find(r => r.id === id);
+    if (role && ['boss', 'manager', 'employee'].includes(role.roleKey || role.id)) {
       addToast({
         type: 'error',
         title: 'Silinemez',
@@ -949,28 +961,37 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       });
       return;
     }
-    const role = roleList.find(r => r.id === id);
     setConfirmDialog({
       isOpen: true,
       type: 'danger',
       title: 'Rol Sil',
       message: `"${role?.label}" rolünü silmek istediğinize emin misiniz?`,
-      onConfirm: () => {
-        setRoleList(prev => prev.filter(r => r.id !== id));
-        logChange('role', 'delete', `Rol silindi: ${role?.label}`, role?.label, null, role?.label);
-        addToast({
-          type: 'success',
-          title: 'Silindi',
-          message: 'Rol başarıyla silindi',
-          duration: 2000
-        });
+      onConfirm: async () => {
+        try {
+          await roleAPI.delete(id);
+          setRoleList(prev => prev.filter(r => r.id !== id));
+          logChange('role', 'delete', `Rol silindi: ${role?.label}`, role?.label, null, role?.label);
+          addToast({
+            type: 'success',
+            title: 'Silindi',
+            message: 'Rol başarıyla silindi',
+            duration: 2000
+          });
+        } catch {
+          addToast({ type: 'error', title: 'Hata', message: 'Rol silinemedi', duration: 3000 });
+        }
         setConfirmDialog({ ...confirmDialog, isOpen: false });
       }
     });
   };
-  const updateRole = (id, updates) => { 
-    setRoleList(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r)); 
-    setEditingRole(null); 
+  const updateRole = async (id, updates) => {
+    try {
+      await roleAPI.update(id, updates);
+      setRoleList(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+    } catch {
+      addToast({ type: 'error', title: 'Hata', message: 'Rol güncellenemedi', duration: 3000 });
+    }
+    setEditingRole(null);
   };
   
   const openRolePermissionsModal = (role) => {
@@ -978,29 +999,34 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     setShowRolePermissionsModal(true);
   };
   
-  const saveRolePermissions = () => {
+  const saveRolePermissions = async () => {
     if (editingRolePermissions) {
-      setRoleList(prev => prev.map(r => 
-        r.id === editingRolePermissions.id 
-          ? { ...r, permissions: editingRolePermissions.permissions }
-          : r
-      ));
+      try {
+        await roleAPI.update(editingRolePermissions.id, { permissions: editingRolePermissions.permissions });
+        setRoleList(prev => prev.map(r => 
+          r.id === editingRolePermissions.id 
+            ? { ...r, permissions: editingRolePermissions.permissions }
+            : r
+        ));
       
-      logChange(
-        'role',
-        'update',
-        `"${editingRolePermissions.label}" rolünün yetkileri güncellendi`,
-        'Eski yetkiler',
-        'Yeni yetkiler',
-        editingRolePermissions.label
-      );
+        logChange(
+          'role',
+          'update',
+          `"${editingRolePermissions.label}" rolünün yetkileri güncellendi`,
+          'Eski yetkiler',
+          'Yeni yetkiler',
+          editingRolePermissions.label
+        );
       
-      addToast({
-        type: 'success',
-        title: 'Kaydedildi',
-        message: 'Rol yetkileri güncellendi',
-        duration: 2000
-      });
+        addToast({
+          type: 'success',
+          title: 'Kaydedildi',
+          message: 'Rol yetkileri güncellendi',
+          duration: 2000
+        });
+      } catch {
+        addToast({ type: 'error', title: 'Hata', message: 'Yetkiler güncellenemedi', duration: 3000 });
+      }
       
       setShowRolePermissionsModal(false);
       setEditingRolePermissions(null);
@@ -1056,11 +1082,11 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      await Promise.all([fetchDepartments(), fetchStatuses(), fetchPriorities()]);
+      await Promise.all([fetchDepartments(), fetchStatuses(), fetchPriorities(), fetchRoles()]);
       setLoading(false);
     };
     fetchAll();
-  }, [fetchDepartments, fetchStatuses, fetchPriorities]);
+  }, [fetchDepartments, fetchStatuses, fetchPriorities, fetchRoles]);
 
   const addStatus = async () => {
     if (!newStatusLabel.trim()) return;
@@ -1140,7 +1166,9 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       setRoleList((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        roleAPI.reorder(newItems.map(r => r.id)).catch(() => {});
+        return newItems;
       });
     }
   };

@@ -22,4 +22,10 @@ router.get("/check-company-code", authenticate, AuthController.checkCompanyCode)
 // PUT /api/auth/update-company-code
 router.put("/update-company-code", authenticate, authorizeRoles("boss"), AuthController.updateCompanyCode);
 
+// POST /api/auth/send-verification-code (public)
+router.post("/send-verification-code", AuthController.sendVerificationCode);
+
+// POST /api/auth/verify-email-code (public)
+router.post("/verify-email-code", AuthController.verifyEmailCode);
+
 module.exports = router;

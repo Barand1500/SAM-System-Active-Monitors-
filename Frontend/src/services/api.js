@@ -62,7 +62,9 @@ export const departmentAPI = {
 
 // ============== NOTIFICATIONS ENDPOINTS ==============
 export const notificationAPI = {
-  list: () => apiClient.get('/notifications')
+  list: () => apiClient.get('/notifications'),
+  markRead: (id) => apiClient.patch(`/notifications/read/${id}`),
+  markAllRead: () => apiClient.patch('/notifications/read-all'),
 };
 
 // ============== TASKS ENDPOINTS ==============
@@ -110,6 +112,7 @@ export const attendanceAPI = {
   checkIn: () => apiClient.post('/attendance/check-in'),
   checkOut: () => apiClient.post('/attendance/check-out'),
   list: (date) => apiClient.get('/attendance', { params: { date } }),
+  myWeekly: () => apiClient.get('/attendance/my-weekly'),
   startBreak: (breakTypeId) => apiClient.post('/attendance/breaks/start', { break_type_id: breakTypeId || null }),
   endBreak: (breakId) => apiClient.post(`/attendance/breaks/end/${breakId}`)
 };
@@ -239,6 +242,36 @@ export const personalNoteAPI = {
   create: (data) => apiClient.post('/personal-notes', data),
   update: (id, data) => apiClient.put(`/personal-notes/${id}`, data),
   delete: (id) => apiClient.delete(`/personal-notes/${id}`),
+};
+
+// ============== REPORTS ENDPOINTS ==============
+export const reportAPI = {
+  taskReport: () => apiClient.get('/reports/tasks'),
+  attendanceReport: (params) => apiClient.get('/reports/attendance', { params }),
+  leaveReport: () => apiClient.get('/reports/leaves'),
+  weeklyTrend: () => apiClient.get('/reports/weekly-trend'),
+  taskTrends: () => apiClient.get('/reports/task-trends'),
+};
+
+// ============== ROLES ENDPOINTS ==============
+export const roleAPI = {
+  list: () => apiClient.get('/roles'),
+  create: (data) => apiClient.post('/roles', data),
+  update: (id, data) => apiClient.put(`/roles/${id}`, data),
+  delete: (id) => apiClient.delete(`/roles/${id}`),
+  reorder: (orderedIds) => apiClient.put('/roles/reorder/sort', { orderedIds }),
+};
+
+// ============== SMS ENDPOINTS ==============
+export const smsAPI = {
+  // Groups
+  listGroups: () => apiClient.get('/sms/groups'),
+  createGroup: (data) => apiClient.post('/sms/groups', data),
+  updateGroup: (id, data) => apiClient.put(`/sms/groups/${id}`, data),
+  deleteGroup: (id) => apiClient.delete(`/sms/groups/${id}`),
+  // History + Send
+  listHistory: () => apiClient.get('/sms/history'),
+  send: (data) => apiClient.post('/sms/send', data),
 };
 
 export default apiClient;

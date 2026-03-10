@@ -1,4 +1,5 @@
 const AuthService = require("../services/AuthService");
+const EmailService = require("../services/EmailService");
 
 class AuthController {
   async registerCompany(req, res) {
@@ -69,6 +70,30 @@ class AuthController {
       res.json(result);
     } catch (err) {
       res.status(400).json({ message: err.message });
+    }
+  }
+
+  async sendVerificationCode(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ message: "E-posta adresi gerekli" });
+      await EmailService.sendVerificationCode(email);
+      res.json({ message: "Doğrulama kodu gönderildi" });
+    } catch (err) {
+      console.error("Email gönderim hatası:", err);
+      res.status(500).json({ message: "E-posta gönderilemedi: " + err.message });
+    }
+  }
+
+  async verifyEmailCode(req, res) {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) return res.status(400).json({ message: "E-posta ve kod gerekli" });
+      const result = EmailService.verifyCode(email, code);
+      if (!result.valid) return res.status(400).json({ message: result.message });
+      res.json({ verified: true });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
     }
   }
 }

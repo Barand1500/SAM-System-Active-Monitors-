@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auditLogAPI } from '../services/api';
+import { auditLogAPI, attendanceAPI } from '../services/api';
 import { 
   CheckSquare, 
   Clock, 
@@ -85,8 +85,22 @@ export const TaskStatsWidget = ({ tasks, isDark }) => {
 
 // Widget: Haftalık Çalışma Saatleri
 export const WeeklyHoursWidget = ({ isDark }) => {
-  const hours = 42; // Bu gerçek veriyle değiştirilecek
+  const [hours, setHours] = useState(0);
   const target = 40;
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await attendanceAPI.myWeekly();
+        if (Array.isArray(res.data)) {
+          const total = res.data.reduce((sum, log) => sum + (log.totalHours || 0), 0);
+          setHours(Math.round(total * 10) / 10);
+        }
+      } catch { /* */ }
+    };
+    load();
+  }, []);
+
   const percentage = Math.round((hours / target) * 100);
 
   return (

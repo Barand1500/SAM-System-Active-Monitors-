@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import apiClient from '../services/api';
 import { 
   Building2, 
   Mail, 
@@ -104,21 +105,37 @@ const RegisterPage = ({ onSwitchToLogin }) => {
   };
 
   // E-posta doğrulama kodu gönder
-  const sendVerificationCode = () => {
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+
+  const sendVerificationCode = async () => {
     if (!isValidEmail(formData.email)) return;
-    setVerificationSent(true);
+    setSendingCode(true);
     setVerificationError('');
-    setVerificationCode('');
+    try {
+      await apiClient.post('/auth/send-verification-code', { email: formData.email });
+      setVerificationSent(true);
+      setVerificationCode('');
+    } catch (err) {
+      setVerificationError(err.response?.data?.message || 'Kod gönderilemedi');
+    } finally {
+      setSendingCode(false);
+    }
   };
 
   // E-posta doğrulama kodunu kontrol et
-  const verifyEmailCode = () => {
-    if (verificationCode === '111') {
+  const verifyEmailCode = async () => {
+    if (!verificationCode.trim()) return;
+    setVerifyingCode(true);
+    setVerificationError('');
+    try {
+      await apiClient.post('/auth/verify-email-code', { email: formData.email, code: verificationCode.trim() });
       setEmailVerified(true);
-      setVerificationError('');
       setEmailVerificationStep(false);
-    } else {
-      setVerificationError('Geçersiz doğrulama kodu!');
+    } catch (err) {
+      setVerificationError(err.response?.data?.message || 'Geçersiz doğrulama kodu!');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -502,12 +519,12 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         <button
                           type="button"
                           onClick={sendVerificationCode}
-                          disabled={!isValidEmail(formData.email)}
+                          disabled={!isValidEmail(formData.email) || sendingCode}
                           className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
                                    bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
                                    disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Doğrula
+                          {sendingCode ? 'Gönderiliyor...' : 'Doğrula'}
                         </button>
                       )}
                       {emailVerified && (
@@ -534,9 +551,11 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                           <button
                             type="button"
                             onClick={verifyEmailCode}
-                            className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+                            disabled={verifyingCode}
+                            className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors
+                                     disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Onayla
+                            {verifyingCode ? 'Kontrol...' : 'Onayla'}
                           </button>
                         </div>
                         {verificationError && (
@@ -727,12 +746,12 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   <button
                     type="button"
                     onClick={sendVerificationCode}
-                    disabled={!isValidEmail(formData.email)}
+                    disabled={!isValidEmail(formData.email) || sendingCode}
                     className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
                              bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
                              disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Doğrula
+                    {sendingCode ? 'Gönderiliyor...' : 'Doğrula'}
                   </button>
                 )}
                 {emailVerified && (
@@ -759,9 +778,11 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                     <button
                       type="button"
                       onClick={verifyEmailCode}
-                      className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+                      disabled={verifyingCode}
+                      className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Onayla
+                      {verifyingCode ? 'Kontrol...' : 'Onayla'}
                     </button>
                   </div>
                   {verificationError && (

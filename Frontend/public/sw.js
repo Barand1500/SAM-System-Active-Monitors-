@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gorev-takip-v1';
+const CACHE_NAME = 'gorev-takip-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

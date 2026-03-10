@@ -34,6 +34,15 @@ class AttendanceController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async myWeekly(req, res) {
+    try {
+      const logs = await AttendanceService.getUserWeeklyLogs(req.user.id);
+      res.json(logs);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new AttendanceController();
