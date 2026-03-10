@@ -10,7 +10,11 @@ import {
   Plus,
   Calendar,
   Target,
-  Zap
+  Zap,
+  ListTodo,
+  UserCheck,
+  Flag,
+  CalendarClock
 } from 'lucide-react';
 
 // Widget: Görev İstatistikleri
@@ -397,6 +401,283 @@ export const QuickTaskAddWidget = ({ isDark, onAddTask }) => {
           Hızlı Ekle
         </button>
       </form>
+    </div>
+  );
+};
+
+// Widget: Bekleyen Görevler
+export const PendingTasksWidget = ({ tasks, isDark, onTaskClick }) => {
+  const pendingTasks = tasks.filter(t => t.status === 'pending').slice(0, 5);
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'text-red-500 bg-red-500/10';
+      case 'medium': return 'text-amber-500 bg-amber-500/10';
+      case 'low': return 'text-emerald-500 bg-emerald-500/10';
+      default: return 'text-slate-500 bg-slate-500/10';
+    }
+  };
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Bekleyen Görevler
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            {pendingTasks.length} görev bekliyor
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl">
+          <ListTodo size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {pendingTasks.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <ListTodo size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Bekleyen görev yok</p>
+          </div>
+        ) : (
+          pendingTasks.map(task => (
+            <div
+              key={task.id}
+              onClick={() => onTaskClick?.(task)}
+              className={`p-3 rounded-lg border ${
+                isDark ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+              } cursor-pointer transition-all`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h4 className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-1`}>
+                  {task.title}
+                </h4>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                  {task.priority === 'high' ? 'Yüksek' : task.priority === 'medium' ? 'Orta' : 'Düşük'}
+                </span>
+              </div>
+              {task.dueDate && (
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <Calendar size={12} />
+                  <span>{new Date(task.dueDate).toLocaleDateString('tr-TR')}</span>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Benim Görevlerim
+export const MyTasksWidget = ({ tasks, user, isDark, onTaskClick }) => {
+  const myTasks = tasks.filter(t => t.assignedTo?.id === user?.id && t.status !== 'completed').slice(0, 5);
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'in_progress': return { text: 'Devam Ediyor', color: 'bg-blue-500' };
+      case 'pending': return { text: 'Bekliyor', color: 'bg-amber-500' };
+      default: return { text: 'Bilinmiyor', color: 'bg-slate-500' };
+    }
+  };
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Benim Görevlerim
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            {myTasks.length} aktif görev
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl">
+          <UserCheck size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {myTasks.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <UserCheck size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Aktif göreviniz yok</p>
+          </div>
+        ) : (
+          myTasks.map(task => {
+            const statusInfo = getStatusBadge(task.status);
+            return (
+              <div
+                key={task.id}
+                onClick={() => onTaskClick?.(task)}
+                className={`p-3 rounded-lg border ${
+                  isDark ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                } cursor-pointer transition-all`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h4 className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-1`}>
+                    {task.title}
+                  </h4>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${statusInfo.color}`} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
+                    {statusInfo.text}
+                  </span>
+                  {task.dueDate && (
+                    <span className="text-slate-500">
+                      {new Date(task.dueDate).toLocaleDateString('tr-TR')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Öncelikli Görevler
+export const PriorityTasksWidget = ({ tasks, isDark, onTaskClick }) => {
+  const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'completed').slice(0, 5);
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Öncelikli Görevler
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            {highPriorityTasks.length} yüksek öncelikli
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl">
+          <Flag size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {highPriorityTasks.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Flag size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Yüksek öncelikli görev yok</p>
+          </div>
+        ) : (
+          highPriorityTasks.map(task => (
+            <div
+              key={task.id}
+              onClick={() => onTaskClick?.(task)}
+              className={`p-3 rounded-lg border border-red-500/20 ${
+                isDark ? 'bg-red-950/30 hover:bg-red-950/50' : 'bg-red-50 hover:bg-red-100'
+              } cursor-pointer transition-all`}
+            >
+              <div className="flex items-start gap-2 mb-2">
+                <Flag size={14} className="text-red-500 mt-0.5 shrink-0" />
+                <h4 className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-2`}>
+                  {task.title}
+                </h4>
+              </div>
+              <div className="flex items-center justify-between text-xs ml-5">
+                <span className={`px-2 py-0.5 rounded ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-white text-slate-700'}`}>
+                  {task.status === 'in_progress' ? 'Devam Ediyor' : task.status === 'pending' ? 'Bekliyor' : task.status}
+                </span>
+                {task.dueDate && (
+                  <span className="text-slate-500">
+                    {new Date(task.dueDate).toLocaleDateString('tr-TR')}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Son Tarih Yaklaşanlar
+export const DeadlineWidget = ({ tasks, isDark, onTaskClick }) => {
+  const today = new Date();
+  const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+  
+  const upcomingDeadlines = tasks
+    .filter(t => {
+      if (!t.dueDate || t.status === 'completed') return false;
+      const dueDate = new Date(t.dueDate);
+      return dueDate >= today && dueDate <= nextWeek;
+    })
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 5);
+
+  const getDaysUntil = (date) => {
+    const diff = new Date(date) - today;
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return 'Bugün';
+    if (days === 1) return 'Yarın';
+    return `${days} gün`;
+  };
+
+  const getUrgencyColor = (date) => {
+    const days = Math.ceil((new Date(date) - today) / (1000 * 60 * 60 * 24));
+    if (days <= 1) return 'text-red-500 bg-red-500/10';
+    if (days <= 3) return 'text-amber-500 bg-amber-500/10';
+    return 'text-blue-500 bg-blue-500/10';
+  };
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Son Tarih Yaklaşanlar
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Sonraki 7 gün
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl">
+          <CalendarClock size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {upcomingDeadlines.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <CalendarClock size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Yaklaşan son tarih yok</p>
+          </div>
+        ) : (
+          upcomingDeadlines.map(task => (
+            <div
+              key={task.id}
+              onClick={() => onTaskClick?.(task)}
+              className={`p-3 rounded-lg border ${
+                isDark ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+              } cursor-pointer transition-all`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h4 className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-1 flex-1`}>
+                  {task.title}
+                </h4>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${getUrgencyColor(task.dueDate)}`}>
+                  {getDaysUntil(task.dueDate)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <Calendar size={12} />
+                <span>{new Date(task.dueDate).toLocaleDateString('tr-TR')}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
-import { users, company } from '../data/mockData';
 
 const AuthContext = createContext(null);
 
@@ -29,7 +28,7 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // Şirket kodu ile giriş - Backend API'ye bağlı (Fallback: Mock Data)
+  // Şirket kodu ile giriş - Backend API'ye bağlı
   const login = async (companyCode, email, password) => {
     try {
       const response = await api.post('/auth/login', {
@@ -51,35 +50,8 @@ export const AuthProvider = ({ children }) => {
       
       return user;
     } catch (error) {
-      // Backend çalışmıyorsa MOCK DATA ile giriş yap
-      console.warn('⚠️ Backend bağlantısı yok, Mock Data kullanılıyor...');
-      
-      // Şirket kodu kontrolü
-      if (companyCode !== company.companyCode) {
-        throw { message: `Geçersiz şirket kodu! Demo için: ${company.companyCode}` };
-      }
-      
-      // Email kontrolü - Mock kullanıcılar arasında ara
-      const mockUser = users.find(u => u.email === email);
-      if (!mockUser) {
-        throw { message: `Kullanıcı bulunamadı! Demo kullanıcılar: patron@demo.com, yonetici@demo.com, calisan@demo.com` };
-      }
-      
-      // Mock token oluştur
-      const mockToken = `mock_token_${Date.now()}`;
-      
-      // LocalStorage'a kaydet
-      localStorage.setItem('auth_token', mockToken);
-      localStorage.setItem('currentUser', JSON.stringify(mockUser));
-      localStorage.setItem('currentCompany', JSON.stringify(company));
-      
-      // State'i güncelle
-      setUser(mockUser);
-      setCurrentCompany(company);
-      
-      console.log('✅ Mock Data ile giriş başarılı:', mockUser.firstName, mockUser.lastName, `(${mockUser.role})`);
-      
-      return mockUser;
+      const errorMsg = error.response?.data?.message || error.message || 'Giriş başarısız!';
+      throw { message: errorMsg };
     }
   };
 

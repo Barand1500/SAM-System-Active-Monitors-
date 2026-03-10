@@ -68,7 +68,12 @@ import {
   History,
   GripVertical,
   Settings2,
-  Layout
+  Layout,
+  CheckSquare,
+  Activity,
+  ListTodo,
+  UserCheck,
+  Flag
 } from 'lucide-react';
 import {
   DndContext,
@@ -104,13 +109,18 @@ import AdminPanel from '../components/AdminPanel';
 import CompanyInfo from '../components/CompanyInfo';
 import UserProfile from '../components/UserProfile';
 import ChangeHistory, { logChange } from '../components/ChangeHistory';
+import BaseModal from '../components/BaseModal';
 import { 
   TaskStatsWidget, 
   WeeklyHoursWidget, 
   UpcomingTasksWidget, 
   TeamPerformanceWidget, 
   RecentActivitiesWidget, 
-  NotificationSummaryWidget
+  NotificationSummaryWidget,
+  PendingTasksWidget,
+  MyTasksWidget,
+  PriorityTasksWidget,
+  DeadlineWidget
 } from '../components/DashboardWidgets';
 
 // Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
@@ -2251,7 +2261,7 @@ const BulkEmployeeModal = ({ departments, onClose, onSave, isDark }) => {
 
 // ===== GENEL BAKIŞ TAB =====
 // ===== SORTABLE WIDGET WRAPPER =====
-const SortableWidget = ({ id, children, isDark }) => {
+const SortableWidget = ({ id, children, isDark, onRemove }) => {
   const {
     attributes,
     listeners,
@@ -2269,15 +2279,26 @@ const SortableWidget = ({ id, children, isDark }) => {
 
   return (
     <div ref={setNodeRef} style={style} className="relative group">
-      <div
-        {...attributes}
-        {...listeners}
-        className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg cursor-grab active:cursor-grabbing transition-all opacity-0 group-hover:opacity-100 ${
-          isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-white hover:bg-slate-50 text-slate-500 shadow-md'
-        }`}
-        title="Sürükle"
-      >
-        <GripVertical size={16} />
+      <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <button
+          onClick={() => onRemove(id)}
+          className={`p-1.5 rounded-lg transition-all ${
+            isDark ? 'bg-red-900/50 hover:bg-red-800 text-red-300' : 'bg-red-50 hover:bg-red-100 text-red-600 shadow-md'
+          }`}
+          title="Kaldır"
+        >
+          <X size={16} />
+        </button>
+        <div
+          {...attributes}
+          {...listeners}
+          className={`p-1.5 rounded-lg cursor-grab active:cursor-grabbing transition-all ${
+            isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-white hover:bg-slate-50 text-slate-500 shadow-md'
+          }`}
+          title="Sürükle"
+        >
+          <GripVertical size={16} />
+        </div>
       </div>
       {children}
     </div>
@@ -2290,14 +2311,20 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
   const displayTasks = canManage ? tasks : myTasks;
 
   // Widget customization state
-  const defaultWidgets = [
-    { id: 'task-stats', component: 'TaskStatsWidget', title: 'Görev İstatistikleri' },
-    { id: 'weekly-hours', component: 'WeeklyHoursWidget', title: 'Bu Hafta' },
-    { id: 'upcoming-tasks', component: 'UpcomingTasksWidget', title: 'Yaklaşan Görevler' },
-    { id: 'team-performance', component: 'TeamPerformanceWidget', title: 'Takım Performansı' },
-    { id: 'recent-activities', component: 'RecentActivitiesWidget', title: 'Son Aktiviteler' },
-    { id: 'notifications', component: 'NotificationSummaryWidget', title: 'Bildirimler' },
+  const allAvailableWidgets = [
+    { id: 'task-stats', component: 'TaskStatsWidget', title: 'Görev İstatistikleri', icon: CheckSquare, color: 'from-blue-500 to-cyan-500' },
+    { id: 'weekly-hours', component: 'WeeklyHoursWidget', title: 'Bu Hafta', icon: Clock, color: 'from-purple-500 to-pink-500' },
+    { id: 'upcoming-tasks', component: 'UpcomingTasksWidget', title: 'Yaklaşan Görevler', icon: Calendar, color: 'from-amber-500 to-orange-500' },
+    { id: 'team-performance', component: 'TeamPerformanceWidget', title: 'Takım Performansı', icon: Users, color: 'from-emerald-500 to-teal-500' },
+    { id: 'recent-activities', component: 'RecentActivitiesWidget', title: 'Son Aktiviteler', icon: Activity, color: 'from-indigo-500 to-purple-500' },
+    { id: 'notifications', component: 'NotificationSummaryWidget', title: 'Bildirimler', icon: Bell, color: 'from-red-500 to-pink-500' },
+    { id: 'pending-tasks', component: 'PendingTasksWidget', title: 'Bekleyen Görevler', icon: ListTodo, color: 'from-amber-500 to-orange-500' },
+    { id: 'my-tasks', component: 'MyTasksWidget', title: 'Benim Görevlerim', icon: UserCheck, color: 'from-cyan-500 to-blue-500' },
+    { id: 'priority-tasks', component: 'PriorityTasksWidget', title: 'Öncelikli Görevler', icon: Flag, color: 'from-red-500 to-pink-500' },
+    { id: 'deadline-tasks', component: 'DeadlineWidget', title: 'Son Tarih Yaklaşanlar', icon: CalendarClock, color: 'from-orange-500 to-red-500' },
   ];
+
+  const defaultWidgets = allAvailableWidgets.slice(0, 6); // İlk 6 widget varsayılan
 
   const [widgetOrder, setWidgetOrder] = useState(() => {
     const saved = localStorage.getItem('dashboard_widget_order');
@@ -2305,6 +2332,9 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
   });
 
   const [activeId, setActiveId] = useState(null);
+  const [showAddWidgetModal, setShowAddWidgetModal] = useState(false);
+  const [showReplaceWidgetModal, setShowReplaceWidgetModal] = useState(false);
+  const [selectedWidgetToAdd, setSelectedWidgetToAdd] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -2339,14 +2369,57 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
     localStorage.setItem('dashboard_widget_order', JSON.stringify(defaultOrder));
   };
 
+  const handleAddWidget = (widgetId) => {
+    // Zaten ekliyse uyarı göster
+    if (widgetOrder.includes(widgetId)) {
+      addToast({ type: 'warning', title: 'Uyarı', message: 'Bu widget zaten eklenmiş!' });
+      return;
+    }
+
+    // 6'dan azsa direkt ekle
+    if (widgetOrder.length < 6) {
+      const newOrder = [...widgetOrder, widgetId];
+      setWidgetOrder(newOrder);
+      localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+      setShowAddWidgetModal(false);
+      addToast({ type: 'success', title: 'Başarılı', message: 'Widget eklendi!' });
+    } else {
+      // 6 varsa değiştirme modalı aç
+      setSelectedWidgetToAdd(widgetId);
+      setShowAddWidgetModal(false);
+      setShowReplaceWidgetModal(true);
+    }
+  };
+
+  const handleReplaceWidget = (oldWidgetId) => {
+    const newOrder = widgetOrder.map(id => id === oldWidgetId ? selectedWidgetToAdd : id);
+    setWidgetOrder(newOrder);
+    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    setShowReplaceWidgetModal(false);
+    setSelectedWidgetToAdd(null);
+    addToast({ type: 'success', title: 'Başarılı', message: 'Widget değiştirildi!' });
+  };
+
+  const handleRemoveWidget = (widgetId) => {
+    if (widgetOrder.length <= 1) {
+      addToast({ type: 'warning', title: 'Uyarı', message: 'En az 1 widget olmalı!' });
+      return;
+    }
+    const newOrder = widgetOrder.filter(id => id !== widgetId);
+    setWidgetOrder(newOrder);
+    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    addToast({ type: 'success', title: 'Başarılı', message: 'Widget kaldırıldı!' });
+  };
+
   const renderWidget = (widgetId) => {
-    const widget = defaultWidgets.find(w => w.id === widgetId);
+    const widget = allAvailableWidgets.find(w => w.id === widgetId);
     if (!widget) return null;
 
     const widgetProps = {
       tasks,
       employees,
       isDark,
+      user,
       onTaskClick: (task) => console.log('Task clicked:', task),
     };
 
@@ -2363,6 +2436,14 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
         return <RecentActivitiesWidget isDark={isDark} />;
       case 'NotificationSummaryWidget':
         return <NotificationSummaryWidget isDark={isDark} />;
+      case 'PendingTasksWidget':
+        return <PendingTasksWidget tasks={tasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
+      case 'MyTasksWidget':
+        return <MyTasksWidget tasks={tasks} user={user} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
+      case 'PriorityTasksWidget':
+        return <PriorityTasksWidget tasks={tasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
+      case 'DeadlineWidget':
+        return <DeadlineWidget tasks={tasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
       default:
         return null;
     }
@@ -2417,15 +2498,28 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
             <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
               Sürükle & Bırak
             </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+              {widgetOrder.length}/6
+            </span>
           </div>
-          <button
-            onClick={resetWidgetOrder}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
-            title="Varsayılan düzene sıfırla"
-          >
-            <Settings2 size={14} />
-            Sıfırla
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddWidgetModal(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${isDark ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
+              title="Widget ekle"
+            >
+              <Plus size={14} />
+              Ekle
+            </button>
+            <button
+              onClick={resetWidgetOrder}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+              title="Varsayılan düzene sıfırla"
+            >
+              <Settings2 size={14} />
+              Sıfırla
+            </button>
+          </div>
         </div>
 
         <DndContext
@@ -2437,7 +2531,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
           <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {widgetOrder.map((widgetId) => (
-                <SortableWidget key={widgetId} id={widgetId} isDark={isDark}>
+                <SortableWidget key={widgetId} id={widgetId} isDark={isDark} onRemove={handleRemoveWidget}>
                   {renderWidget(widgetId)}
                 </SortableWidget>
               ))}
@@ -2445,6 +2539,97 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
           </SortableContext>
         </DndContext>
       </div>
+
+      {/* Widget Ekleme Modalı */}
+      <BaseModal
+        isOpen={showAddWidgetModal}
+        onClose={() => setShowAddWidgetModal(false)}
+        title="Widget Ekle"
+        isDark={isDark}
+      >
+        <div className="space-y-4">
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Eklemek istediğiniz widget'ı seçin {widgetOrder.length >= 6 && '(Maksimum 6 widget, seçtiğiniz widget ile değiştirilecek)'}:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {allAvailableWidgets.map(widget => {
+              const Icon = widget.icon;
+              const isAlreadyAdded = widgetOrder.includes(widget.id);
+              return (
+                <button
+                  key={widget.id}
+                  onClick={() => !isAlreadyAdded && handleAddWidget(widget.id)}
+                  disabled={isAlreadyAdded}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    isAlreadyAdded
+                      ? isDark ? 'bg-slate-700/30 border-slate-600 opacity-50 cursor-not-allowed' : 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'
+                      : isDark ? 'bg-slate-700/50 border-slate-600 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${widget.color} shrink-0`}>
+                      <Icon size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={`font-semibold text-sm mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {widget.title}
+                      </h4>
+                      {isAlreadyAdded && (
+                        <span className="text-xs text-emerald-500 font-medium">✓ Eklenmiş</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </BaseModal>
+
+      {/* Widget Değiştirme Modalı */}
+      <BaseModal
+        isOpen={showReplaceWidgetModal}
+        onClose={() => {
+          setShowReplaceWidgetModal(false);
+          setSelectedWidgetToAdd(null);
+        }}
+        title="Hangi Widget ile Değiştirmek İstersiniz?"
+        isDark={isDark}
+      >
+        <div className="space-y-4">
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Maksimum 6 widget ekleyebilirsiniz. Değiştirmek istediğiniz widget'ı seçin:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {widgetOrder.map(widgetId => {
+              const widget = allAvailableWidgets.find(w => w.id === widgetId);
+              if (!widget) return null;
+              const Icon = widget.icon;
+              return (
+                <button
+                  key={widget.id}
+                  onClick={() => handleReplaceWidget(widget.id)}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    isDark ? 'bg-slate-700/50 border-slate-600 hover:border-red-500' : 'bg-white border-slate-200 hover:border-red-500 hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg bg-gradient-to-br ${widget.color} shrink-0`}>
+                      <Icon size={20} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={`font-semibold text-sm mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {widget.title}
+                      </h4>
+                      <span className="text-xs text-red-500 font-medium">Bunu değiştir</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </BaseModal>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Son Görevler */}
