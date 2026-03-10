@@ -51,6 +51,26 @@ class AuthController {
       res.status(401).json({ message: err.message });
     }
   }
+
+  async checkCompanyCode(req, res) {
+    try {
+      const { code, currentCompanyId } = req.query;
+      if (!code) return res.json({ available: false, reason: 'empty' });
+      const available = await AuthService.checkCompanyCodeAvailability(code, currentCompanyId);
+      res.json(available);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+
+  async updateCompanyCode(req, res) {
+    try {
+      const result = await AuthService.updateCompanyCode(req.user.company_id, req.body.companyCode);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  }
 }
 
 module.exports = new AuthController();

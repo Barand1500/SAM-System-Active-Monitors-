@@ -39,7 +39,8 @@ export const userAPI = {
   get: (id) => apiClient.get(`/users/${id}`),
   create: (data) => apiClient.post('/users', data),
   update: (id, data) => apiClient.put(`/users/${id}`, data),
-  delete: (id) => apiClient.delete(`/users/${id}`)
+  delete: (id) => apiClient.delete(`/users/${id}`),
+  updateSkills: (id, skills) => apiClient.put(`/users/${id}/skills`, { skills })
 };
 
 // ============== ANNOUNCEMENTS ENDPOINTS ==============
@@ -79,11 +80,14 @@ export const taskAPI = {
 
 // ============== PROJECTS ENDPOINTS ==============
 export const projectAPI = {
+  list: () => apiClient.get('/projects/company'),
   listByWorkspace: (workspaceId) => apiClient.get(`/projects/workspace/${workspaceId}`),
   get: (id) => apiClient.get(`/projects/${id}`),
   create: (data) => apiClient.post('/projects', data),
   update: (id, data) => apiClient.put(`/projects/${id}`, data),
-  delete: (id) => apiClient.delete(`/projects/${id}`)
+  delete: (id) => apiClient.delete(`/projects/${id}`),
+  addMember: (id, userId, role) => apiClient.post(`/projects/${id}/members`, { user_id: userId, role }),
+  removeMember: (id, userId) => apiClient.delete(`/projects/${id}/members/${userId}`)
 };
 
 // ============== TASK LISTS ENDPOINTS ==============
@@ -151,6 +155,90 @@ export const fileAPI = {
   }),
   download: (id) => apiClient.get(`/files/${id}/download`, { responseType: 'blob' }),
   delete: (id) => apiClient.delete(`/files/${id}`)
+};
+
+// ============== SURVEY ENDPOINTS ==============
+export const surveyAPI = {
+  list: () => apiClient.get('/surveys'),
+  create: (data) => apiClient.post('/surveys', data),
+  get: (id) => apiClient.get(`/surveys/${id}`),
+  update: (id, data) => apiClient.put(`/surveys/${id}`, data),
+  delete: (id) => apiClient.delete(`/surveys/${id}`),
+  submit: (id, answers) => apiClient.post(`/surveys/${id}/submit`, { answers }),
+  getResponses: (id) => apiClient.get(`/surveys/${id}/responses`),
+  getStats: (id) => apiClient.get(`/surveys/${id}/stats`)
+};
+
+// ============== TASK STATUS ENDPOINTS ==============
+export const taskStatusAPI = {
+  list: () => apiClient.get('/task-statuses'),
+  get: (id) => apiClient.get(`/task-statuses/${id}`),
+  create: (data) => apiClient.post('/task-statuses', data),
+  update: (id, data) => apiClient.put(`/task-statuses/${id}`, data),
+  delete: (id) => apiClient.delete(`/task-statuses/${id}`),
+  reorder: (items) => apiClient.put('/task-statuses/reorder', { items })
+};
+
+// ============== TASK PRIORITY ENDPOINTS ==============
+export const taskPriorityAPI = {
+  list: () => apiClient.get('/task-priorities'),
+  get: (id) => apiClient.get(`/task-priorities/${id}`),
+  create: (data) => apiClient.post('/task-priorities', data),
+  update: (id, data) => apiClient.put(`/task-priorities/${id}`, data),
+  delete: (id) => apiClient.delete(`/task-priorities/${id}`),
+  reorder: (items) => apiClient.put('/task-priorities/reorder', { items })
+};
+
+// ============== RECURRING TASK ENDPOINTS ==============
+export const recurringTaskAPI = {
+  list: () => apiClient.get('/recurring-tasks'),
+  get: (id) => apiClient.get(`/recurring-tasks/${id}`),
+  create: (data) => apiClient.post('/recurring-tasks', data),
+  update: (id, data) => apiClient.put(`/recurring-tasks/${id}`, data),
+  delete: (id) => apiClient.delete(`/recurring-tasks/${id}`),
+  toggleActive: (id) => apiClient.patch(`/recurring-tasks/${id}/toggle`)
+};
+
+export const companyProfileAPI = {
+  get: () => apiClient.get('/settings/profile'),
+  update: (data) => apiClient.put('/settings/profile', data),
+};
+
+export const foldersAPI = {
+  get: () => apiClient.get('/settings/folders'),
+  update: (data) => apiClient.put('/settings/folders', data),
+};
+
+export const dashboardSettingAPI = {
+  get: () => apiClient.get('/dashboard-settings'),
+  update: (data) => apiClient.put('/dashboard-settings', data),
+};
+
+export const auditLogAPI = {
+  list: (params) => apiClient.get('/audit-logs', { params }),
+  create: (data) => apiClient.post('/audit-logs', data),
+  clear: () => apiClient.delete('/audit-logs'),
+};
+
+export const contactAPI = {
+  list: () => apiClient.get('/contacts'),
+  create: (data) => apiClient.post('/contacts', data),
+  update: (id, data) => apiClient.put(`/contacts/${id}`, data),
+  delete: (id) => apiClient.delete(`/contacts/${id}`),
+};
+
+export const tagAPI = {
+  list: () => apiClient.get('/tags'),
+  create: (data) => apiClient.post('/tags', data),
+  update: (id, data) => apiClient.put(`/tags/${id}`, data),
+  delete: (id) => apiClient.delete(`/tags/${id}`),
+};
+
+export const personalNoteAPI = {
+  list: () => apiClient.get('/personal-notes'),
+  create: (data) => apiClient.post('/personal-notes', data),
+  update: (id, data) => apiClient.put(`/personal-notes/${id}`, data),
+  delete: (id) => apiClient.delete(`/personal-notes/${id}`),
 };
 
 export default apiClient;

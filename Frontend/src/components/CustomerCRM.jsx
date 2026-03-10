@@ -5,7 +5,7 @@ import {
   MapPin, Globe, Tag, Filter, Eye, Users, CreditCard, Plane, ChevronDown,
   Save, AlertCircle, CheckCircle2, Loader2
 } from 'lucide-react';
-import { customerAPI, supportTicketAPI } from '../services/api';
+import { customerAPI, supportTicketAPI, contactAPI } from '../services/api';
 
 const TYPE_META = {
   gercek:  { label: 'Gerçek Kişi', color: 'from-emerald-500 to-teal-600', icon: User, short: 'GK' },
@@ -51,19 +51,7 @@ const backendToFrontendCustomer = (c) => ({
   children: c.children || []
 });
 
-const defaultContacts = [
-  {
-    id: 1, name: 'Ercan Güzel', phone: '0538 930 33 14', company: 'Güzel Teknoloji',
-    addresses: [{ id: 1, name: 'Merkez', city: 'Antalya', district: '', neighborhood: '', quarter: 'Emel Mahallesi', buildingInfo: '88055 Sok. Türkiye' }]
-  }
-];
-
-const loadContacts = () => {
-  try {
-    const saved = localStorage.getItem('sam_contacts');
-    return saved ? JSON.parse(saved) : defaultContacts;
-  } catch { return defaultContacts; }
-};
+const defaultContacts = [];
 
 const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
   const [customers, setCustomers] = useState([]);
@@ -167,7 +155,7 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
       return { type: 'gercek', company: '', contactName: '', email: '', phones: [''], addresses: [{ label: '', value: '' }], sector: '', notes: '', tags: [], tcNo: '', vergiDairesi: '', vergiNo: '', passportNo: '', parentId: null };
     });
     const [tagInput, setTagInput] = useState('');
-    const [contacts, setContacts] = useState(loadContacts);
+    const [contacts, setContacts] = useState([]);
     const [phoneSearchResults, setPhoneSearchResults] = useState([]);
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [addrSearch, setAddrSearch] = useState('');
@@ -178,7 +166,9 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
     const [addrQuarter, setAddrQuarter] = useState('');
     const [addrBuilding, setAddrBuilding] = useState('');
 
-    useEffect(() => { localStorage.setItem('sam_contacts', JSON.stringify(contacts)); }, [contacts]);
+    useEffect(() => {
+      contactAPI.list().then(res => setContacts(res.data || [])).catch(() => {});
+    }, []);
 
     const allAddresses = contacts.flatMap(c =>
       c.addresses.map(a => ({ ...a, contactName: c.name, contactCompany: c.company }))
@@ -245,16 +235,15 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
       setForm(p => ({ ...p, addresses: [...p.addresses, fullAddr] }));
       
       // Adres veritabanına da ekle
-      const contactIndex = contacts.findIndex(c => 
+      const existingContact = contacts.find(c => 
         (c.phone === form.phones[0]) || (c.name === form.contactName)
       );
-      if (contactIndex >= 0) {
-        const updatedContacts = [...contacts];
-        updatedContacts[contactIndex] = {
-          ...updatedContacts[contactIndex],
-          addresses: [...(updatedContacts[contactIndex].addresses || []), addr]
-        };
-        setContacts(updatedContacts);
+      if (existingContact) {
+        const updatedAddresses = [...(existingContact.addresses || []), addr];
+        contactAPI.update(existingContact.id, { addresses: updatedAddresses })
+          .then(res => {
+            setContacts(prev => prev.map(c => c.id === existingContact.id ? (res.data || { ...c, addresses: updatedAddresses }) : c));
+          }).catch(() => {});
       }
       
       setShowAddressForm(false);

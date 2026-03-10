@@ -150,6 +150,32 @@ class AuthService {
     
     return { user: this.sanitizeUser(user), company, token };
   }
+
+  // Şirket kodu müsaitlik kontrolü
+  async checkCompanyCodeAvailability(code, currentCompanyId) {
+    if (!code) return { available: false, reason: 'empty' };
+    const upperCode = code.toUpperCase();
+    const existing = await Company.findOne({ where: { company_code: upperCode } });
+    if (existing && String(existing.id) !== String(currentCompanyId)) {
+      return { available: false, reason: 'taken' };
+    }
+    return { available: true };
+  }
+
+  // Şirket kodunu güncelle
+  async updateCompanyCode(companyId, newCode) {
+    if (!newCode) throw new Error('Şirket kodu boş olamaz');
+    const upperCode = newCode.toUpperCase();
+    const existing = await Company.findOne({ where: { company_code: upperCode } });
+    if (existing && existing.id !== companyId) {
+      throw new Error('Bu şirket kodu zaten kullanımda');
+    }
+    const company = await Company.findByPk(companyId);
+    if (!company) throw new Error('Şirket bulunamadı');
+    company.companyCode = upperCode;
+    await company.save();
+    return { company };
+  }
 }
 
 module.exports = new AuthService();

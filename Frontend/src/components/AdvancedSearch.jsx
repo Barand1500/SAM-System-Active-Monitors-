@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { tagAPI } from '../services/api';
 import { 
   Search, 
   Filter, 
@@ -60,10 +61,10 @@ const AdvancedSearch = ({ isDark, tasks = [], users = [], onFilterChange }) => {
     { value: 'status', label: 'Durum' },
   ];
 
-  // Tags from localStorage
-  const tags = useMemo(() => {
-    const saved = localStorage.getItem('taskTags');
-    return saved ? JSON.parse(saved) : [];
+  // Tags from API
+  const [tags, setTags] = useState([]);
+  useEffect(() => {
+    tagAPI.list().then(res => setTags(res.data || [])).catch(() => {});
   }, []);
 
   // Toggle array filter

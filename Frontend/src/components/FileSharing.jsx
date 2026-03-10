@@ -7,7 +7,7 @@ import {
   Inbox, Layers, Mail, Map, Monitor, Package, Palette, Shield, Star, Zap,
   Loader2
 } from 'lucide-react';
-import { fileAPI } from '../services/api';
+import { fileAPI, foldersAPI } from '../services/api';
 
 const FOLDER_ICONS = [
   { id: 'folder', label: 'Klasör', Icon: FolderOpen },
@@ -96,13 +96,6 @@ const backendToFrontendFile = (f) => ({
   fileUrl: f.fileUrl || f.file_url
 });
 
-const loadFolders = () => {
-  try {
-    const saved = localStorage.getItem('sam_file_folders');
-    return saved ? JSON.parse(saved) : defaultFolders;
-  } catch { return defaultFolders; }
-};
-
 const defaultFolders = [
   { id: 'root', name: 'Ana Dizin', parentId: null, icon: 'folder', color: 'amber' },
   { id: 'reports', name: 'Raporlar', parentId: 'root', icon: 'book', color: 'blue' },
@@ -113,7 +106,7 @@ const defaultFolders = [
 const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [folders, setFolders] = useState(loadFolders);
+  const [folders, setFolders] = useState(defaultFolders);
   const [currentFolder, setCurrentFolder] = useState('root');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // grid | list
@@ -139,7 +132,13 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   };
 
   useEffect(() => { fetchFiles(); }, []);
-  useEffect(() => { localStorage.setItem('sam_file_folders', JSON.stringify(folders)); }, [folders]);
+  useEffect(() => {
+    foldersAPI.get().then(res => {
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setFolders(res.data);
+      }
+    }).catch(() => {});
+  }, []);
 
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
@@ -188,7 +187,9 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   const createFolder = () => {
     if (!newFolderName.trim()) return;
     const id = 'folder_' + Date.now();
-    setFolders(prev => [...prev, { id, name: newFolderName.trim(), parentId: currentFolder, icon: newFolderIcon, color: newFolderColor }]);
+    const newFolders = [...folders, { id, name: newFolderName.trim(), parentId: currentFolder, icon: newFolderIcon, color: newFolderColor }];
+    setFolders(newFolders);
+    foldersAPI.update(newFolders).catch(() => {});
     setNewFolderName('');
     setNewFolderIcon('folder');
     setNewFolderColor('amber');
@@ -221,7 +222,9 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
     } catch (err) {
       console.error('Klasör dosyaları silinemedi:', err);
     }
-    setFolders(prev => prev.filter(f => !folderIds.includes(f.id)));
+    const remaining = folders.filter(f => !folderIds.includes(f.id));
+    setFolders(remaining);
+    foldersAPI.update(remaining).catch(() => {});
     await fetchFiles();
   };
 

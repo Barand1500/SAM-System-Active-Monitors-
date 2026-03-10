@@ -10,4 +10,8 @@ router.put("/", authenticate, authorizeRoles("boss"), CompanySettingController.u
 router.get("/profile", authenticate, CompanySettingController.getProfile);
 router.put("/profile", authenticate, authorizeRoles("boss"), CompanySettingController.updateProfile);
 
+// Dosya Klasörleri
+router.get("/folders", authenticate, CompanySettingController.getFolders);
+router.put("/folders", authenticate, CompanySettingController.updateFolders);
+
 module.exports = router;

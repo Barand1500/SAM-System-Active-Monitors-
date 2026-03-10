@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { auditLogAPI } from '../services/api';
 
 const ActivityLogContext = createContext();
 
@@ -21,30 +22,6 @@ const ACTIVITY_TYPES = {
   TIME_CLOCK_OUT: 'time_clock_out',
   BREAK_START: 'break_start',
   BREAK_END: 'break_end',
-};
-
-// Aktivite mesajları
-const getActivityMessage = (type, data = {}) => {
-  const messages = {
-    [ACTIVITY_TYPES.TASK_CREATED]: `"${data.taskTitle}" görevi oluşturuldu`,
-    [ACTIVITY_TYPES.TASK_UPDATED]: `"${data.taskTitle}" görevi güncellendi`,
-    [ACTIVITY_TYPES.TASK_COMPLETED]: `"${data.taskTitle}" görevi tamamlandı`,
-    [ACTIVITY_TYPES.TASK_DELETED]: `"${data.taskTitle}" görevi silindi`,
-    [ACTIVITY_TYPES.TASK_ASSIGNED]: `"${data.taskTitle}" görevi ${data.assigneeName}'a atandı`,
-    [ACTIVITY_TYPES.COMMENT_ADDED]: `"${data.taskTitle}" görevine yorum eklendi`,
-    [ACTIVITY_TYPES.FILE_UPLOADED]: `"${data.fileName}" dosyası yüklendi`,
-    [ACTIVITY_TYPES.STATUS_CHANGED]: `"${data.taskTitle}" durumu "${data.newStatus}" olarak değiştirildi`,
-    [ACTIVITY_TYPES.LEAVE_REQUESTED]: `${data.leaveType} izni talep edildi`,
-    [ACTIVITY_TYPES.LEAVE_APPROVED]: `${data.userName} kullanıcısının izin talebi onaylandı`,
-    [ACTIVITY_TYPES.LEAVE_REJECTED]: `${data.userName} kullanıcısının izin talebi reddedildi`,
-    [ACTIVITY_TYPES.USER_LOGIN]: `Sisteme giriş yapıldı`,
-    [ACTIVITY_TYPES.USER_LOGOUT]: `Sistemden çıkış yapıldı`,
-    [ACTIVITY_TYPES.TIME_CLOCK_IN]: `Mesaiye giriş yapıldı`,
-    [ACTIVITY_TYPES.TIME_CLOCK_OUT]: `Mesaiden çıkış yapıldı`,
-    [ACTIVITY_TYPES.BREAK_START]: `Molaya çıkıldı`,
-    [ACTIVITY_TYPES.BREAK_END]: `Moladan dönüldü`,
-  };
-  return messages[type] || 'Bilinmeyen aktivite';
 };
 
 // Aktivite ikonları
@@ -72,31 +49,53 @@ const getActivityIcon = (type) => {
 };
 
 export const ActivityLogProvider = ({ children }) => {
-  const [activities, setActivities] = useState(() => {
-    const saved = localStorage.getItem('activityLog');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [activities, setActivities] = useState([]);
+
+  // API'den yükle
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await auditLogAPI.list({ limit: 500 });
+        const data = res.data?.data || res.data || [];
+        setActivities(data.map(a => ({
+          id: a.id,
+          type: a.type || '',
+          message: a.description || '',
+          icon: getActivityIcon(a.type),
+          userId: a.userId || a.user_id,
+          userName: a.userName || a.user_name,
+          timestamp: a.created_at || a.createdAt,
+        })));
+      } catch (err) {
+        console.error('Aktivite logu yüklenemedi:', err);
+      }
+    };
+    load();
+  }, []);
 
   // Aktivite ekleme
-  const logActivity = useCallback((type, data = {}, userId = null, userName = null) => {
-    const activity = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      type,
-      data,
-      message: getActivityMessage(type, data),
-      icon: getActivityIcon(type),
-      userId,
-      userName,
-      timestamp: new Date().toISOString(),
-    };
-
-    setActivities(prev => {
-      const updated = [activity, ...prev].slice(0, 500); // Max 500 aktivite
-      localStorage.setItem('activityLog', JSON.stringify(updated));
-      return updated;
-    });
-
-    return activity;
+  const logActivity = useCallback(async (type, data = {}, userId = null, userName = null) => {
+    try {
+      const res = await auditLogAPI.create({
+        type,
+        description: data.message || data.description || '',
+        entity: data.entity || '',
+      });
+      const a = res.data;
+      const activity = {
+        id: a.id,
+        type,
+        message: a.description || '',
+        icon: getActivityIcon(type),
+        userId: a.userId || userId,
+        userName: a.userName || userName,
+        timestamp: a.created_at || a.createdAt,
+      };
+      setActivities(prev => [activity, ...prev].slice(0, 500));
+      return activity;
+    } catch (err) {
+      console.error('Aktivite kaydedilemedi:', err);
+    }
   }, []);
 
   // Aktiviteleri filtreleme
@@ -123,9 +122,13 @@ export const ActivityLogProvider = ({ children }) => {
   }, [activities]);
 
   // Tüm aktiviteleri temizle
-  const clearActivities = useCallback(() => {
-    setActivities([]);
-    localStorage.removeItem('activityLog');
+  const clearActivities = useCallback(async () => {
+    try {
+      await auditLogAPI.clear();
+      setActivities([]);
+    } catch (err) {
+      console.error('Aktiviteler temizlenemedi:', err);
+    }
   }, []);
 
   const value = {

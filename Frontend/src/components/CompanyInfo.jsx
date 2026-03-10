@@ -1,26 +1,32 @@
 import { useState, useEffect } from 'react';
+import { companyProfileAPI } from '../services/api';
 import { 
   Building2, MapPin, Phone, Mail, Globe, FileText, Banknote, Hash, 
-  Info, Eye, ChevronDown, Printer, Download 
+  Info, Eye, ChevronDown, Printer, Download, Loader2 
 } from 'lucide-react';
 
 const CompanyInfo = ({ isDark }) => {
   const [companyProfile, setCompanyProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [openSections, setOpenSections] = useState({
     profile: true,
     commercial: true
   });
 
   useEffect(() => {
-    // localStorage'dan şirket profilini yükle
-    const stored = localStorage.getItem('sam_company_profile');
-    if (stored) {
+    const loadProfile = async () => {
       try {
-        setCompanyProfile(JSON.parse(stored));
-      } catch (e) {
-        console.error('Şirket profili yüklenemedi:', e);
+        const res = await companyProfileAPI.get();
+        if (res.data) {
+          setCompanyProfile(res.data);
+        }
+      } catch (err) {
+        console.error('Şirket profili yüklenemedi:', err);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    loadProfile();
   }, []);
 
   const toggleSection = (section) => {
@@ -35,6 +41,18 @@ const CompanyInfo = ({ isDark }) => {
     // Tarayıcının PDF özelliğini kullan
     window.print();
   };
+
+  // Yükleniyor
+  if (loading) {
+    return (
+      <div className={`max-w-5xl mx-auto p-8 rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="text-center py-12">
+          <Loader2 size={48} className={`mx-auto mb-4 animate-spin ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Eğer veri yoksa
   if (!companyProfile) {

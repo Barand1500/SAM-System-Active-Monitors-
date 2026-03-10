@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { tagAPI } from '../services/api';
 import { 
   Tag, 
   Plus, 
@@ -11,19 +12,11 @@ import {
 
 // Etiket yönetimi bileşeni
 const TagManager = ({ isDark, selectedTags = [], onTagsChange, showManager = false }) => {
-  const [tags, setTags] = useState(() => {
-    const saved = localStorage.getItem('taskTags');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'Bug', color: '#ef4444' },
-      { id: '2', name: 'Feature', color: '#10b981' },
-      { id: '3', name: 'Urgent', color: '#f97316' },
-      { id: '4', name: 'Design', color: '#8b5cf6' },
-      { id: '5', name: 'Backend', color: '#3b82f6' },
-      { id: '6', name: 'Frontend', color: '#ec4899' },
-      { id: '7', name: 'Documentation', color: '#6b7280' },
-      { id: '8', name: 'Testing', color: '#14b8a6' },
-    ];
-  });
+  const [tags, setTags] = useState([]);
+
+  useEffect(() => {
+    tagAPI.list().then(res => setTags(res.data || [])).catch(() => {});
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewTag, setShowNewTag] = useState(false);
@@ -37,26 +30,23 @@ const TagManager = ({ isDark, selectedTags = [], onTagsChange, showManager = fal
     '#ec4899', '#6b7280'
   ];
 
-  const saveTags = (newTags) => {
+  const saveTags = async (newTags, action) => {
     setTags(newTags);
-    localStorage.setItem('taskTags', JSON.stringify(newTags));
   };
 
   // Etiket ekle
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (newTagName.trim()) {
-      if (editingTag) {
-        const updated = tags.map(t => 
-          t.id === editingTag.id ? { ...t, name: newTagName, color: newTagColor } : t
-        );
-        saveTags(updated);
-      } else {
-        const newTag = {
-          id: Date.now().toString(),
-          name: newTagName.trim(),
-          color: newTagColor
-        };
-        saveTags([...tags, newTag]);
+      try {
+        if (editingTag) {
+          const res = await tagAPI.update(editingTag.id, { name: newTagName, color: newTagColor });
+          setTags(prev => prev.map(t => t.id === editingTag.id ? (res.data || { ...t, name: newTagName, color: newTagColor }) : t));
+        } else {
+          const res = await tagAPI.create({ name: newTagName.trim(), color: newTagColor });
+          setTags(prev => [...prev, res.data]);
+        }
+      } catch (err) {
+        console.error('Etiket kaydedilemedi:', err);
       }
       setNewTagName('');
       setNewTagColor('#6366f1');
@@ -66,10 +56,15 @@ const TagManager = ({ isDark, selectedTags = [], onTagsChange, showManager = fal
   };
 
   // Etiket sil
-  const handleDeleteTag = (tagId) => {
-    saveTags(tags.filter(t => t.id !== tagId));
-    if (selectedTags.includes(tagId)) {
-      onTagsChange?.(selectedTags.filter(id => id !== tagId));
+  const handleDeleteTag = async (tagId) => {
+    try {
+      await tagAPI.delete(tagId);
+      setTags(prev => prev.filter(t => t.id !== tagId));
+      if (selectedTags.includes(tagId)) {
+        onTagsChange?.(selectedTags.filter(id => id !== tagId));
+      }
+    } catch (err) {
+      console.error('Etiket silinemedi:', err);
     }
   };
 
@@ -274,10 +269,11 @@ export const TagBadge = ({ tag, isDark, small = false }) => {
 
 // Etiket listesi bileşeni
 export const TagList = ({ tagIds = [], isDark, maxShow = 3 }) => {
-  const [tags] = useState(() => {
-    const saved = localStorage.getItem('taskTags');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [tags, setTags] = useState([]);
+
+  useEffect(() => {
+    tagAPI.list().then(res => setTags(res.data || [])).catch(() => {});
+  }, []);
 
   const visibleTags = tagIds.slice(0, maxShow).map(id => tags.find(t => t.id === id)).filter(Boolean);
   const remainingCount = tagIds.length - maxShow;

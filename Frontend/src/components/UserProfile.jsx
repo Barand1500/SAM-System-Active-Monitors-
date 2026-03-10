@@ -2,56 +2,61 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import {
-  User, Mail, Phone, Calendar, Briefcase, Building2, Award, Save, X, Upload, Edit3
+  User, Mail, Phone, Calendar, Briefcase, Building2, Award, Save, X, Upload, Edit3, Loader2
 } from 'lucide-react';
 import { validateEmail, validatePhone, validateRequired } from '../utils/validation';
+import { userAPI, departmentAPI } from '../services/api';
 
 const UserProfile = ({ isDark }) => {
   const { user } = useAuth();
   const { addToast } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   
-  const [profile, setProfile] = useState(() => {
-    const stored = localStorage.getItem(`user_profile_${user?.id || 'default'}`);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        console.error('Profil yüklenemedi:', e);
-      }
-    }
-    // Varsayılan profil
-    return {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
-      email: user?.email || '',
-      phone: '',
-      birthDate: '',
-      department: user?.department || '',
-      position: user?.position || '',
-      startDate: '',
-      skills: [],
-      bio: '',
-      profilePhoto: null
-    };
+  const [profile, setProfile] = useState({
+    firstName: '', lastName: '', email: '', phone: '',
+    position: '', departmentId: null, departmentName: '',
+    skills: [], avatarUrl: null
   });
 
   const [newSkill, setNewSkill] = useState('');
-  const [photoPreview, setPhotoPreview] = useState(profile.profilePhoto);
-
-  // Departmanlar listesi (localStorage'dan yükle)
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [departments, setDepartments] = useState([]);
-  useEffect(() => {
-    const depts = localStorage.getItem('sam_departments');
-    if (depts) {
-      try {
-        setDepartments(JSON.parse(depts));
-      } catch (e) {
-        setDepartments([]);
-      }
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const [userRes, deptRes] = await Promise.all([
+        userAPI.get(user?.id),
+        departmentAPI.list()
+      ]);
+      const u = userRes.data?.data || userRes.data;
+      const depts = deptRes.data?.data || deptRes.data || [];
+      setDepartments(Array.isArray(depts) ? depts : []);
+
+      const skills = (u.UserSkills || []).map(s => s.name);
+      const deptName = u.Department?.name || '';
+      setProfile({
+        firstName: u.firstName || u.first_name || '',
+        lastName: u.lastName || u.last_name || '',
+        email: u.email || '',
+        phone: u.phone || '',
+        position: u.position || '',
+        departmentId: u.departmentId || u.department_id || null,
+        departmentName: deptName,
+        skills,
+        avatarUrl: u.avatarUrl || u.avatar_url || null
+      });
+      setPhotoPreview(u.avatarUrl || u.avatar_url || null);
+    } catch (err) {
+      console.error('Profil yüklenemedi:', err);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
+
+  useEffect(() => { if (user?.id) fetchProfile(); }, [user?.id]);
 
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0];
@@ -102,7 +107,7 @@ const UserProfile = ({ isDark }) => {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validasyon
     const errors = [];
 
@@ -135,9 +140,15 @@ const UserProfile = ({ isDark }) => {
     }
 
     setIsSaving(true);
-    setTimeout(() => {
-      localStorage.setItem(`user_profile_${user?.id || 'default'}`, JSON.stringify(profile));
-      setIsSaving(false);
+    try {
+      await userAPI.update(user.id, {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: profile.phone,
+        position: profile.position,
+        departmentId: profile.departmentId || null
+      });
+      await userAPI.updateSkills(user.id, profile.skills);
       setIsEditing(false);
       addToast({
         type: 'success',
@@ -145,23 +156,31 @@ const UserProfile = ({ isDark }) => {
         message: 'Profiliniz güncellendi',
         duration: 3000
       });
-    }, 500);
+    } catch (err) {
+      console.error('Profil güncellenemedi:', err);
+      addToast({
+        type: 'error',
+        title: 'Hata',
+        message: 'Profil güncellenirken bir hata oluştu',
+        duration: 4000
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Profili yeniden yükle
-    const stored = localStorage.getItem(`user_profile_${user?.id || 'default'}`);
-    if (stored) {
-      try {
-        const loaded = JSON.parse(stored);
-        setProfile(loaded);
-        setPhotoPreview(loaded.profilePhoto);
-      } catch (e) {
-        console.error('Profil yüklenemedi:', e);
-      }
-    }
+    fetchProfile();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -243,13 +262,6 @@ const UserProfile = ({ isDark }) => {
                     className={`px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
                   />
                 </div>
-                <textarea
-                  value={profile.bio}
-                  onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-                  placeholder="Kısa biyografi (Opsiyonel)"
-                  rows={2}
-                  className={`w-full px-4 py-2 rounded-lg border resize-none ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                />
               </div>
             ) : (
               <>
@@ -259,8 +271,8 @@ const UserProfile = ({ isDark }) => {
                 {profile.position && (
                   <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{profile.position}</p>
                 )}
-                {profile.bio && (
-                  <p className={`mt-2 text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{profile.bio}</p>
+                {profile.departmentName && (
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{profile.departmentName}</p>
                 )}
               </>
             )}
@@ -280,16 +292,7 @@ const UserProfile = ({ isDark }) => {
               <Mail size={14} />
               Email
             </label>
-            {isEditing ? (
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                className={`w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-              />
-            ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{profile.email || '-'}</p>
-            )}
+            <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{profile.email || '-'}</p>
           </div>
 
           {/* Telefon */}
@@ -311,46 +314,6 @@ const UserProfile = ({ isDark }) => {
             )}
           </div>
 
-          {/* Doğum Günü */}
-          <div>
-            <label className={`flex items-center gap-2 text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              <Calendar size={14} />
-              Doğum Günü
-            </label>
-            {isEditing ? (
-              <input
-                type="date"
-                value={profile.birthDate}
-                onChange={(e) => setProfile(prev => ({ ...prev, birthDate: e.target.value }))}
-                className={`w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-              />
-            ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                {profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('tr-TR') : '-'}
-              </p>
-            )}
-          </div>
-
-          {/* Başlangıç Tarihi */}
-          <div>
-            <label className={`flex items-center gap-2 text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              <Calendar size={14} />
-              İşe Başlama
-            </label>
-            {isEditing ? (
-              <input
-                type="date"
-                value={profile.startDate}
-                onChange={(e) => setProfile(prev => ({ ...prev, startDate: e.target.value }))}
-                className={`w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-              />
-            ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                {profile.startDate ? new Date(profile.startDate).toLocaleDateString('tr-TR') : '-'}
-              </p>
-            )}
-          </div>
-
           {/* Departman */}
           <div>
             <label className={`flex items-center gap-2 text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
@@ -359,17 +322,21 @@ const UserProfile = ({ isDark }) => {
             </label>
             {isEditing ? (
               <select
-                value={profile.department}
-                onChange={(e) => setProfile(prev => ({ ...prev, department: e.target.value }))}
+                value={profile.departmentId || ''}
+                onChange={(e) => {
+                  const id = e.target.value ? Number(e.target.value) : null;
+                  const dept = departments.find(d => d.id === id);
+                  setProfile(prev => ({ ...prev, departmentId: id, departmentName: dept?.name || '' }));
+                }}
                 className={`w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
               >
                 <option value="">Seçiniz</option>
                 {departments.map(dept => (
-                  <option key={dept.id} value={dept.name}>{dept.name}</option>
+                  <option key={dept.id} value={dept.id}>{dept.name}</option>
                 ))}
               </select>
             ) : (
-              <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{profile.department || '-'}</p>
+              <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{profile.departmentName || '-'}</p>
             )}
           </div>
 

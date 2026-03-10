@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { departmentAPI, taskStatusAPI, taskPriorityAPI, companyProfileAPI } from '../services/api';
 import ConfirmDialog from './ConfirmDialog';
 import BaseModal from './BaseModal';
 import { logChange } from './ChangeHistory';
@@ -9,7 +10,7 @@ import {
   Phone, Mail, Globe, MapPin, FileText, Banknote, Hash, Users,
   AlertTriangle, Tag, Palette, Crown, UserCog, ClipboardList, Pipette,
   Eye, EyeOff, Info, GripVertical, Settings, CheckSquare, Briefcase,
-  BarChart3, Megaphone, Calendar, Printer, Download
+  BarChart3, Megaphone, Calendar, Printer, Download, Loader2
 } from 'lucide-react';
 import { 
   validateEmail, 
@@ -72,10 +73,12 @@ const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, chi
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'} overflow-hidden`}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-5 transition-colors ${isDark ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50'}`}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(!isOpen); } }}
+        className={`w-full flex items-center justify-between p-5 transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50'}`}
       >
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center`}>
@@ -94,7 +97,7 @@ const CollapsibleSection = ({ isDark, title, subtitle, icon: Icon, gradient, chi
           )}
           <ChevronDown size={20} className={`${isDark ? 'text-slate-400' : 'text-slate-500'} transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
         </div>
-      </button>
+      </div>
       {isOpen && <div className="px-5 pb-5">{children}</div>}
     </div>
   );
@@ -306,30 +309,18 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   });
 
   // ===== ŞİRKET PROFİLİ =====
-  const [companyProfile, setCompanyProfile] = useState(() => loadFromStorage('sam_company_profile', {
-    unvan: 'GÜZEL İÇ VE DIŞ TİCARET LİMİTED ŞİRKETİ',
-    adresler: [
-      { id: 1, label: 'Merkez', mahalle: 'Yeni Emek', sokak: 'Yıldırım Beyazıt Cad.', binaNo: '130A', ilce: 'Kepez', il: 'Antalya', postaKodu: '', visible: true },
-      { id: 2, label: 'Teknopark', mahalle: '2000 Evler', sokak: 'Üniversite Alanı (Küme Evleri)', binaNo: 'Dış Kapı No:13 İç Kapı No:131', ilce: 'Merkez', il: 'Nevşehir', postaKodu: '', visible: false },
-    ],
-    vergiDairesi: 'Antalya Kurumlar',
-    vergiNo: '9250508945',
-    telefonlar: [
-      { id: 1, label: 'Merkez Sabit', value: '0850 885 11 60', visible: true },
-      { id: 2, label: 'Merkez GSM (7/24)', value: '0543 885 11 60', visible: true },
-      { id: 3, label: 'Teknopark Sabit', value: '0850 885 12 60', visible: false },
-      { id: 4, label: 'Teknopark GSM (7/24)', value: '0540 885 12 60', visible: false },
-    ],
-    websites: [
-      { id: 1, label: 'Ana Site', value: 'www.guzelteknoloji.com', visible: true },
-    ],
-    emails: [
-      { id: 1, label: 'Genel', value: 'bilgi@guzelteknoloji.com', visible: true },
-    ],
-    mersisNo: '0925050894500018',
-    ticaretSicilNo: '99725',
-    ticaretOdasi: 'ANTALYA TİCARET VE SANAYİ ODASI',
-    odaSicilNo: '101039',
+  const defaultProfile = {
+    unvan: '',
+    adresler: [],
+    vergiDairesi: '',
+    vergiNo: '',
+    telefonlar: [],
+    websites: [],
+    emails: [],
+    mersisNo: '',
+    ticaretSicilNo: '',
+    ticaretOdasi: '',
+    odaSicilNo: '',
     visibility: {
       unvan: true,
       vergiDairesi: false,
@@ -339,8 +330,27 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       ticaretOdasi: true,
       odaSicilNo: false,
     }
-  }));
+  };
+  const [companyProfile, setCompanyProfile] = useState(defaultProfile);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  // Şirket profilini API'den yükle
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await companyProfileAPI.get();
+        if (res.data) {
+          setCompanyProfile({ ...defaultProfile, ...res.data });
+        }
+      } catch (err) {
+        console.error('Şirket profili yüklenemedi:', err);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
 
   // Print & PDF fonksiyonları - Gelişmiş versiyon
   const handlePrint = () => {
@@ -605,7 +615,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     setProfileSaved(false);
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     // Validasyon kontrolleri
     const errors = [];
 
@@ -680,16 +690,26 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       return;
     }
 
-    // Kaydet
-    saveToStorage('sam_company_profile', companyProfile);
-    setProfileSaved(true);
-    addToast({
-      type: 'success',
-      title: 'Başarılı',
-      message: 'Şirket profili kaydedildi',
-      duration: 3000
-    });
-    setTimeout(() => setProfileSaved(false), 2500);
+    // Kaydet - API'ye gönder
+    try {
+      await companyProfileAPI.update(companyProfile);
+      setProfileSaved(true);
+      addToast({
+        type: 'success',
+        title: 'Başarılı',
+        message: 'Şirket profili kaydedildi',
+        duration: 3000
+      });
+      setTimeout(() => setProfileSaved(false), 2500);
+    } catch (err) {
+      console.error('Şirket profili kaydedilemedi:', err);
+      addToast({
+        type: 'error',
+        title: 'Hata',
+        message: 'Şirket profili kaydedilemedi',
+        duration: 5000
+      });
+    }
   };
 
   // Dinamik liste yardımcıları
@@ -778,20 +798,32 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   };
 
   // ===== DEPARTMAN YÖNETİMİ =====
-  const [deptList, setDeptList] = useState(() => loadFromStorage('sam_departments', initialDepartments));
+  const [deptList, setDeptList] = useState([]);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptColor, setNewDeptColor] = useState('#6366f1');
   const [editingDept, setEditingDept] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { saveToStorage('sam_departments', deptList); }, [deptList]);
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const res = await departmentAPI.list();
+      setDeptList(res.data);
+    } catch (err) {
+      console.error('Departman yükleme hatası:', err);
+    }
+  }, []);
 
-  const addDepartment = () => {
+  const addDepartment = async () => {
     if (!newDeptName.trim()) return;
-    const newDept = { id: Date.now(), name: newDeptName.trim(), color: newDeptColor, employeeCount: 0 };
-    setDeptList(prev => [...prev, newDept]);
-    logChange('department', 'create', `Yeni departman eklendi: ${newDept.name}`, null, newDept.name, newDept.name);
-    setNewDeptName('');
-    setNewDeptColor('#6366f1');
+    try {
+      const res = await departmentAPI.create({ name: newDeptName.trim(), color: newDeptColor });
+      setDeptList(prev => [...prev, res.data]);
+      logChange('department', 'create', `Yeni departman eklendi: ${newDeptName.trim()}`, null, newDeptName.trim(), newDeptName.trim());
+      setNewDeptName('');
+      setNewDeptColor('#6366f1');
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Departman eklenemedi', duration: 3000 });
+    }
   };
   const removeDepartment = (id) => {
     const dept = deptList.find(d => d.id === id);
@@ -800,48 +832,58 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       type: 'danger',
       title: 'Departman Sil',
       message: `"${dept?.name}" departmanını silmek istediğinize emin misiniz?`,
-      onConfirm: () => {
-        setDeptList(prev => prev.filter(d => d.id !== id));
-        logChange('department', 'delete', `Departman silindi: ${dept?.name}`, dept?.name, null, dept?.name);
-        addToast({
-          type: 'success',
-          title: 'Silindi',
-          message: 'Departman başarıyla silindi',
-          duration: 2000
-        });
+      onConfirm: async () => {
+        try {
+          await departmentAPI.delete(id);
+          setDeptList(prev => prev.filter(d => d.id !== id));
+          logChange('department', 'delete', `Departman silindi: ${dept?.name}`, dept?.name, null, dept?.name);
+          addToast({ type: 'success', title: 'Silindi', message: 'Departman başarıyla silindi', duration: 2000 });
+        } catch (err) {
+          addToast({ type: 'error', title: 'Hata', message: 'Departman silinemedi', duration: 3000 });
+        }
         setConfirmDialog({ ...confirmDialog, isOpen: false });
       }
     });
   };
-  const updateDepartment = (id, updates) => { 
+  const updateDepartment = async (id, updates) => { 
     const oldDept = deptList.find(d => d.id === id);
-    setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d)); 
-    if (updates.name && oldDept?.name !== updates.name) {
-      logChange('department', 'update', `Departman adı değiştirildi`, oldDept?.name, updates.name, oldDept?.name);
+    try {
+      await departmentAPI.update(id, updates);
+      setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d)); 
+      if (updates.name && oldDept?.name !== updates.name) {
+        logChange('department', 'update', `Departman adı değiştirildi`, oldDept?.name, updates.name, oldDept?.name);
+      }
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Departman güncellenemedi', duration: 3000 });
     }
     setEditingDept(null); 
   };
 
   // ===== ÖNCELİK YÖNETİMİ =====
-  const defaultPriorities = [
-    { id: 'low', label: 'Düşük', color: '#94a3b8' },
-    { id: 'medium', label: 'Orta', color: '#3b82f6' },
-    { id: 'high', label: 'Yüksek', color: '#f59e0b' },
-    { id: 'urgent', label: 'Acil', color: '#ef4444' },
-  ];
-  const [priorityList, setPriorityList] = useState(() => loadFromStorage('sam_priorities', defaultPriorities));
+  const [priorityList, setPriorityList] = useState([]);
   const [newPriorityLabel, setNewPriorityLabel] = useState('');
   const [newPriorityColor, setNewPriorityColor] = useState('#6366f1');
   const [editingPriority, setEditingPriority] = useState(null);
 
-  useEffect(() => { saveToStorage('sam_priorities', priorityList); }, [priorityList]);
+  const fetchPriorities = useCallback(async () => {
+    try {
+      const res = await taskPriorityAPI.list();
+      setPriorityList(res.data.map(p => ({ ...p, label: p.name })));
+    } catch (err) {
+      console.error('Öncelik yükleme hatası:', err);
+    }
+  }, []);
 
-  const addPriority = () => {
+  const addPriority = async () => {
     if (!newPriorityLabel.trim()) return;
-    const id = newPriorityLabel.trim().toLowerCase().replace(/\s+/g, '_');
-    setPriorityList(prev => [...prev, { id, label: newPriorityLabel.trim(), color: newPriorityColor }]);
-    setNewPriorityLabel('');
-    setNewPriorityColor('#6366f1');
+    try {
+      const res = await taskPriorityAPI.create({ name: newPriorityLabel.trim(), color: newPriorityColor, orderNo: priorityList.length });
+      setPriorityList(prev => [...prev, { ...res.data, label: res.data.name }]);
+      setNewPriorityLabel('');
+      setNewPriorityColor('#6366f1');
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Öncelik eklenemedi', duration: 3000 });
+    }
   };
   const removePriority = (id) => {
     const priority = priorityList.find(p => p.id === id);
@@ -850,20 +892,30 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       type: 'danger',
       title: 'Öncelik Sil',
       message: `"${priority?.label}" önceliğini silmek istediğinize emin misiniz?`,
-      onConfirm: () => {
-        setPriorityList(prev => prev.filter(p => p.id !== id));
-        logChange('priority', 'delete', `Öncelik silindi: ${priority?.label}`, priority?.label, null, priority?.label);
-        addToast({
-          type: 'success',
-          title: 'Silindi',
-          message: 'Öncelik başarıyla silindi',
-          duration: 2000
-        });
+      onConfirm: async () => {
+        try {
+          await taskPriorityAPI.delete(id);
+          setPriorityList(prev => prev.filter(p => p.id !== id));
+          logChange('priority', 'delete', `Öncelik silindi: ${priority?.label}`, priority?.label, null, priority?.label);
+          addToast({ type: 'success', title: 'Silindi', message: 'Öncelik başarıyla silindi', duration: 2000 });
+        } catch (err) {
+          addToast({ type: 'error', title: 'Hata', message: 'Öncelik silinemedi', duration: 3000 });
+        }
         setConfirmDialog({ ...confirmDialog, isOpen: false });
       }
     });
   };
-  const updatePriority = (id, updates) => { setPriorityList(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)); setEditingPriority(null); };
+  const updatePriority = async (id, updates) => {
+    try {
+      const apiUpdates = { ...updates };
+      if (updates.label) { apiUpdates.name = updates.label; delete apiUpdates.label; }
+      await taskPriorityAPI.update(id, apiUpdates);
+      setPriorityList(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Öncelik güncellenemedi', duration: 3000 });
+    }
+    setEditingPriority(null);
+  };
 
   // ===== ROL YÖNETİMİ =====
   const defaultRoles = [
@@ -986,31 +1038,45 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   };
 
   // ===== DURUM YÖNETİMİ =====
-  const defaultStatuses = [
-    { id: 'pending', label: 'Bekliyor', color: '#94a3b8', order: 1 },
-    { id: 'in_progress', label: 'Devam Ediyor', color: '#3b82f6', order: 2 },
-    { id: 'review', label: 'İncelemede', color: '#8b5cf6', order: 3 },
-    { id: 'completed', label: 'Tamamlandı', color: '#10b981', order: 4 },
-    { id: 'cancelled', label: 'İptal', color: '#ef4444', order: 5 },
-  ];
-  const [statusList, setStatusList] = useState(() => loadFromStorage('sam_statuses', defaultStatuses));
+  const [statusList, setStatusList] = useState([]);
   const [newStatusLabel, setNewStatusLabel] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('#6366f1');
   const [editingStatus, setEditingStatus] = useState(null);
 
-  useEffect(() => { saveToStorage('sam_statuses', statusList); }, [statusList]);
+  const fetchStatuses = useCallback(async () => {
+    try {
+      const res = await taskStatusAPI.list();
+      setStatusList(res.data.map(s => ({ ...s, label: s.name })));
+    } catch (err) {
+      console.error('Durum yükleme hatası:', err);
+    }
+  }, []);
 
-  const addStatus = () => {
+  // İlk yükleme
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      await Promise.all([fetchDepartments(), fetchStatuses(), fetchPriorities()]);
+      setLoading(false);
+    };
+    fetchAll();
+  }, [fetchDepartments, fetchStatuses, fetchPriorities]);
+
+  const addStatus = async () => {
     if (!newStatusLabel.trim()) return;
-    const id = newStatusLabel.trim().toLowerCase().replace(/\s+/g, '_');
-    const newStatus = { id, label: newStatusLabel.trim(), color: newStatusColor, order: 0 };
-    setStatusList(prev => [...prev, newStatus]);
-    logChange('status', 'create', `Yeni durum eklendi: ${newStatus.label}`, null, newStatus.label, newStatus.label);
-    setNewStatusLabel('');
-    setNewStatusColor('#6366f1');
+    try {
+      const res = await taskStatusAPI.create({ name: newStatusLabel.trim(), color: newStatusColor, orderNo: statusList.length });
+      setStatusList(prev => [...prev, { ...res.data, label: res.data.name }]);
+      logChange('status', 'create', `Yeni durum eklendi: ${newStatusLabel.trim()}`, null, newStatusLabel.trim(), newStatusLabel.trim());
+      setNewStatusLabel('');
+      setNewStatusColor('#6366f1');
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Durum eklenemedi', duration: 3000 });
+    }
   };
   const removeStatus = (id) => {
-    if (['pending', 'in_progress', 'completed'].includes(id)) {
+    const status = statusList.find(s => s.id === id);
+    if (status?.isDefault) {
       addToast({
         type: 'error',
         title: 'Silinemez',
@@ -1019,26 +1085,35 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       });
       return;
     }
-    const status = statusList.find(s => s.id === id);
     setConfirmDialog({
       isOpen: true,
       type: 'danger',
       title: 'Durum Sil',
       message: `"${status?.label}" durumunu silmek istediğinize emin misiniz?`,
-      onConfirm: () => {
-        setStatusList(prev => prev.filter(s => s.id !== id));
-        logChange('status', 'delete', `Durum silindi: ${status?.label}`, status?.label, null, status?.label);
-        addToast({
-          type: 'success',
-          title: 'Silindi',
-          message: 'Durum başarıyla silindi',
-          duration: 2000
-        });
+      onConfirm: async () => {
+        try {
+          await taskStatusAPI.delete(id);
+          setStatusList(prev => prev.filter(s => s.id !== id));
+          logChange('status', 'delete', `Durum silindi: ${status?.label}`, status?.label, null, status?.label);
+          addToast({ type: 'success', title: 'Silindi', message: 'Durum başarıyla silindi', duration: 2000 });
+        } catch (err) {
+          addToast({ type: 'error', title: 'Hata', message: 'Durum silinemedi', duration: 3000 });
+        }
         setConfirmDialog({ ...confirmDialog, isOpen: false });
       }
     });
   };
-  const updateStatus = (id, updates) => { setStatusList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s)); setEditingStatus(null); };
+  const updateStatus = async (id, updates) => {
+    try {
+      const apiUpdates = { ...updates };
+      if (updates.label) { apiUpdates.name = updates.label; delete apiUpdates.label; }
+      await taskStatusAPI.update(id, apiUpdates);
+      setStatusList(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    } catch (err) {
+      addToast({ type: 'error', title: 'Hata', message: 'Durum güncellenemedi', duration: 3000 });
+    }
+    setEditingStatus(null);
+  };
 
   // ===== DRAG & DROP CONFIGURATION =====
   const sensors = useSensors(
@@ -1076,7 +1151,9 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       setStatusList((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        taskStatusAPI.reorder(newItems.map((s, i) => ({ id: s.id, orderNo: i }))).catch(() => {});
+        return newItems;
       });
     }
   };
@@ -1087,7 +1164,9 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       setPriorityList((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        taskPriorityAPI.reorder(newItems.map((p, i) => ({ id: p.id, orderNo: i }))).catch(() => {});
+        return newItems;
       });
     }
   };
@@ -1287,6 +1366,14 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       )}
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-indigo-500" size={36} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-5">
@@ -1812,7 +1899,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   onEdit={setEditingStatus}
                   onUpdate={updateStatus}
                   onRemove={removeStatus}
-                  isProtected={['pending', 'in_progress', 'completed'].includes(status.id)}
+                  isProtected={status.isDefault}
                   isDark={isDark}
                 />
               ))}

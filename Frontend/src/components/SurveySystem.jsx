@@ -3,98 +3,120 @@ import {
   Plus, BarChart3, PieChart, CheckCircle2, X, Users, Clock,
   Vote, ChevronDown, ChevronUp, Eye, Trash2, Edit, Lock, Unlock,
   ListChecks, RadioTower, Star, TrendingUp, AlertCircle, GitBranch,
-  ArrowRight, MessageSquare, Hash, Type, ThumbsUp, ThumbsDown
+  ArrowRight, MessageSquare, Hash, Type, ThumbsUp, ThumbsDown,
+  Loader2
 } from 'lucide-react';
+import { surveyAPI } from '../services/api';
 
-const loadSurveys = () => {
-  try {
-    const saved = localStorage.getItem('sam_surveys');
-    if (!saved) return defaultSurveys;
-    const parsed = JSON.parse(saved);
-    // Eski veri formatını yeni formata dönüştür
-    return parsed.map(s => {
-      if (s.questions) return s; // zaten yeni format
-      return {
-        ...s,
-        questions: [{
-          id: 'q1', text: s.title, type: s.type || 'single',
-          options: (s.options || []).map(o => ({ id: o.id, text: o.text })),
-          condition: null
-        }],
-        responses: (s.options || []).flatMap(o =>
-          (o.votes || []).map(v => ({ userId: v.userId, answeredAt: v.votedAt, answers: { q1: o.id } }))
-        )
-      };
+// Backend -> Frontend dönüştürücü
+const backendToFrontendSurvey = (s) => {
+  const questions = (s.SurveyQuestions || []).map(q => {
+    const options = (q.SurveyQuestionOptions || []).map(o => ({
+      id: String(o.id),
+      text: o.optionText || o.option_text || ''
+    }));
+    return {
+      id: String(q.id),
+      text: q.text,
+      type: q.type,
+      options,
+      hasOther: q.hasOther || q.has_other || false,
+      condition: q.conditionalParentId ? {
+        questionId: String(q.conditionalParentId || q.conditional_parent_id),
+        optionId: String(q.conditionalValue || q.conditional_value || '')
+      } : null
+    };
+  });
+
+  const responses = (s.SurveyResponses || []).map(r => {
+    const answers = {};
+    (r.SurveyAnswers || []).forEach(a => {
+      const qId = String(a.questionId || a.question_id);
+      let val = a.answerValue || a.answer_value || '';
+      // JSON array ise parse et
+      try { const parsed = JSON.parse(val); if (Array.isArray(parsed)) val = parsed; } catch {}
+      // Number ise dönüştür (rating)
+      if ((a.answerType || a.answer_type) === 'rating') val = parseInt(val) || 0;
+      answers[qId] = val;
     });
-  } catch { return defaultSurveys; }
+    return {
+      userId: String(r.userId || r.user_id || ''),
+      answeredAt: r.completedAt || r.completed_at || r.created_at,
+      answers
+    };
+  });
+
+  return {
+    id: s.id,
+    title: s.title,
+    description: s.description || '',
+    createdBy: s.creator ? `${s.creator.first_name || ''} ${s.creator.last_name || ''}`.trim() : 'Yönetici',
+    createdAt: s.created_at || s.createdAt,
+    expiresAt: s.endDate || s.end_date || new Date(Date.now() + 30 * 86400000).toISOString(),
+    isActive: s.status === 'active' || s.status === 'draft',
+    isAnonymous: s.anonymous || false,
+    questions,
+    responses
+  };
 };
 
-const defaultSurveys = [
-  {
-    id: 1, title: 'Yeni Ofis Konumu Tercihi', description: 'Yeni ofis konumu için personelinizin tercihini öğrenin.',
-    createdBy: 'patron', createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    expiresAt: new Date(Date.now() + 14 * 86400000).toISOString(),
-    isActive: true, isAnonymous: false,
-    questions: [
-      { id: 'q1', text: 'Hangi konumu tercih edersiniz?', type: 'single', options: [
-        { id: 'a', text: 'Levent' }, { id: 'b', text: 'Maslak' }, { id: 'c', text: 'Ataşehir' }, { id: 'd', text: 'Kadıköy' }
-      ], condition: null },
-      { id: 'q2', text: 'Ulaşım tercihiniz nedir?', type: 'single', options: [
-        { id: 'e', text: 'Toplu taşıma' }, { id: 'f', text: 'Özel araç' }, { id: 'g', text: 'Servis' }
-      ], condition: null },
-      { id: 'q3', text: 'Maslak için hangi bina tercih edilmeli?', type: 'single', options: [
-        { id: 'h', text: 'Sun Plaza' }, { id: 'i', text: 'Vadi İstanbul' }
-      ], condition: { questionId: 'q1', optionId: 'b' } }
-    ],
-    responses: []
-  },
-  {
-    id: 2, title: 'Haftalık Toplantı Günü', description: 'Haftalık ekip toplantısı için en uygun gün hangisi?',
-    createdBy: 'patron', createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
-    expiresAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-    isActive: false, isAnonymous: true,
-    questions: [
-      { id: 'q1', text: 'Hangi gün tercih edersiniz?', type: 'single', options: [
-        { id: 'a', text: 'Pazartesi' }, { id: 'b', text: 'Çarşamba' }, { id: 'c', text: 'Cuma' }
-      ], condition: null }
-    ],
-    responses: [
-      { userId: 'u1', answeredAt: new Date().toISOString(), answers: { q1: 'a' } },
-      { userId: 'u2', answeredAt: new Date().toISOString(), answers: { q1: 'a' } },
-      { userId: 'u3', answeredAt: new Date().toISOString(), answers: { q1: 'b' } },
-      { userId: 'u4', answeredAt: new Date().toISOString(), answers: { q1: 'b' } },
-      { userId: 'u5', answeredAt: new Date().toISOString(), answers: { q1: 'b' } },
-      { userId: 'u6', answeredAt: new Date().toISOString(), answers: { q1: 'c' } },
-    ]
-  }
-];
-
 const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
-  const [surveys, setSurveys] = useState(loadSurveys);
+  const [surveys, setSurveys] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
   const [statsId, setStatsId] = useState(null);
   const [voteFormSurveyId, setVoteFormSurveyId] = useState(null);
 
-  useEffect(() => { localStorage.setItem('sam_surveys', JSON.stringify(surveys)); }, [surveys]);
+  const fetchSurveys = async () => {
+    try {
+      setLoading(true);
+      const res = await surveyAPI.list();
+      const data = res.data?.data || res.data || [];
+      setSurveys((Array.isArray(data) ? data : []).map(backendToFrontendSurvey));
+    } catch (err) {
+      console.error('Anketler yüklenemedi:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchSurveys(); }, []);
 
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
 
-  const userId = user?.id || user?.username || 'unknown';
+  const userId = String(user?.id || '');
   const activeSurveys = surveys.filter(s => s.isActive && new Date(s.expiresAt) > new Date());
   const expiredSurveys = surveys.filter(s => !s.isActive || new Date(s.expiresAt) <= new Date());
 
-  const hasResponded = (survey) => survey.responses.some(r => r.userId === userId);
+  const hasResponded = (survey) => survey.responses.some(r => String(r.userId) === userId);
 
-  const submitResponse = (surveyId, answers) => {
-    setSurveys(prev => prev.map(s => {
-      if (s.id !== surveyId || hasResponded(s)) return s;
-      return { ...s, responses: [...s.responses, { userId, answeredAt: new Date().toISOString(), answers }] };
-    }));
+  const submitResponse = async (surveyId, answers) => {
+    try {
+      await surveyAPI.submit(surveyId, answers);
+      await fetchSurveys();
+    } catch (err) {
+      console.error('Oy gönderilemedi:', err);
+    }
   };
 
-  const deleteSurvey = (id) => setSurveys(prev => prev.filter(s => s.id !== id));
-  const closeSurvey = (id) => setSurveys(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
+  const deleteSurvey = async (id) => {
+    try {
+      await surveyAPI.delete(id);
+      setSurveys(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      console.error('Anket silinemedi:', err);
+    }
+  };
+
+  const closeSurvey = async (id) => {
+    try {
+      await surveyAPI.update(id, { status: 'closed' });
+      setSurveys(prev => prev.map(s => s.id === id ? { ...s, isActive: false } : s));
+    } catch (err) {
+      console.error('Anket kapatılamadı:', err);
+    }
+  };
 
   // ─── CREATE FORM ─────────────
   const CreateSurveyForm = () => {
@@ -161,27 +183,55 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
       }));
     };
 
-    const submit = () => {
+    const submit = async () => {
       const validQs = form.questions.filter(q => {
         if (!q.text.trim()) return false;
         if (q.type === 'text' || q.type === 'rating' || q.type === 'yesno') return true;
         return q.options.filter(o => o.text.trim()).length >= 2;
       });
       if (!form.title.trim() || validQs.length === 0) return;
-      const newSurvey = {
-        id: Date.now(), title: form.title.trim(), description: form.description.trim(),
-        createdBy: user?.name || user?.username || 'patron',
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + form.durationDays * 86400000).toISOString(),
-        isActive: true, isAnonymous: form.isAnonymous,
-        questions: validQs.map(q => ({
-          ...q, text: q.text.trim(),
-          options: q.options.filter(o => o.text.trim()).map(o => ({ ...o, text: o.text.trim() }))
-        })),
-        responses: []
+
+      const payload = {
+        title: form.title.trim(),
+        description: form.description.trim(),
+        status: 'active',
+        anonymous: form.isAnonymous,
+        endDate: new Date(Date.now() + form.durationDays * 86400000).toISOString(),
+        questions: validQs.map((q, idx) => {
+          const base = {
+            text: q.text.trim(),
+            type: q.type,
+            orderNumber: idx + 1,
+            hasOther: q.hasOther || false
+          };
+          if (q.condition?.questionId) {
+            // Koşullu soru - parent'ın index'ini bul
+            const parentIdx = form.questions.findIndex(pq => pq.id === q.condition.questionId);
+            if (parentIdx >= 0) {
+              base.conditionalParentIndex = parentIdx;
+              // Option ID yerine option'ın index numarasını gönder
+              const parentQ = form.questions[parentIdx];
+              const optIdx = parentQ.options.findIndex(o => o.id === q.condition.optionId);
+              base.conditionalValue = String(optIdx + 1);
+            }
+          }
+          if (q.type === 'single' || q.type === 'multiple') {
+            base.options = q.options.filter(o => o.text.trim()).map((o, oi) => ({
+              optionText: o.text.trim(),
+              optionNumber: oi + 1
+            }));
+          }
+          return base;
+        })
       };
-      setSurveys(prev => [newSurvey, ...prev]);
-      setView('list');
+
+      try {
+        await surveyAPI.create(payload);
+        await fetchSurveys();
+        setView('list');
+      } catch (err) {
+        console.error('Anket oluşturulamadı:', err);
+      }
     };
 
     // Önceki soruların listesi (koşul için)
@@ -919,6 +969,14 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
   const statsSurvey = surveys.find(s => s.id === statsId);
 
   // ─── MAIN ─────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-indigo-500" size={32} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">

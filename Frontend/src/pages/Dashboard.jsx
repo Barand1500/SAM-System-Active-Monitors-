@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { users as initialUsers, announcements as initialAnnouncements, notifications, departments } from '../data/mockData';
-import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI } from '../services/api';
+
+import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI } from '../services/api';
 import { 
   LayoutDashboard,
   Users,
@@ -132,10 +132,9 @@ import {
   TaskDistributionWidget
 } from '../components/DashboardWidgets';
 
-// Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
-const DATA_VERSION = 2;
+// LocalStorage helpers (cache + API sync)
+const DASHBOARD_KEYS = ['dashboard_layouts', 'active_layout_id', 'task_templates', 'dashboard_widget_order'];
 
-// LocalStorage helpers
 const loadFromStorage = (key, defaultValue) => {
   try {
     const saved = localStorage.getItem(key);
@@ -145,35 +144,34 @@ const loadFromStorage = (key, defaultValue) => {
   }
 };
 
-// Çalışan verilerini mockData ile senkronize et (isim/email güncellemelerini yansıtır)
-const syncEmployeesWithMockData = (cachedEmployees, freshData) => {
-  const currentVersion = parseInt(localStorage.getItem('app_data_version') || '0');
-  if (currentVersion >= DATA_VERSION && cachedEmployees) {
-    return cachedEmployees;
-  }
-  // Versiyon eski veya hiç yok: mockData'dan güncel isimleri al, ek çalışanları koru
-  localStorage.setItem('app_data_version', String(DATA_VERSION));
-  if (!cachedEmployees || cachedEmployees.length === 0) {
-    return freshData;
-  }
-  const freshMap = new Map(freshData.map(u => [u.id, u]));
-  const merged = cachedEmployees.map(emp => {
-    const fresh = freshMap.get(emp.id);
-    if (fresh) {
-      return { ...emp, firstName: fresh.firstName, lastName: fresh.lastName, email: fresh.email, position: fresh.position, department: fresh.department, phone: fresh.phone, skills: fresh.skills };
-    }
-    return emp;
-  });
-  // mockData'daki yeni kullanıcıları da ekle
-  const existingIds = new Set(merged.map(e => e.id));
-  freshData.forEach(u => {
-    if (!existingIds.has(u.id)) merged.push(u);
-  });
-  return merged;
-};
-
 const saveToStorage = (key, value) => {
   localStorage.setItem(key, JSON.stringify(value));
+};
+
+// Dashboard ayarlarını API'ye toplu kaydet (debounced)
+let dashboardSaveTimer = null;
+const saveDashboardToAPI = () => {
+  clearTimeout(dashboardSaveTimer);
+  dashboardSaveTimer = setTimeout(() => {
+    try {
+      const settings = {};
+      for (const key of DASHBOARD_KEYS) {
+        const val = localStorage.getItem(key);
+        if (val) settings[key] = JSON.parse(val);
+      }
+      // Layout-specific widget orders/sizes
+      const layouts = settings['dashboard_layouts'] || [];
+      for (const l of layouts) {
+        const orderKey = `dashboard_widget_order_${l.id}`;
+        const sizesKey = `dashboard_widget_sizes_${l.id}`;
+        const order = localStorage.getItem(orderKey);
+        const sizes = localStorage.getItem(sizesKey);
+        if (order) settings[orderKey] = JSON.parse(order);
+        if (sizes) settings[sizesKey] = JSON.parse(sizes);
+      }
+      dashboardSettingAPI.update(settings).catch(() => {});
+    } catch {}
+  }, 1000);
 };
 
 // Başlangıç görevleri (fallback)
@@ -230,8 +228,9 @@ const Dashboard = () => {
   const [statusIdMap, setStatusIdMap] = useState({});   // { 'pending': 1, 'in_progress': 2, ... }
   const [priorityIdMap, setPriorityIdMap] = useState({}); // { 'low': 1, 'medium': 2, ... }
   const [defaultTaskListId, setDefaultTaskListId] = useState(null);
-  const [employees, setEmployees] = useState(() => syncEmployeesWithMockData(loadFromStorage('app_employees', null), initialUsers));
-  const [announcementsList, setAnnouncementsList] = useState(() => loadFromStorage('app_announcements', initialAnnouncements));
+  const [employees, setEmployees] = useState([]);
+  const [announcementsList, setAnnouncementsList] = useState([]);
+  const [departments, setDepartments] = useState([]);
   
   // Modal state'leri
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -255,27 +254,38 @@ const Dashboard = () => {
   ]));
   const [activeLayoutId, setActiveLayoutId] = useState(() => loadFromStorage('active_layout_id', 1));
 
-  // LocalStorage'a kaydet (tasks hariç - API'den geliyor)
-
-  useEffect(() => {
-    saveToStorage('app_employees', employees);
-  }, [employees]);
-
-  useEffect(() => {
-    saveToStorage('app_announcements', announcementsList);
-  }, [announcementsList]);
+  // LocalStorage'a kaydet (UI tercihleri) + API sync
   
   useEffect(() => {
     saveToStorage('task_templates', taskTemplates);
+    saveDashboardToAPI();
   }, [taskTemplates]);
   
   useEffect(() => {
     saveToStorage('dashboard_layouts', dashboardLayouts);
+    saveDashboardToAPI();
   }, [dashboardLayouts]);
   
   useEffect(() => {
     saveToStorage('active_layout_id', activeLayoutId);
+    saveDashboardToAPI();
   }, [activeLayoutId]);
+
+  // API'den dashboard ayarlarını yükle (ilk mount)
+  useEffect(() => {
+    dashboardSettingAPI.get().then(res => {
+      const settings = res.data;
+      if (settings && typeof settings === 'object') {
+        Object.entries(settings).forEach(([key, val]) => {
+          localStorage.setItem(key, JSON.stringify(val));
+        });
+        // State'leri güncelle
+        if (settings['dashboard_layouts']) setDashboardLayouts(settings['dashboard_layouts']);
+        if (settings['active_layout_id']) setActiveLayoutId(settings['active_layout_id']);
+        if (settings['task_templates']) setTaskTemplates(settings['task_templates']);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Backend API'den veri çek (Component mount olduğunda)
   useEffect(() => {
@@ -289,8 +299,6 @@ const Dashboard = () => {
         }
       } catch (err) {
         console.error('Çalışanları yüklerken hata:', err);
-        // Fallback: mockData kullan
-        setEmployees(syncEmployeesWithMockData(initialUsers, initialUsers));
       }
 
       try {
@@ -302,8 +310,17 @@ const Dashboard = () => {
         }
       } catch (err) {
         console.error('Duyuruları yüklerken hata:', err);
-        // Fallback: mockData kullan
-        setAnnouncementsList(initialAnnouncements);
+      }
+
+      try {
+        // Departmanları Backend'den çek
+        const deptRes = await departmentAPI.list();
+        const deptData = deptRes.data?.data || deptRes.data;
+        if (Array.isArray(deptData)) {
+          setDepartments(deptData);
+        }
+      } catch (err) {
+        console.error('Departmanları yüklerken hata:', err);
       }
 
       try {
@@ -365,7 +382,7 @@ const Dashboard = () => {
     { id: 'announcements', label: 'Duyurular', icon: Megaphone },
   ];
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+
 
   const copyCompanyCode = () => {
     navigator.clipboard.writeText(company?.companyCode || '');
@@ -639,6 +656,7 @@ const Dashboard = () => {
     // Widget order'ı bu layout için kopyala
     const currentOrder = localStorage.getItem('dashboard_widget_order');
     localStorage.setItem(`dashboard_widget_order_${newLayout.id}`, currentOrder || '[]');
+    saveDashboardToAPI();
     return newLayout;
   };
   
@@ -654,6 +672,7 @@ const Dashboard = () => {
       setActiveLayoutId(defaultLayout?.id || dashboardLayouts[0]?.id);
     }
     localStorage.removeItem(`dashboard_widget_order_${layoutId}`);
+    saveDashboardToAPI();
   };
   
   const switchLayout = (layoutId) => {
@@ -663,6 +682,7 @@ const Dashboard = () => {
     if (layoutOrder) {
       localStorage.setItem('dashboard_widget_order', layoutOrder);
     }
+    saveDashboardToAPI();
     window.location.reload(); // Widgets'ları yeniden render etmek için
   };
   
@@ -896,7 +916,7 @@ const Dashboard = () => {
         </div>
 
         {/* İçerik */}
-        {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} dashboardLayouts={dashboardLayouts} activeLayoutId={activeLayoutId} onCreateLayout={createNewLayout} onDeleteLayout={deleteLayout} onSwitchLayout={switchLayout} onRenameLayout={renameLayout} />}
+        {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} departments={departments} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} dashboardLayouts={dashboardLayouts} activeLayoutId={activeLayoutId} onCreateLayout={createNewLayout} onDeleteLayout={deleteLayout} onSwitchLayout={switchLayout} onRenameLayout={renameLayout} onSettingsChange={saveDashboardToAPI} />}
         {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} onLeaveTask={leaveTask} />}
         {activeTab === 'pool' && !canManage && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
@@ -936,6 +956,7 @@ const Dashboard = () => {
         <TaskFormModal 
           task={editingTask}
           employees={employees}
+          departments={departments}
           defaultDate={calendarDate}
           taskTemplates={taskTemplates}
           onSaveTemplate={saveAsTemplate}
@@ -973,6 +994,7 @@ const Dashboard = () => {
       {showEmployeeModal && (
         <EmployeeFormModal 
           employee={editingEmployee}
+          departments={departments}
           onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); }}
           onSave={(data) => {
             if (editingEmployee) {
@@ -1035,7 +1057,7 @@ const Dashboard = () => {
 };
 
 // ===== GÖREV FORM MODAL =====
-const TaskFormModal = ({ task, employees, defaultDate, taskTemplates, onSaveTemplate, onDeleteTemplate, onUpdateTemplate, onClose, onSave, isDark }) => {
+const TaskFormModal = ({ task, employees, departments, defaultDate, taskTemplates, onSaveTemplate, onDeleteTemplate, onUpdateTemplate, onClose, onSave, isDark }) => {
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -1859,7 +1881,7 @@ const SKILL_CATEGORY_COLORS = {
   'Yönetim': { bg: 'bg-red-100 dark:bg-red-500/15', text: 'text-red-700 dark:text-red-300', dot: 'bg-red-500' }
 };
 
-const EmployeeFormModal = ({ employee, onClose, onSave, isDark }) => {
+const EmployeeFormModal = ({ employee, departments, onClose, onSave, isDark }) => {
   const [form, setForm] = useState({
     firstName: employee?.firstName || '',
     lastName: employee?.lastName || '',
@@ -2716,7 +2738,7 @@ const SortableWidget = ({ id, children, isDark, onRemove, size, onResize }) => {
 };
 
 // ===== OVERVIEW TAB =====
-const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, dashboardLayouts, activeLayoutId, onCreateLayout, onDeleteLayout, onSwitchLayout, onRenameLayout }) => {
+const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, onAddTask, dashboardLayouts, activeLayoutId, onCreateLayout, onDeleteLayout, onSwitchLayout, onRenameLayout, onSettingsChange }) => {
   const myTasks = tasks.filter(t => t.assignedTo?.id == user?.id);
   const displayTasks = canManage ? tasks : myTasks;
   
@@ -2770,6 +2792,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
     const updatedSizes = { ...widgetSizes, [widgetId]: newSize };
     setWidgetSizes(updatedSizes);
     localStorage.setItem(`dashboard_widget_sizes_${activeLayoutId}`, JSON.stringify(updatedSizes));
+    onSettingsChange?.();
   };
 
   // Widget boyutu al (varsayılan: 'medium')
@@ -2797,6 +2820,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
         const newIndex = items.indexOf(over.id);
         const newOrder = arrayMove(items, oldIndex, newIndex);
         localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+        onSettingsChange?.();
         return newOrder;
       });
     }
@@ -2808,6 +2832,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
     const defaultOrder = defaultWidgets.map(w => w.id);
     setWidgetOrder(defaultOrder);
     localStorage.setItem('dashboard_widget_order', JSON.stringify(defaultOrder));
+    onSettingsChange?.();
   };
 
   const handleAddWidget = (widgetId) => {
@@ -2822,6 +2847,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
       const newOrder = [...widgetOrder, widgetId];
       setWidgetOrder(newOrder);
       localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+      onSettingsChange?.();
       setShowAddWidgetModal(false);
       addToast({ type: 'success', title: 'Başarılı', message: 'Widget eklendi!' });
     } else {
@@ -2836,6 +2862,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
     const newOrder = widgetOrder.map(id => id === oldWidgetId ? selectedWidgetToAdd : id);
     setWidgetOrder(newOrder);
     localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    onSettingsChange?.();
     setShowReplaceWidgetModal(false);
     setSelectedWidgetToAdd(null);
     addToast({ type: 'success', title: 'Başarılı', message: 'Widget değiştirildi!' });
@@ -2849,6 +2876,7 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, das
     const newOrder = widgetOrder.filter(id => id !== widgetId);
     setWidgetOrder(newOrder);
     localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    onSettingsChange?.();
     addToast({ type: 'success', title: 'Başarılı', message: 'Widget kaldırıldı!' });
   };
 
@@ -4037,18 +4065,18 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
       return;
     }
     setCodeAvailability('checking');
-    const timer = setTimeout(() => {
-      const result = checkCompanyCodeAvailability(fullCode);
+    const timer = setTimeout(async () => {
+      const result = await checkCompanyCodeAvailability(fullCode);
       setCodeAvailability(result.available ? 'available' : 'taken');
     }, 500);
     return () => clearTimeout(timer);
   }, [codePrefix, codeYear, codeSuffix]);
 
-  const saveCompanyInfo = () => {
+  const saveCompanyInfo = async () => {
     const err = validateCompanyCode();
     if (err) { setCodeError(err); return; }
     if (codeAvailability === 'taken') return;
-    updateCompany({
+    await updateCompany({
       name: companyName.trim(),
       companyCode,
       description: companyDesc.trim(),

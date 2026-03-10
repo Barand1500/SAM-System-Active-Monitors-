@@ -35,7 +35,7 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
     { id: 'education', label: 'Eğitim İzni', icon: GraduationCap, color: 'text-purple-500', bgColor: 'bg-purple-100' },
   ];
 
-  // Mock izin talepleri (Backend'den yüklenecek)
+  // İzin talepleri (Backend'den yüklenir)
   const [requests, setRequests] = useState([]);
 
   // Backend'den izin taleplerini çek

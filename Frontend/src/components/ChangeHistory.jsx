@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { History, User, Calendar, Search, Filter, Download, Trash2, Clock, Edit, Plus, X } from 'lucide-react';
+import { auditLogAPI } from '../services/api';
+import { History, User, Calendar, Search, Filter, Download, Trash2, Clock, Edit, Plus, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
@@ -9,8 +10,9 @@ const ChangeHistory = ({ isDark }) => {
   const [history, setHistory] = useState([]);
   const [filteredHistory, setFilteredHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all, profile, department, role, status, priority, task
+  const [filterType, setFilterType] = useState('all');
   const [filterUser, setFilterUser] = useState('all');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadHistory();
@@ -20,16 +22,20 @@ const ChangeHistory = ({ isDark }) => {
     applyFilters();
   }, [searchTerm, filterType, filterUser, history]);
 
-  const loadHistory = () => {
-    const stored = localStorage.getItem('sam_change_history');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setHistory(parsed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
-      } catch (e) {
-        console.error('Geçmiş yüklenemedi:', e);
-        setHistory([]);
-      }
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const res = await auditLogAPI.list({ limit: 500 });
+      const data = res.data?.data || res.data || [];
+      setHistory(Array.isArray(data) ? data.map(item => ({
+        ...item,
+        timestamp: item.created_at || item.createdAt || item.timestamp
+      })) : []);
+    } catch (err) {
+      console.error('Geçmiş yüklenemedi:', err);
+      setHistory([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,11 +64,15 @@ const ChangeHistory = ({ isDark }) => {
     setFilteredHistory(filtered);
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
     if (confirm('Tüm geçmişi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
-      localStorage.removeItem('sam_change_history');
-      setHistory([]);
-      setFilteredHistory([]);
+      try {
+        await auditLogAPI.clear();
+        setHistory([]);
+        setFilteredHistory([]);
+      } catch (err) {
+        console.error('Geçmiş temizlenemedi:', err);
+      }
     }
   };
 
@@ -232,7 +242,12 @@ const ChangeHistory = ({ isDark }) => {
           {filteredHistory.length} kayıt bulundu
         </div>
 
-        {filteredHistory.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <Loader2 size={48} className={`mx-auto mb-4 animate-spin ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Yükleniyor...</p>
+          </div>
+        ) : filteredHistory.length === 0 ? (
           <div className="text-center py-12">
             <History size={48} className={`mx-auto mb-4 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
             <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -336,28 +351,12 @@ const ChangeHistory = ({ isDark }) => {
 };
 
 // Helper function to log changes (export for use in other components)
-export const logChange = (type, action, description, oldValue = null, newValue = null, entity = null) => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  const history = JSON.parse(localStorage.getItem('sam_change_history') || '[]');
-  
-  const newEntry = {
-    id: Date.now(),
-    timestamp: new Date().toISOString(),
-    userId: user.id,
-    userName: `${user.firstName} ${user.lastName}`,
-    type, // profile, department, role, status, priority, task, company
-    action, // create, update, delete
-    description,
-    oldValue,
-    newValue,
-    entity
-  };
-  
-  history.unshift(newEntry);
-  
-  // Son 500 kaydı sakla
-  const trimmedHistory = history.slice(0, 500);
-  localStorage.setItem('sam_change_history', JSON.stringify(trimmedHistory));
+export const logChange = async (type, action, description, oldValue = null, newValue = null, entity = null) => {
+  try {
+    await auditLogAPI.create({ type, action, description, oldValue, newValue, entity });
+  } catch (err) {
+    console.error('Değişiklik kaydedilemedi:', err);
+  }
 };
 
 export default ChangeHistory;

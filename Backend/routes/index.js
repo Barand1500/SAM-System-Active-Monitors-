@@ -58,6 +58,18 @@ router.use("/recurring-tasks", require("./recurringTasks"));
 // Audit Logs
 router.use("/audit-logs", require("./auditLogs"));
 
+// Personal Notes
+router.use("/personal-notes", require("./personalNotes"));
+
+// Contacts (Rehber)
+router.use("/contacts", require("./contacts"));
+
+// Tags (Etiketler)
+router.use("/tags", require("./tags"));
+
+// Dashboard Settings
+router.use("/dashboard-settings", require("./dashboardSettings"));
+
 // Automation Rules
 router.use("/automation-rules", require("./automationRules"));
 

@@ -6,7 +6,7 @@ import {
   AlertTriangle, Info, Wrench, HelpCircle, BarChart3,
   MapPin, ArrowLeft, Save, Loader2
 } from 'lucide-react';
-import { supportTicketAPI } from '../services/api';
+import { supportTicketAPI, contactAPI } from '../services/api';
 
 // Backend ↔ Frontend durum eşleştirmeleri
 const STATUS_FROM_BACKEND = { open: 'new', in_progress: 'assigned', waiting_customer: 'assigned', resolved: 'resolved', closed: 'resolved' };
@@ -43,19 +43,7 @@ const backendToFrontendTicket = (t) => ({
   history: []
 });
 
-const defaultContacts = [
-  {
-    id: 1, name: 'Ercan Güzel', phone: '0538 930 33 14', company: 'Güzel Teknoloji',
-    addresses: [{ id: 1, name: 'Merkez', city: 'Antalya', district: '', neighborhood: '', quarter: 'Emel Mahallesi', buildingInfo: '88055 Sok. Türkiye' }]
-  }
-];
-
-const loadContacts = () => {
-  try {
-    const saved = localStorage.getItem('sam_contacts');
-    return saved ? JSON.parse(saved) : defaultContacts;
-  } catch { return defaultContacts; }
-};
+const defaultContacts = [];
 
 const formatPhoneNumber = (value) => {
   const raw = value.replace(/\D/g, '');
@@ -128,13 +116,18 @@ const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, i
     setStep('new_contact');
   };
 
-  const saveNewContact = () => {
+  const saveNewContact = async () => {
     if (!ncName.trim()) return;
-    const newC = { id: Date.now(), name: ncName.trim(), phone: phoneInput, company: ncCompany.trim(), addresses: ncAddresses };
-    setContacts(prev => [...prev, newC]);
-    setSelectedContact(newC);
-    if (newC.addresses.length > 0) setSelectedAddress(newC.addresses[0]);
-    setStep('ticket');
+    try {
+      const res = await contactAPI.create({ name: ncName.trim(), phone: phoneInput, company: ncCompany.trim(), addresses: ncAddresses });
+      const newC = res.data;
+      setContacts(prev => [...prev, newC]);
+      setSelectedContact(newC);
+      if (newC.addresses && newC.addresses.length > 0) setSelectedAddress(newC.addresses[0]);
+      setStep('ticket');
+    } catch (err) {
+      console.error('Kişi kaydedilemedi:', err);
+    }
   };
 
   const resetAddrForm = () => {
@@ -148,7 +141,7 @@ const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, i
     setAddrBuilding(a.buildingInfo || ''); setAddrSearch('');
   };
 
-  const saveAddress = () => {
+  const saveAddress = async () => {
     const addr = {
       id: Date.now(), name: addrName.trim(), city: addrCity.trim(), district: addrDistrict.trim(),
       neighborhood: addrNeighborhood.trim(), quarter: addrQuarter.trim(), buildingInfo: addrBuilding.trim()
@@ -156,10 +149,16 @@ const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, i
     if (step === 'new_contact') {
       setNcAddresses(prev => [...prev, addr]);
     } else if (selectedContact) {
-      const updated = { ...selectedContact, addresses: [...selectedContact.addresses, addr] };
+      const updatedAddresses = [...selectedContact.addresses, addr];
+      const updated = { ...selectedContact, addresses: updatedAddresses };
       setContacts(prev => prev.map(c => c.id === selectedContact.id ? updated : c));
       setSelectedContact(updated);
       setSelectedAddress(addr);
+      try {
+        await contactAPI.update(selectedContact.id, { addresses: updatedAddresses });
+      } catch (err) {
+        console.error('Adres güncellenemedi:', err);
+      }
     }
     setShowAddressForm(false);
     resetAddrForm();
@@ -471,7 +470,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [contacts, setContacts] = useState(loadContacts);
+  const [contacts, setContacts] = useState([]);
 
   const fetchTickets = async () => {
     try {
@@ -485,7 +484,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   };
 
   useEffect(() => { fetchTickets(); }, []);
-  useEffect(() => { localStorage.setItem('sam_contacts', JSON.stringify(contacts)); }, [contacts]);
+  useEffect(() => { contactAPI.list().then(res => setContacts(res.data || [])).catch(() => {}); }, []);
   useEffect(() => { const t = setInterval(() => setCurrentTime(Date.now()), 30000); return () => clearInterval(t); }, []);
 
   const categories = [

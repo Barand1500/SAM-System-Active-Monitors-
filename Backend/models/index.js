@@ -59,6 +59,9 @@ const TicketMessage = require("./TicketMessage")(sequelize, DataTypes);
 const TicketFile = require("./TicketFile")(sequelize, DataTypes);
 const TicketCategory = require("./TicketCategory")(sequelize, DataTypes);
 
+const PersonalNote = require("./PersonalNote")(sequelize, DataTypes);
+const Contact = require("./Contact")(sequelize, DataTypes);
+
 
 // ============================
 // RELATIONSHIPS
@@ -229,6 +232,13 @@ UserDashboardSetting.belongsTo(User, { foreignKey: "user_id" });
 // AUDIT
 AuditLog.belongsTo(User, { foreignKey: "user_id" });
 
+// PERSONAL NOTES
+PersonalNote.belongsTo(User, { foreignKey: "user_id" });
+PersonalNote.belongsTo(Company, { foreignKey: "company_id" });
+
+// CONTACTS (Rehber)
+Contact.belongsTo(Company, { foreignKey: "company_id" });
+
 
 // CUSTOMER
 Customer.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
@@ -355,5 +365,8 @@ module.exports = {
   SupportTicket,
   TicketMessage,
   TicketFile,
-  TicketCategory
+  TicketCategory,
+
+  PersonalNote,
+  Contact
 };

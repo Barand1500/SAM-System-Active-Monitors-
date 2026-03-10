@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { personalNoteAPI } from '../services/api';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -25,23 +26,6 @@ import {
   useDroppable
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-
-const loadPersonalNotes = () => {
-  try {
-    const saved = localStorage.getItem('sam_personal_notes');
-    const data = saved ? JSON.parse(saved) : {};
-    // Eski format (string) → yeni format (array) dönüşümü
-    const migrated = {};
-    for (const [key, val] of Object.entries(data)) {
-      if (typeof val === 'string') {
-        migrated[key] = [{ id: Date.now(), text: val, createdAt: new Date().toISOString() }];
-      } else {
-        migrated[key] = val;
-      }
-    }
-    return migrated;
-  } catch { return {}; }
-};
 
 // ===== DRAGGABLE TASK COMPONENT =====
 const DraggableTask = ({ task, isDark, onClick, statusColors }) => {
@@ -171,7 +155,8 @@ const DroppableDay = ({
 const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState('month');
-  const [personalNotes, setPersonalNotes] = useState(loadPersonalNotes);
+  const [personalNotes, setPersonalNotes] = useState({});
+  const [notesLoading, setNotesLoading] = useState(true);
   const [noteModal, setNoteModal] = useState(null); // dateStr or null
   const [noteText, setNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -189,8 +174,18 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
   );
 
   useEffect(() => {
-    localStorage.setItem('sam_personal_notes', JSON.stringify(personalNotes));
-  }, [personalNotes]);
+    const loadNotes = async () => {
+      try {
+        const res = await personalNoteAPI.list();
+        setPersonalNotes(res.data || {});
+      } catch (err) {
+        console.error('Notlar yüklenemedi:', err);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+    loadNotes();
+  }, []);
 
   const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
                       'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -270,30 +265,46 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
     setNoteModal(dateStr);
   };
 
-  const saveNote = () => {
+  const saveNote = async () => {
     if (!noteModal || !noteText.trim()) return;
-    setPersonalNotes(prev => {
-      const dateNotes = prev[noteModal] || [];
+    try {
       if (editingNoteId) {
-        return { ...prev, [noteModal]: dateNotes.map(n => n.id === editingNoteId ? { ...n, text: noteText.trim() } : n) };
+        await personalNoteAPI.update(editingNoteId, { text: noteText.trim() });
+        setPersonalNotes(prev => {
+          const dateNotes = prev[noteModal] || [];
+          return { ...prev, [noteModal]: dateNotes.map(n => n.id === editingNoteId ? { ...n, text: noteText.trim() } : n) };
+        });
+      } else {
+        const res = await personalNoteAPI.create({ noteDate: noteModal, text: noteText.trim() });
+        const newNote = res.data;
+        setPersonalNotes(prev => {
+          const dateNotes = prev[noteModal] || [];
+          return { ...prev, [noteModal]: [...dateNotes, { id: newNote.id, text: newNote.text, createdAt: newNote.createdAt }] };
+        });
       }
-      return { ...prev, [noteModal]: [...dateNotes, { id: Date.now(), text: noteText.trim(), createdAt: new Date().toISOString() }] };
-    });
+    } catch (err) {
+      console.error('Not kaydedilemedi:', err);
+    }
     setNoteText('');
     setEditingNoteId(null);
   };
 
-  const deleteNote = (noteId) => {
+  const deleteNote = async (noteId) => {
     if (!noteModal) return;
-    setPersonalNotes(prev => {
-      const dateNotes = (prev[noteModal] || []).filter(n => n.id !== noteId);
-      if (dateNotes.length === 0) {
-        const next = { ...prev };
-        delete next[noteModal];
-        return next;
-      }
-      return { ...prev, [noteModal]: dateNotes };
-    });
+    try {
+      await personalNoteAPI.delete(noteId);
+      setPersonalNotes(prev => {
+        const dateNotes = (prev[noteModal] || []).filter(n => n.id !== noteId);
+        if (dateNotes.length === 0) {
+          const next = { ...prev };
+          delete next[noteModal];
+          return next;
+        }
+        return { ...prev, [noteModal]: dateNotes };
+      });
+    } catch (err) {
+      console.error('Not silinemedi:', err);
+    }
     if (editingNoteId === noteId) {
       setEditingNoteId(null);
       setNoteText('');

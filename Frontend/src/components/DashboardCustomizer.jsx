@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { dashboardSettingAPI } from '../services/api';
 import { 
   LayoutGrid, 
   GripVertical, 
@@ -39,10 +40,25 @@ const DEFAULT_LAYOUT = [
 ];
 
 const DashboardCustomizer = ({ isDark, onLayoutChange, onClose }) => {
-  const [layout, setLayout] = useState(() => {
-    const saved = localStorage.getItem('dashboardLayout');
-    return saved ? JSON.parse(saved) : DEFAULT_LAYOUT;
-  });
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const res = await dashboardSettingAPI.get();
+        if (res.data?.settings?.dashboardLayout) {
+          setLayout(JSON.parse(res.data.settings.dashboardLayout));
+        } else {
+          const saved = localStorage.getItem('dashboardLayout');
+          if (saved) setLayout(JSON.parse(saved));
+        }
+      } catch {
+        const saved = localStorage.getItem('dashboardLayout');
+        if (saved) setLayout(JSON.parse(saved));
+      }
+    };
+    loadLayout();
+  }, []);
   
   const [draggedItem, setDraggedItem] = useState(null);
 
@@ -102,8 +118,20 @@ const DashboardCustomizer = ({ isDark, onLayoutChange, onClose }) => {
   };
 
   // Kaydet
-  const saveLayout = () => {
+  const saveLayout = async () => {
     localStorage.setItem('dashboardLayout', JSON.stringify(layout));
+    try {
+      const allKeys = ['dashboardLayout', 'dashboardLayouts', 'activeLayoutId', 'taskTemplates'];
+      const settings = {};
+      allKeys.forEach(key => {
+        const val = localStorage.getItem(key);
+        if (val) settings[key] = val;
+      });
+      settings.dashboardLayout = JSON.stringify(layout);
+      await dashboardSettingAPI.update({ settings });
+    } catch (e) {
+      console.error('Dashboard ayarları kaydedilemedi:', e);
+    }
     onLayoutChange?.(layout);
     onClose?.();
   };
@@ -266,10 +294,25 @@ const DashboardCustomizer = ({ isDark, onLayoutChange, onClose }) => {
 
 // Layout context hook
 export const useDashboardLayout = () => {
-  const [layout, setLayout] = useState(() => {
-    const saved = localStorage.getItem('dashboardLayout');
-    return saved ? JSON.parse(saved) : DEFAULT_LAYOUT;
-  });
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const res = await dashboardSettingAPI.get();
+        if (res.data?.settings?.dashboardLayout) {
+          setLayout(JSON.parse(res.data.settings.dashboardLayout));
+        } else {
+          const saved = localStorage.getItem('dashboardLayout');
+          if (saved) setLayout(JSON.parse(saved));
+        }
+      } catch {
+        const saved = localStorage.getItem('dashboardLayout');
+        if (saved) setLayout(JSON.parse(saved));
+      }
+    };
+    loadLayout();
+  }, []);
 
   const getWidgetConfig = useCallback((widgetId) => {
     return layout.find(item => item.widgetId === widgetId);

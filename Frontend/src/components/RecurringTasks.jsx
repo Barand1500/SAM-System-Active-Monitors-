@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { recurringTaskAPI } from '../services/api';
 import { 
   Repeat, 
   Plus, 
@@ -11,47 +12,34 @@ import {
   Pause,
   CheckCircle2,
   AlertCircle,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from 'lucide-react';
 
 const RecurringTasks = ({ isDark, onCreateTask }) => {
-  const [templates, setTemplates] = useState(() => {
-    const saved = localStorage.getItem('recurringTemplates');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: '1',
-        title: 'Haftalık Toplantı',
-        description: 'Pazartesi sabah ekip toplantısı',
-        frequency: 'weekly',
-        dayOfWeek: 1, // Pazartesi
-        time: '09:00',
-        priority: 'medium',
-        assigneeId: null,
-        isActive: true,
-        lastRun: null,
-        nextRun: getNextRun('weekly', 1, '09:00'),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        title: 'Aylık Rapor',
-        description: 'Aylık performans raporunun hazırlanması',
-        frequency: 'monthly',
-        dayOfMonth: 1,
-        time: '10:00',
-        priority: 'high',
-        assigneeId: null,
-        isActive: true,
-        lastRun: null,
-        nextRun: getNextRun('monthly', 1, '10:00'),
-        createdAt: new Date().toISOString()
-      }
-    ];
-  });
-
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
+
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const res = await recurringTaskAPI.list();
+      setTemplates(res.data.map(t => ({
+        ...t,
+        time: t.timeOfDay ? t.timeOfDay.substring(0, 5) : '09:00',
+        nextRun: t.nextRunAt,
+        lastRun: t.lastRunAt
+      })));
+    } catch (err) {
+      console.error('Tekrarlayan görev yükleme hatası:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
   const frequencies = [
     { value: 'daily', label: 'Her Gün' },
@@ -70,51 +58,62 @@ const RecurringTasks = ({ isDark, onCreateTask }) => {
     { value: 6, label: 'Cumartesi' },
   ];
 
-  const saveTemplates = (newTemplates) => {
-    setTemplates(newTemplates);
-    localStorage.setItem('recurringTemplates', JSON.stringify(newTemplates));
-  };
-
   // Template kaydet
-  const handleSave = (templateData) => {
-    if (editingTemplate) {
-      const updated = templates.map(t => 
-        t.id === editingTemplate.id ? { ...t, ...templateData, nextRun: calculateNextRun(templateData) } : t
-      );
-      saveTemplates(updated);
-    } else {
-      const newTemplate = {
-        id: Date.now().toString(),
-        ...templateData,
-        isActive: true,
-        lastRun: null,
-        nextRun: calculateNextRun(templateData),
-        createdAt: new Date().toISOString()
+  const handleSave = async (templateData) => {
+    try {
+      const apiData = {
+        title: templateData.title,
+        description: templateData.description,
+        frequency: templateData.frequency,
+        dayOfWeek: templateData.dayOfWeek,
+        dayOfMonth: templateData.dayOfMonth,
+        timeOfDay: templateData.time,
+        priority: templateData.priority,
+        nextRunAt: calculateNextRun(templateData)
       };
-      saveTemplates([...templates, newTemplate]);
+
+      if (editingTemplate) {
+        const res = await recurringTaskAPI.update(editingTemplate.id, apiData);
+        setTemplates(prev => prev.map(t => t.id === editingTemplate.id 
+          ? { ...res.data, time: res.data.timeOfDay?.substring(0, 5) || templateData.time, nextRun: res.data.nextRunAt, lastRun: res.data.lastRunAt }
+          : t
+        ));
+      } else {
+        const res = await recurringTaskAPI.create(apiData);
+        setTemplates(prev => [...prev, { ...res.data, time: res.data.timeOfDay?.substring(0, 5) || templateData.time, nextRun: res.data.nextRunAt, lastRun: res.data.lastRunAt }]);
+      }
+    } catch (err) {
+      console.error('Kaydetme hatası:', err);
     }
     setShowModal(false);
     setEditingTemplate(null);
   };
 
   // Template sil
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm('Bu şablonu silmek istediğinize emin misiniz?')) {
-      saveTemplates(templates.filter(t => t.id !== id));
+      try {
+        await recurringTaskAPI.delete(id);
+        setTemplates(prev => prev.filter(t => t.id !== id));
+      } catch (err) {
+        console.error('Silme hatası:', err);
+      }
       setActiveMenu(null);
     }
   };
 
   // Aktif/Pasif toggle
-  const toggleActive = (id) => {
-    const updated = templates.map(t => 
-      t.id === id ? { ...t, isActive: !t.isActive } : t
-    );
-    saveTemplates(updated);
+  const toggleActive = async (id) => {
+    try {
+      const res = await recurringTaskAPI.toggleActive(id);
+      setTemplates(prev => prev.map(t => t.id === id ? { ...t, isActive: res.data.isActive } : t));
+    } catch (err) {
+      console.error('Toggle hatası:', err);
+    }
   };
 
   // Şimdi çalıştır
-  const runNow = (template) => {
+  const runNow = async (template) => {
     if (onCreateTask) {
       onCreateTask({
         title: template.title,
@@ -126,13 +125,17 @@ const RecurringTasks = ({ isDark, onCreateTask }) => {
         recurringTemplateId: template.id
       });
       
-      // Son çalışma zamanını güncelle
-      const updated = templates.map(t => 
-        t.id === template.id 
-          ? { ...t, lastRun: new Date().toISOString(), nextRun: calculateNextRun(t) } 
-          : t
-      );
-      saveTemplates(updated);
+      try {
+        const nextRun = calculateNextRun(template);
+        await recurringTaskAPI.update(template.id, { lastRunAt: new Date().toISOString(), nextRunAt: nextRun });
+        setTemplates(prev => prev.map(t => 
+          t.id === template.id 
+            ? { ...t, lastRun: new Date().toISOString(), nextRun } 
+            : t
+        ));
+      } catch (err) {
+        console.error('Run update hatası:', err);
+      }
     }
   };
 
@@ -191,7 +194,11 @@ const RecurringTasks = ({ isDark, onCreateTask }) => {
 
       {/* Template Listesi */}
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
-        {templates.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="animate-spin text-purple-500" size={32} />
+          </div>
+        ) : templates.length === 0 ? (
           <div className={`p-8 text-center ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             <Repeat size={48} className="mx-auto mb-3 opacity-30" />
             <p>Henüz şablon yok</p>

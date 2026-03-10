@@ -16,4 +16,10 @@ router.post("/join-company", AuthController.joinCompany);
 // POST /api/auth/login
 router.post("/login", rules.login, validate, AuthController.login);
 
+// GET /api/auth/check-company-code?code=XXX&currentCompanyId=1
+router.get("/check-company-code", authenticate, AuthController.checkCompanyCode);
+
+// PUT /api/auth/update-company-code
+router.put("/update-company-code", authenticate, authorizeRoles("boss"), AuthController.updateCompanyCode);
+
 module.exports = router;

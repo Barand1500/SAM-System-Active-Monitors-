@@ -45,6 +45,19 @@ module.exports = (sequelize, DataTypes) => {
       set(val) {
         this.setDataValue("profileData", val ? JSON.stringify(val) : null);
       }
+    },
+
+    foldersData: {
+      type: DataTypes.TEXT("long"),
+      field: "folders_data",
+      get() {
+        const raw = this.getDataValue("foldersData");
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
+      },
+      set(val) {
+        this.setDataValue("foldersData", val ? JSON.stringify(val) : null);
+      }
     }
 
   }, {

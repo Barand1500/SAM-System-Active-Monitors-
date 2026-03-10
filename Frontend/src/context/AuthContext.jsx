@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { userAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -130,40 +131,36 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Şirket bilgilerini güncelle
-  const updateCompany = (updates) => {
-    setCurrentCompany(prev => {
-      const oldCode = prev?.companyCode;
-      const updated = { ...prev, ...updates };
-      localStorage.setItem('currentCompany', JSON.stringify(updated));
+  const updateCompany = async (updates) => {
+    const oldCode = currentCompany?.companyCode;
+    const updated = { ...currentCompany, ...updates };
+    localStorage.setItem('currentCompany', JSON.stringify(updated));
+    setCurrentCompany(updated);
 
-      // Şirket kodu değiştiyse kayıt defterini güncelle
-      if (updates.companyCode && updates.companyCode !== oldCode) {
-        const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
-        if (oldCode && registry[oldCode] === updated.id) {
-          delete registry[oldCode];
-        }
-        registry[updates.companyCode] = updated.id;
-        localStorage.setItem('sam_company_registry', JSON.stringify(registry));
+    // Şirket kodu değiştiyse backend'e kaydet
+    if (updates.companyCode && updates.companyCode !== oldCode) {
+      try {
+        await api.put('/auth/update-company-code', { companyCode: updates.companyCode });
+      } catch (e) {
+        console.error('Şirket kodu güncellenemedi:', e);
       }
-
-      return updated;
-    });
+    }
   };
 
   // Şirket kodu müsaitlik kontrolü
-  const checkCompanyCodeAvailability = (code) => {
+  const checkCompanyCodeAvailability = async (code) => {
     if (!code) return { available: false, reason: 'empty' };
     const upperCode = code.toUpperCase();
     // Mevcut şirketin kendi kodu ise müsait say
     if (currentCompany?.companyCode === upperCode) return { available: true };
-    // Mock verideki şirket kodu
-    if (company.companyCode === upperCode) return { available: false, reason: 'taken' };
-    // Kayıt defterindeki diğer şirketler
-    const registry = JSON.parse(localStorage.getItem('sam_company_registry') || '{}');
-    if (registry[upperCode] && registry[upperCode] !== currentCompany?.id) {
-      return { available: false, reason: 'taken' };
+    try {
+      const res = await api.get('/auth/check-company-code', {
+        params: { code: upperCode, currentCompanyId: currentCompany?.id }
+      });
+      return res.data;
+    } catch {
+      return { available: true };
     }
-    return { available: true };
   };
 
   // Şirket kodu oluştur (Yapısal: Kısaltma + Yıl + Özel Kod)
@@ -194,18 +191,18 @@ export const AuthProvider = ({ children }) => {
   const userRoles = getUserRoles(user);
 
   // Kullanıcıya rol ata (sadece patron yapabilir)
-  const updateUserRoles = (targetUserId, newRoles) => {
-    if (!userRoles.includes('boss')) return; // sadece patron
-    const employees = JSON.parse(localStorage.getItem('app_employees') || '[]');
-    const updated = employees.map(emp =>
-      emp.id === targetUserId ? { ...emp, roles: newRoles, role: newRoles[0] || 'employee' } : emp
-    );
-    localStorage.setItem('app_employees', JSON.stringify(updated));
-    // Eğer kendi rollerimizi güncelliyorsak
-    if (user?.id === targetUserId) {
-      const updatedUser = { ...user, roles: newRoles, role: newRoles[0] || 'employee' };
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  const updateUserRoles = async (targetUserId, newRoles) => {
+    if (!userRoles.includes('boss')) return;
+    try {
+      await userAPI.update(targetUserId, { roles: newRoles, role: newRoles[0] || 'employee' });
+      // Eğer kendi rollerimizi güncelliyorsak
+      if (user?.id === targetUserId) {
+        const updatedUser = { ...user, roles: newRoles, role: newRoles[0] || 'employee' };
+        setUser(updatedUser);
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      }
+    } catch (e) {
+      console.error('Rol güncellenemedi:', e);
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   FolderKanban, 
   Plus, 
@@ -13,39 +13,14 @@ import {
   AlertCircle,
   ChevronRight,
   Target,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
+import { projectAPI } from '../services/api';
 
 const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
-  const [projects, setProjects] = useState(() => {
-    const saved = localStorage.getItem('projects');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: '1',
-        name: 'Web Sitesi Yenileme',
-        description: 'Şirket web sitesinin modern tasarımla yenilenmesi',
-        color: '#6366f1',
-        status: 'active',
-        startDate: '2024-01-15',
-        endDate: '2024-03-15',
-        members: ['1', '2'],
-        taskIds: [],
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        name: 'Mobil Uygulama',
-        description: 'iOS ve Android için mobil uygulama geliştirme',
-        color: '#10b981',
-        status: 'active',
-        startDate: '2024-02-01',
-        endDate: '2024-06-01',
-        members: ['1', '3'],
-        taskIds: [],
-        createdAt: new Date().toISOString()
-      }
-    ];
-  });
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -58,43 +33,54 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
     '#14b8a6', '#06b6d4', '#3b82f6', '#6b7280'
   ];
 
-  const saveProjects = (newProjects) => {
-    setProjects(newProjects);
-    localStorage.setItem('projects', JSON.stringify(newProjects));
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const res = await projectAPI.list();
+      const data = res.data?.data || res.data || [];
+      setProjects(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Projeler yüklenemedi:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => { fetchProjects(); }, []);
+
   // Proje oluştur/düzenle
-  const handleSaveProject = (projectData) => {
-    if (editingProject) {
-      const updated = projects.map(p => 
-        p.id === editingProject.id ? { ...p, ...projectData } : p
-      );
-      saveProjects(updated);
-    } else {
-      const newProject = {
-        id: Date.now().toString(),
-        ...projectData,
-        status: 'active',
-        taskIds: [],
-        createdAt: new Date().toISOString()
-      };
-      saveProjects([...projects, newProject]);
+  const handleSaveProject = async (projectData) => {
+    try {
+      if (editingProject) {
+        await projectAPI.update(editingProject.id, projectData);
+      } else {
+        await projectAPI.create(projectData);
+      }
+      await fetchProjects();
+      setShowNewProjectModal(false);
+      setEditingProject(null);
+    } catch (err) {
+      console.error('Proje kaydedilemedi:', err);
     }
-    setShowNewProjectModal(false);
-    setEditingProject(null);
   };
 
   // Proje sil
-  const handleDeleteProject = (projectId) => {
+  const handleDeleteProject = async (projectId) => {
     if (confirm('Bu projeyi silmek istediğinize emin misiniz?')) {
-      saveProjects(projects.filter(p => p.id !== projectId));
-      setActiveMenu(null);
+      try {
+        await projectAPI.delete(projectId);
+        setProjects(prev => prev.filter(p => p.id !== projectId));
+        setActiveMenu(null);
+      } catch (err) {
+        console.error('Proje silinemedi:', err);
+      }
     }
   };
 
   // Proje istatistikleri
   const getProjectStats = (project) => {
-    const projectTasks = tasks.filter(t => project.taskIds.includes(t.id));
+    const taskIds = (project.taskIds || []);
+    const projectTasks = tasks.filter(t => taskIds.includes(t.id));
     const completed = projectTasks.filter(t => t.status === 'completed').length;
     const total = projectTasks.length;
     const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -112,6 +98,12 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
 
   return (
     <div className="space-y-6">
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="animate-spin text-indigo-500" size={32} />
+        </div>
+      ) : (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -142,7 +134,8 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {projects.map((project) => {
           const stats = getProjectStats(project);
-          const daysRemaining = getDaysRemaining(project.endDate);
+          const daysRemaining = getDaysRemaining(project.endDate || project.end_date);
+          const memberList = project.ProjectMembers || project.members || [];
           
           return (
             <div
@@ -258,19 +251,23 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
                   <div className="flex items-center gap-2">
                     <Users size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
                     <div className="flex -space-x-2">
-                      {project.members.slice(0, 3).map((memberId, i) => (
-                        <div
-                          key={memberId}
-                          className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 
-                                   border-2 border-white dark:border-slate-800 flex items-center justify-center"
-                        >
-                          <span className="text-white text-xs font-bold">{i + 1}</span>
-                        </div>
-                      ))}
-                      {project.members.length > 3 && (
+                      {memberList.slice(0, 3).map((member, i) => {
+                        const u = member.User || member;
+                        const initials = u.first_name ? u.first_name[0] : (i + 1);
+                        return (
+                          <div
+                            key={member.userId || member.id || i}
+                            className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 
+                                     border-2 border-white dark:border-slate-800 flex items-center justify-center"
+                          >
+                            <span className="text-white text-xs font-bold">{initials}</span>
+                          </div>
+                        );
+                      })}
+                      {memberList.length > 3 && (
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs
                                       ${isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
-                          +{project.members.length - 3}
+                          +{memberList.length - 3}
                         </div>
                       )}
                     </div>
@@ -278,7 +275,7 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
                   
                   <div className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     <Calendar size={12} />
-                    <span>{new Date(project.endDate).toLocaleDateString('tr-TR')}</span>
+                    <span>{(project.endDate || project.end_date) ? new Date(project.endDate || project.end_date).toLocaleDateString('tr-TR') : '-'}</span>
                   </div>
                 </div>
               </div>
@@ -324,9 +321,11 @@ const ProjectModule = ({ isDark, tasks = [], users = [] }) => {
         <ProjectDetailModal
           isDark={isDark}
           project={selectedProject}
-          tasks={tasks.filter(t => selectedProject.taskIds.includes(t.id))}
+          tasks={tasks.filter(t => (selectedProject.taskIds || []).includes(t.id))}
           onClose={() => setSelectedProject(null)}
         />
+      )}
+      </>
       )}
     </div>
   );
@@ -338,9 +337,8 @@ const ProjectModal = ({ isDark, project, colors, users, onSave, onClose }) => {
     name: project?.name || '',
     description: project?.description || '',
     color: project?.color || colors[0],
-    startDate: project?.startDate || new Date().toISOString().split('T')[0],
-    endDate: project?.endDate || '',
-    members: project?.members || [],
+    startDate: project?.startDate || project?.start_date || new Date().toISOString().split('T')[0],
+    endDate: project?.endDate || project?.end_date || '',
   });
 
   const handleSubmit = (e) => {

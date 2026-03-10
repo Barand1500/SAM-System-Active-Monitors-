@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { auditLogAPI } from '../services/api';
 import { 
   CheckSquare, 
   Clock, 
@@ -273,7 +274,22 @@ export const TeamPerformanceWidget = ({ employees, tasks, isDark }) => {
 
 // Widget: Son Aktiviteler
 export const RecentActivitiesWidget = ({ isDark }) => {
-  const activities = JSON.parse(localStorage.getItem('sam_change_history') || '[]').slice(0, 15);
+  const [activities, setActivities] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await auditLogAPI.list({ limit: 15 });
+        setActivities((res.data?.data || res.data || []).map(a => ({
+          ...a,
+          timestamp: a.created_at || a.createdAt
+        })));
+      } catch (err) {
+        console.error('Aktiviteler yüklenemedi:', err);
+      }
+    };
+    load();
+  }, []);
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
@@ -708,7 +724,16 @@ export const QuickStatsWidget = ({ tasks, isDark }) => {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const avgCompletionDays = 3.5; // Mock data - gerçekte hesaplanmalı
+  const avgCompletionDays = (() => {
+    const completed = tasks.filter(t => t.status === 'completed' && t.createdAt && t.updatedAt);
+    if (completed.length === 0) return 0;
+    const totalDays = completed.reduce((sum, t) => {
+      const created = new Date(t.createdAt || t.created_at);
+      const updated = new Date(t.updatedAt || t.updated_at);
+      return sum + Math.max(1, Math.round((updated - created) / (1000 * 60 * 60 * 24)));
+    }, 0);
+    return +(totalDays / completed.length).toFixed(1);
+  })();
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
