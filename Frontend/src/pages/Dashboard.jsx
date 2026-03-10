@@ -248,6 +248,12 @@ const Dashboard = () => {
   
   // Görev Şablonları State
   const [taskTemplates, setTaskTemplates] = useState(() => loadFromStorage('task_templates', []));
+  
+  // Dashboard Layouts State
+  const [dashboardLayouts, setDashboardLayouts] = useState(() => loadFromStorage('dashboard_layouts', [
+    { id: 1, name: 'Varsayılan', isDefault: true, createdAt: new Date().toISOString() }
+  ]));
+  const [activeLayoutId, setActiveLayoutId] = useState(() => loadFromStorage('active_layout_id', 1));
 
   // LocalStorage'a kaydet (tasks hariç - API'den geliyor)
 
@@ -262,6 +268,14 @@ const Dashboard = () => {
   useEffect(() => {
     saveToStorage('task_templates', taskTemplates);
   }, [taskTemplates]);
+  
+  useEffect(() => {
+    saveToStorage('dashboard_layouts', dashboardLayouts);
+  }, [dashboardLayouts]);
+  
+  useEffect(() => {
+    saveToStorage('active_layout_id', activeLayoutId);
+  }, [activeLayoutId]);
 
   // Backend API'den veri çek (Component mount olduğunda)
   useEffect(() => {
@@ -610,6 +624,53 @@ const Dashboard = () => {
       console.error('Görev tarihi güncellenirken hata:', err);
     }
   };
+  
+  // ===== DASHBOARD LAYOUT FONKSİYONLARI =====
+  
+  const createNewLayout = (name) => {
+    const newLayout = {
+      id: Date.now(),
+      name,
+      isDefault: false,
+      createdAt: new Date().toISOString()
+    };
+    setDashboardLayouts(prev => [...prev, newLayout]);
+    setActiveLayoutId(newLayout.id);
+    // Widget order'ı bu layout için kopyala
+    const currentOrder = localStorage.getItem('dashboard_widget_order');
+    localStorage.setItem(`dashboard_widget_order_${newLayout.id}`, currentOrder || '[]');
+    return newLayout;
+  };
+  
+  const deleteLayout = (layoutId) => {
+    const layout = dashboardLayouts.find(l => l.id === layoutId);
+    if (layout?.isDefault) {
+      alert('Varsayılan layout silinemez!');
+      return;
+    }
+    setDashboardLayouts(prev => prev.filter(l => l.id !== layoutId));
+    if (activeLayoutId === layoutId) {
+      const defaultLayout = dashboardLayouts.find(l => l.isDefault);
+      setActiveLayoutId(defaultLayout?.id || dashboardLayouts[0]?.id);
+    }
+    localStorage.removeItem(`dashboard_widget_order_${layoutId}`);
+  };
+  
+  const switchLayout = (layoutId) => {
+    setActiveLayoutId(layoutId);
+    // Layout'a özel widget order'ı yükle
+    const layoutOrder = localStorage.getItem(`dashboard_widget_order_${layoutId}`);
+    if (layoutOrder) {
+      localStorage.setItem('dashboard_widget_order', layoutOrder);
+    }
+    window.location.reload(); // Widgets'ları yeniden render etmek için
+  };
+  
+  const renameLayout = (layoutId, newName) => {
+    setDashboardLayouts(prev => prev.map(l => 
+      l.id === layoutId ? { ...l, name: newName } : l
+    ));
+  };
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50'}`}>
@@ -835,7 +896,7 @@ const Dashboard = () => {
         </div>
 
         {/* İçerik */}
-        {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} />}
+        {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} dashboardLayouts={dashboardLayouts} activeLayoutId={activeLayoutId} onCreateLayout={createNewLayout} onDeleteLayout={deleteLayout} onSwitchLayout={switchLayout} onRenameLayout={renameLayout} />}
         {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} onLeaveTask={leaveTask} />}
         {activeTab === 'pool' && !canManage && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
@@ -2531,7 +2592,7 @@ const BulkEmployeeModal = ({ departments, onClose, onSave, isDark }) => {
 
 // ===== GENEL BAKIŞ TAB =====
 // ===== SORTABLE WIDGET WRAPPER =====
-const SortableWidget = ({ id, children, isDark, onRemove }) => {
+const SortableWidget = ({ id, children, isDark, onRemove, size, onResize }) => {
   const {
     attributes,
     listeners,
@@ -2547,8 +2608,17 @@ const SortableWidget = ({ id, children, isDark, onRemove }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Boyut class'ları
+  const sizeClasses = {
+    small: 'col-span-1',      // 1 sütun (1/3)
+    medium: 'md:col-span-2',  // 2 sütun (2/3)
+    large: 'md:col-span-3',   // 3 sütun (tam genişlik)
+  };
+
+  const [resizeMenuOpen, setResizeMenuOpen] = useState(false);
+
   return (
-    <div ref={setNodeRef} style={style} className="relative group">
+    <div ref={setNodeRef} style={style} className={`relative group ${sizeClasses[size] || sizeClasses.medium}`}>
       <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
         <button
           onClick={() => onRemove(id)}
@@ -2570,15 +2640,92 @@ const SortableWidget = ({ id, children, isDark, onRemove }) => {
           <GripVertical size={16} />
         </div>
       </div>
+      
+      {/* Resize Handle - Sağ taraf */}
+      <div className="absolute right-0 top-0 bottom-0 w-8 opacity-0 group-hover:opacity-100 transition-all z-10 flex items-center justify-center">
+        <div className="relative">
+          <button
+            onClick={() => setResizeMenuOpen(!resizeMenuOpen)}
+            className={`p-1.5 rounded-l-lg transition-all ${
+              isDark ? 'bg-blue-900/50 hover:bg-blue-800 text-blue-300' : 'bg-blue-50 hover:bg-blue-100 text-blue-600 shadow-md'
+            }`}
+            title="Boyutlandır"
+          >
+            <Settings2 size={16} />
+          </button>
+          
+          {resizeMenuOpen && (
+            <div className={`absolute right-full top-0 mr-1 rounded-lg shadow-xl border ${
+              isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+            } overflow-hidden min-w-[140px]`}>
+              <button
+                onClick={() => {
+                  onResize(id, 'small');
+                  setResizeMenuOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                  size === 'small' 
+                    ? isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    : isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-current rounded"></div>
+                  Küçük (1/3)
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onResize(id, 'medium');
+                  setResizeMenuOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                  size === 'medium' 
+                    ? isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    : isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-4 border-2 border-current rounded"></div>
+                  Orta (2/3)
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  onResize(id, 'large');
+                  setResizeMenuOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm transition-colors ${
+                  size === 'large' 
+                    ? isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    : isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-4 border-2 border-current rounded"></div>
+                  Büyük (Tam)
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {children}
     </div>
   );
 };
 
 // ===== OVERVIEW TAB =====
-const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) => {
+const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask, dashboardLayouts, activeLayoutId, onCreateLayout, onDeleteLayout, onSwitchLayout, onRenameLayout }) => {
   const myTasks = tasks.filter(t => t.assignedTo?.id == user?.id);
   const displayTasks = canManage ? tasks : myTasks;
+  
+  const [showLayoutModal, setShowLayoutModal] = useState(false);
+  const [newLayoutName, setNewLayoutName] = useState('');
+  const [editingLayoutId, setEditingLayoutId] = useState(null);
+  const [editingLayoutName, setEditingLayoutName] = useState('');
+  
+  const activeLayout = dashboardLayouts.find(l => l.id === activeLayoutId);
 
   // Widget customization state
   const allAvailableWidgets = [
@@ -2603,14 +2750,32 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
   const defaultWidgets = allAvailableWidgets.slice(0, 6); // İlk 6 widget varsayılan
 
   const [widgetOrder, setWidgetOrder] = useState(() => {
-    const saved = localStorage.getItem('dashboard_widget_order');
+    const saved = localStorage.getItem(`dashboard_widget_order_${activeLayoutId}`);
     return saved ? JSON.parse(saved) : defaultWidgets.map(w => w.id);
+  });
+
+  // Widget boyutlarını state olarak tut
+  const [widgetSizes, setWidgetSizes] = useState(() => {
+    const saved = localStorage.getItem(`dashboard_widget_sizes_${activeLayoutId}`);
+    return saved ? JSON.parse(saved) : {};
   });
 
   const [activeId, setActiveId] = useState(null);
   const [showAddWidgetModal, setShowAddWidgetModal] = useState(false);
   const [showReplaceWidgetModal, setShowReplaceWidgetModal] = useState(false);
   const [selectedWidgetToAdd, setSelectedWidgetToAdd] = useState(null);
+
+  // Widget boyutunu değiştir
+  const handleResizeWidget = (widgetId, newSize) => {
+    const updatedSizes = { ...widgetSizes, [widgetId]: newSize };
+    setWidgetSizes(updatedSizes);
+    localStorage.setItem(`dashboard_widget_sizes_${activeLayoutId}`, JSON.stringify(updatedSizes));
+  };
+
+  // Widget boyutu al (varsayılan: 'medium')
+  const getWidgetSize = (widgetId) => {
+    return widgetSizes[widgetId] || 'medium';
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -2777,6 +2942,77 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
         </div>
       </div>
 
+      {/* Dashboard Layout Yönetimi */}
+      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
+              <Layers size={18} className="text-purple-500" />
+            </div>
+            <div>
+              <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Dashboard Düzeni</h4>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                {activeLayout?.name || 'Varsayılan'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowLayoutModal(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${isDark ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-purple-500 hover:bg-purple-600 text-white'}`}
+          >
+            <Plus size={14} />
+            Yeni Düzen
+          </button>
+        </div>
+        
+        {/* Layout Listesi */}
+        <div className="flex flex-wrap gap-2">
+          {dashboardLayouts.map(layout => (
+            <div key={layout.id} className="relative group">
+              <button
+                onClick={() => layout.id !== activeLayoutId && onSwitchLayout(layout.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  layout.id === activeLayoutId
+                    ? isDark ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-purple-500 text-white shadow-lg'
+                    : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {layout.name}
+                {layout.isDefault && <span className="ml-1 text-xs opacity-60">★</span>}
+              </button>
+              {!layout.isDefault && layout.id === activeLayoutId && (
+                <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingLayoutId(layout.id);
+                      setEditingLayoutName(layout.name);
+                      setShowLayoutModal(true);
+                    }}
+                    className={`p-1 rounded-lg ${isDark ? 'bg-slate-600 text-slate-300 hover:bg-slate-500' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                    title="Yeniden adlandır"
+                  >
+                    <Edit size={12} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`"${layout.name}" düzenini silmek istediğinizden emin misiniz?`)) {
+                        onDeleteLayout(layout.id);
+                      }
+                    }}
+                    className="p-1 rounded-lg bg-red-500 text-white hover:bg-red-600"
+                    title="Sil"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Dashboard Widgets - Customizable with Drag & Drop */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -2819,7 +3055,14 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
           <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {widgetOrder.map((widgetId) => (
-                <SortableWidget key={widgetId} id={widgetId} isDark={isDark} onRemove={handleRemoveWidget}>
+                <SortableWidget 
+                  key={widgetId} 
+                  id={widgetId} 
+                  isDark={isDark} 
+                  onRemove={handleRemoveWidget}
+                  size={getWidgetSize(widgetId)}
+                  onResize={handleResizeWidget}
+                >
                   {renderWidget(widgetId)}
                 </SortableWidget>
               ))}
@@ -2915,6 +3158,89 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
                 </button>
               );
             })}
+          </div>
+        </div>
+      </BaseModal>
+
+      {/* Layout Yönetim Modalı */}
+      <BaseModal
+        isOpen={showLayoutModal}
+        onClose={() => {
+          setShowLayoutModal(false);
+          setNewLayoutName('');
+          setEditingLayoutId(null);
+          setEditingLayoutName('');
+        }}
+        title={editingLayoutId ? 'Düzeni Yeniden Adlandır' : 'Yeni Dashboard Düzeni'}
+        isDark={isDark}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+              Düzen Adı
+            </label>
+            <input
+              type="text"
+              value={editingLayoutId ? editingLayoutName : newLayoutName}
+              onChange={(e) => editingLayoutId ? setEditingLayoutName(e.target.value) : setNewLayoutName(e.target.value)}
+              placeholder="Örn: Proje Yönetimi, Finans Görünümü..."
+              className={`w-full px-4 py-2 rounded-xl border transition-colors ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-purple-500' 
+                  : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500'
+              } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+              autoFocus
+            />
+          </div>
+          
+          {!editingLayoutId && (
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              Yeni düzen, mevcut widget düzeninizin bir kopyasıyla oluşturulacak. Daha sonra istediğiniz gibi özelleştirebilirsiniz.
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => {
+                setShowLayoutModal(false);
+                setNewLayoutName('');
+                setEditingLayoutId(null);
+                setEditingLayoutName('');
+              }}
+              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-colors ${
+                isDark 
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              İptal
+            </button>
+            <button
+              onClick={() => {
+                if (editingLayoutId) {
+                  if (editingLayoutName.trim()) {
+                    onRenameLayout(editingLayoutId, editingLayoutName.trim());
+                    setShowLayoutModal(false);
+                    setEditingLayoutId(null);
+                    setEditingLayoutName('');
+                  }
+                } else {
+                  if (newLayoutName.trim()) {
+                    onCreateLayout(newLayoutName.trim());
+                    setShowLayoutModal(false);
+                    setNewLayoutName('');
+                  }
+                }
+              }}
+              disabled={editingLayoutId ? !editingLayoutName.trim() : !newLayoutName.trim()}
+              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-colors ${
+                (editingLayoutId ? !editingLayoutName.trim() : !newLayoutName.trim())
+                  ? 'bg-slate-400 text-white cursor-not-allowed'
+                  : 'bg-purple-500 text-white hover:bg-purple-600 shadow-lg shadow-purple-500/25'
+              }`}
+            >
+              {editingLayoutId ? 'Güncelle' : 'Oluştur'}
+            </button>
           </div>
         </div>
       </BaseModal>

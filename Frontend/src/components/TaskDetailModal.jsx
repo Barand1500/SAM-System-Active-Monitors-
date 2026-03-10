@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { 
   X, 
   Calendar,
@@ -17,7 +18,12 @@ import {
   History,
   MoreVertical,
   Timer,
-  Play
+  Play,
+  Github,
+  Link,
+  Check,
+  Settings,
+  Move
 } from 'lucide-react';
 
 const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = true }) => {
@@ -47,6 +53,75 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
 
   // Alt görevler (şimdilik local state)
   const [subtasks, setSubtasks] = useState(task.subtasks || []);
+  
+  // GitHub modal state
+  const [showGithubModal, setShowGithubModal] = useState(false);
+  const [githubConfig, setGithubConfig] = useState({
+    username: task.githubConfig?.username || '',
+    repoUrl: task.githubConfig?.repoUrl || '',
+    issueNumber: task.githubConfig?.issueNumber || '',
+    autoSync: task.githubConfig?.autoSync || false
+  });
+  
+  // Draggable modal state
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const modalRef = useRef(null);
+
+  // ESC tuşu ile GitHub modal kapatma
+  useEffect(() => {
+    const handleGithubEscape = (e) => {
+      if (e.key === 'Escape' && showGithubModal) {
+        setShowGithubModal(false);
+      }
+    };
+    if (showGithubModal) {
+      document.addEventListener('keydown', handleGithubEscape);
+      return () => document.removeEventListener('keydown', handleGithubEscape);
+    }
+  }, [showGithubModal]);
+
+  // Dragging handlers
+  const handleMouseDown = (e) => {
+    if (e.target.closest('.modal-header')) {
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.clientX - modalPosition.x,
+        y: e.clientY - modalPosition.y
+      };
+    }
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      setModalPosition({
+        x: e.clientX - dragStartRef.current.x,
+        y: e.clientY - dragStartRef.current.y
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  // Modal açıldığında pozisyonu sıfırla
+  useEffect(() => {
+    if (showGithubModal) {
+      setModalPosition({ x: 0, y: 0 });
+    }
+  }, [showGithubModal]);
 
   // Yorumlar (şimdilik local state)
   const [comments, setComments] = useState(task.comments || []);
@@ -315,6 +390,72 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
                   </p>
                 </div>
               </div>
+
+              {/* GitHub Entegrasyonu */}
+              <div>
+                <h4 className={`text-sm font-medium mb-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Entegrasyonlar</h4>
+                <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${task.githubEnabled ? 'bg-slate-900 dark:bg-white' : isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                        <svg className={`w-5 h-5 ${task.githubEnabled ? 'text-white dark:text-slate-900' : isDark ? 'text-slate-400' : 'text-slate-500'}`} fill="currentColor" viewBox="0 0 24 24">
+                          <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>GitHub Entegrasyonu</p>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {task.githubEnabled ? 'Görev GitHub ile senkronize ediliyor' : 'GitHub entegrasyonu devre dışı'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowGithubModal(true)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                        task.githubEnabled 
+                          ? isDark ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                          : isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <Settings size={16} />
+                      {task.githubEnabled ? 'Yapılandır' : 'Aktifleştir'}
+                    </button>
+                  </div>
+                  {task.githubEnabled && task.githubConfig && (
+                    <div className={`mt-3 pt-3 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600'}`}>
+                            <span className="font-medium">Kullanıcı:</span> @{task.githubConfig.username}
+                          </div>
+                          {task.githubConfig.issueNumber && (
+                            <div className={`px-2 py-1 rounded ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600'}`}>
+                              <span className="font-medium">Issue:</span> {task.githubConfig.issueNumber}
+                            </div>
+                          )}
+                          {task.githubConfig.autoSync && (
+                            <div className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                              <Check size={12} className="inline mr-1" />
+                              Otomatik Senkron
+                            </div>
+                          )}
+                        </div>
+                        {task.githubConfig.repoUrl && (
+                          <a 
+                            href={task.githubConfig.repoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-1 text-xs hover:underline ${isDark ? 'text-blue-400' : 'text-blue-600'}`}
+                          >
+                            <Link size={12} />
+                            {task.githubConfig.repoUrl}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -558,6 +699,192 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
           </div>
         )}
       </div>
+
+      {/* GitHub Entegrasyon Modal */}
+      {showGithubModal && ReactDOM.createPortal(
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]"
+          style={{ pointerEvents: 'none' }}
+        >
+          <div 
+            ref={modalRef}
+            onMouseDown={handleMouseDown}
+            className={`w-full max-w-lg rounded-2xl ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-300'} shadow-2xl ${isDragging ? 'cursor-grabbing' : ''}`}
+            style={{ 
+              pointerEvents: 'auto',
+              transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)`,
+              transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+            }}
+          >
+            {/* Modal Header - Draggable */}
+            <div className={`modal-header p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} cursor-move select-none`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-slate-900 dark:bg-white">
+                    <Github size={24} className="text-white dark:text-slate-900" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        GitHub Entegrasyonu
+                      </h3>
+                      <Move size={16} className={`${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                    </div>
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Görev için GitHub ayarlarını yapılandırın
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowGithubModal(false)}
+                  className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              {/* GitHub Kullanıcı Adı */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  <div className="flex items-center gap-2">
+                    <Github size={16} />
+                    GitHub Kullanıcı Adı
+                  </div>
+                </label>
+                <input
+                  type="text"
+                  value={githubConfig.username}
+                  onChange={(e) => setGithubConfig(prev => ({ ...prev, username: e.target.value }))}
+                  placeholder="örn: kullanici123"
+                  className={`w-full px-4 py-3 rounded-xl border transition-colors ${
+                    isDark 
+                      ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-purple-500' 
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500'
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Repository URL */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  <div className="flex items-center gap-2">
+                    <Link size={16} />
+                    Repository URL
+                  </div>
+                </label>
+                <input
+                  type="url"
+                  value={githubConfig.repoUrl}
+                  onChange={(e) => setGithubConfig(prev => ({ ...prev, repoUrl: e.target.value }))}
+                  placeholder="https://github.com/kullanici/proje"
+                  className={`w-full px-4 py-3 rounded-xl border transition-colors ${
+                    isDark 
+                      ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-purple-500' 
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500'
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Issue Numarası */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  <div className="flex items-center gap-2">
+                    <Flag size={16} />
+                    Issue Numarası (Opsiyonel)
+                  </div>
+                </label>
+                <input
+                  type="text"
+                  value={githubConfig.issueNumber}
+                  onChange={(e) => setGithubConfig(prev => ({ ...prev, issueNumber: e.target.value }))}
+                  placeholder="örn: #42"
+                  className={`w-full px-4 py-3 rounded-xl border transition-colors ${
+                    isDark 
+                      ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-purple-500' 
+                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500'
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Otomatik Senkronizasyon */}
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${githubConfig.autoSync ? 'bg-emerald-500' : isDark ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                      <CheckSquare size={18} className={githubConfig.autoSync ? 'text-white' : isDark ? 'text-slate-400' : 'text-slate-500'} />
+                    </div>
+                    <div>
+                      <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        Otomatik Senkronizasyon
+                      </p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Görev güncellemeleri otomatik olarak GitHub'a aktarılsın
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setGithubConfig(prev => ({ ...prev, autoSync: !prev.autoSync }))}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${
+                      githubConfig.autoSync ? 'bg-emerald-500' : isDark ? 'bg-slate-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
+                      githubConfig.autoSync ? 'translate-x-6' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
+              <button
+                onClick={() => {
+                  setShowGithubModal(false);
+                  setGithubConfig({
+                    username: task.githubConfig?.username || '',
+                    repoUrl: task.githubConfig?.repoUrl || '',
+                    issueNumber: task.githubConfig?.issueNumber || '',
+                    autoSync: task.githubConfig?.autoSync || false
+                  });
+                }}
+                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
+                  isDark 
+                    ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  const isEnabled = !!(githubConfig.username && githubConfig.repoUrl);
+                  const updated = { 
+                    ...task, 
+                    githubEnabled: isEnabled,
+                    githubConfig: githubConfig 
+                  };
+                  onUpdate(task.id, updated);
+                  setShowGithubModal(false);
+                }}
+                disabled={!githubConfig.username || !githubConfig.repoUrl}
+                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                  (!githubConfig.username || !githubConfig.repoUrl)
+                    ? 'bg-slate-400 text-white cursor-not-allowed'
+                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/25'
+                }`}
+              >
+                <Check size={18} />
+                Kaydet ve Aktifleştir
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
