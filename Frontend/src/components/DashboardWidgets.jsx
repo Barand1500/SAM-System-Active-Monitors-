@@ -14,7 +14,13 @@ import {
   ListTodo,
   UserCheck,
   Flag,
-  CalendarClock
+  CalendarClock,
+  PieChart,
+  Trophy,
+  Briefcase,
+  BarChart3,
+  TrendingDown,
+  Award
 } from 'lucide-react';
 
 // Widget: Görev İstatistikleri
@@ -293,7 +299,7 @@ export const RecentActivitiesWidget = ({ isDark }) => {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto space-y-2">
           {activities.map((activity, idx) => (
             <div key={idx} className={`p-3 rounded-lg ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
               <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -677,6 +683,512 @@ export const DeadlineWidget = ({ tasks, isDark, onTaskClick }) => {
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Hızlı İstatistikler
+export const QuickStatsWidget = ({ tasks, isDark }) => {
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const avgCompletionDays = 3.5; // Mock data - gerçekte hesaplanmalı
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Hızlı İstatistikler
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Genel bakış
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-xl">
+          <BarChart3 size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 flex-1">
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-br from-blue-50 to-cyan-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Target size={16} className="text-blue-500" />
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Toplam</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{totalTasks}</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-br from-emerald-50 to-teal-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <CheckSquare size={16} className="text-emerald-500" />
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Tamamlanan</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{completedTasks}</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-br from-purple-50 to-pink-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp size={16} className="text-purple-500" />
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Başarı Oranı</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{completionRate}%</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-br from-amber-50 to-orange-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock size={16} className="text-amber-500" />
+            <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Ort. Süre</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{avgCompletionDays}g</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Widget: Tamamlanma Oranı
+export const CompletionRateWidget = ({ tasks, isDark }) => {
+  const totalTasks = tasks.length;
+  const statusCounts = {
+    completed: tasks.filter(t => t.status === 'completed').length,
+    in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+  };
+
+  const getPercentage = (count) => totalTasks > 0 ? Math.round((count / totalTasks) * 100) : 0;
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Tamamlanma Oranı
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Görev dağılımı
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+          <PieChart size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-4">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-sm font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
+              Tamamlanan
+            </span>
+            <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {statusCounts.completed} ({getPercentage(statusCounts.completed)}%)
+            </span>
+          </div>
+          <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-500"
+              style={{ width: `${getPercentage(statusCounts.completed)}%` }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-sm font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              Devam Eden
+            </span>
+            <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {statusCounts.in_progress} ({getPercentage(statusCounts.in_progress)}%)
+            </span>
+          </div>
+          <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500"
+              style={{ width: `${getPercentage(statusCounts.in_progress)}%` }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-sm font-medium ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+              Bekleyen
+            </span>
+            <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {statusCounts.pending} ({getPercentage(statusCounts.pending)}%)
+            </span>
+          </div>
+          <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <div 
+              className="h-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-500"
+              style={{ width: `${getPercentage(statusCounts.pending)}%` }}
+            />
+          </div>
+        </div>
+
+        <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              Toplam Görev
+            </span>
+            <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {totalTasks}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Widget: En Aktif Kullanıcılar
+export const TopContributorsWidget = ({ tasks, employees, isDark }) => {
+  const contributorStats = employees.map(emp => ({
+    ...emp,
+    completedTasks: tasks.filter(t => t.assignedTo?.id === emp.id && t.status === 'completed').length,
+    activeTasks: tasks.filter(t => t.assignedTo?.id === emp.id && t.status !== 'completed').length,
+  }))
+  .filter(emp => emp.completedTasks > 0 || emp.activeTasks > 0)
+  .sort((a, b) => b.completedTasks - a.completedTasks)
+  .slice(0, 5);
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            En Aktif Kullanıcılar
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Top 5 katkı sağlayanlar
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-xl">
+          <Trophy size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3">
+        {contributorStats.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Trophy size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Henüz veri yok</p>
+          </div>
+        ) : (
+          contributorStats.map((contributor, idx) => (
+            <div
+              key={contributor.id}
+              className={`p-3 rounded-lg border ${
+                isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                  idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white' :
+                  idx === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-white' :
+                  idx === 2 ? 'bg-gradient-to-br from-amber-600 to-orange-600 text-white' :
+                  isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1">
+                  <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {contributor.firstName} {contributor.lastName}
+                  </h4>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    {contributor.department}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-emerald-500">
+                    {contributor.completedTasks}
+                  </p>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    tamamlandı
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Departman Performansı
+export const DepartmentPerformanceWidget = ({ tasks, employees, isDark }) => {
+  const departments = [...new Set(employees.map(e => e.department))];
+  
+  const deptStats = departments.map(dept => {
+    const deptEmployees = employees.filter(e => e.department === dept);
+    const deptTasks = tasks.filter(t => 
+      deptEmployees.some(emp => emp.id === t.assignedTo?.id)
+    );
+    const completed = deptTasks.filter(t => t.status === 'completed').length;
+    const total = deptTasks.length;
+    
+    return {
+      name: dept,
+      completed,
+      total,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0
+    };
+  })
+  .sort((a, b) => b.percentage - a.percentage)
+  .slice(0, 5);
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Departman Performansı
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Departmanlara göre başarı
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl">
+          <Briefcase size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-3">
+        {deptStats.length === 0 ? (
+          <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            <Briefcase size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Henüz veri yok</p>
+          </div>
+        ) : (
+          deptStats.map((dept, idx) => (
+            <div
+              key={idx}
+              className={`p-3 rounded-lg ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  {dept.name}
+                </h4>
+                <span className={`text-sm font-bold ${
+                  dept.percentage >= 75 ? 'text-emerald-500' :
+                  dept.percentage >= 50 ? 'text-blue-500' :
+                  dept.percentage >= 25 ? 'text-amber-500' : 'text-red-500'
+                }`}>
+                  {dept.percentage}%
+                </span>
+              </div>
+              <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-600' : 'bg-slate-200'}`}>
+                <div 
+                  className={`h-full transition-all duration-500 ${
+                    dept.percentage >= 75 ? 'bg-gradient-to-r from-emerald-500 to-green-400' :
+                    dept.percentage >= 50 ? 'bg-gradient-to-r from-blue-500 to-cyan-400' :
+                    dept.percentage >= 25 ? 'bg-gradient-to-r from-amber-500 to-orange-400' :
+                    'bg-gradient-to-r from-red-500 to-pink-400'
+                  }`}
+                  style={{ width: `${dept.percentage}%` }}
+                />
+              </div>
+              <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                {dept.completed} / {dept.total} görev tamamlandı
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Widget: Haftalık Özet
+export const WeeklySummaryWidget = ({ tasks, isDark }) => {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const thisWeekTasks = tasks.filter(t => {
+    if (!t.createdAt) return false;
+    const taskDate = new Date(t.createdAt);
+    return taskDate >= weekStart;
+  });
+
+  const stats = {
+    created: thisWeekTasks.length,
+    completed: thisWeekTasks.filter(t => t.status === 'completed').length,
+    inProgress: thisWeekTasks.filter(t => t.status === 'in_progress').length,
+    pending: thisWeekTasks.filter(t => t.status === 'pending').length,
+  };
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Haftalık Özet
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Bu haftanın performansı
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl">
+          <CalendarClock size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-2 gap-3">
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <Plus size={14} className="text-blue-500" />
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Oluşturulan</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.created}</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-emerald-900/30 border border-emerald-700' : 'bg-emerald-50 border border-emerald-200'}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <CheckSquare size={14} className="text-emerald-500" />
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Tamamlanan</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.completed}</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-cyan-900/30 border border-cyan-700' : 'bg-cyan-50 border border-cyan-200'}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp size={14} className="text-cyan-500" />
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Devam Eden</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.inProgress}</p>
+        </div>
+
+        <div className={`p-4 rounded-xl ${isDark ? 'bg-amber-900/30 border border-amber-700' : 'bg-amber-50 border border-amber-200'}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <Clock size={14} className="text-amber-500" />
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Bekleyen</span>
+          </div>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.pending}</p>
+        </div>
+      </div>
+
+      <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Tamamlanma Oranı
+          </span>
+          <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {stats.created > 0 ? Math.round((stats.completed / stats.created) * 100) : 0}%
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Widget: Görev Dağılımı
+export const TaskDistributionWidget = ({ tasks, employees, isDark }) => {
+  const assigned = tasks.filter(t => t.assignedTo).length;
+  const unassigned = tasks.filter(t => !t.assignedTo).length;
+  const total = tasks.length;
+
+  const priorityDistribution = {
+    high: tasks.filter(t => t.priority === 'high').length,
+    medium: tasks.filter(t => t.priority === 'medium').length,
+    low: tasks.filter(t => t.priority === 'low').length,
+  };
+
+  return (
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Görev Dağılımı
+          </h3>
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            Atama ve öncelik analizi
+          </p>
+        </div>
+        <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-xl">
+          <Target size={20} className="text-white" />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-4">
+        <div>
+          <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Atama Durumu
+          </h4>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Atanmış Görevler
+              </span>
+              <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {assigned} ({total > 0 ? Math.round((assigned / total) * 100) : 0}%)
+              </span>
+            </div>
+            <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                style={{ width: `${total > 0 ? (assigned / total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 mt-3">
+            <div className="flex items-center justify-between">
+              <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Atanmamış Görevler
+              </span>
+              <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {unassigned} ({total > 0 ? Math.round((unassigned / total) * 100) : 0}%)
+              </span>
+            </div>
+            <div className={`h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+              <div 
+                className="h-full bg-gradient-to-r from-slate-400 to-slate-500"
+                style={{ width: `${total > 0 ? (unassigned / total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className={`pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+          <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Öncelik Dağılımı
+          </h4>
+          <div className="grid grid-cols-3 gap-2">
+            <div className={`p-3 rounded-lg text-center ${isDark ? 'bg-red-900/30' : 'bg-red-50'}`}>
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Flag size={12} className="text-red-500" />
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Yüksek</span>
+              </div>
+              <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {priorityDistribution.high}
+              </p>
+            </div>
+
+            <div className={`p-3 rounded-lg text-center ${isDark ? 'bg-amber-900/30' : 'bg-amber-50'}`}>
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Flag size={12} className="text-amber-500" />
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Orta</span>
+              </div>
+              <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {priorityDistribution.medium}
+              </p>
+            </div>
+
+            <div className={`p-3 rounded-lg text-center ${isDark ? 'bg-emerald-900/30' : 'bg-emerald-50'}`}>
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Flag size={12} className="text-emerald-500" />
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Düşük</span>
+              </div>
+              <p className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {priorityDistribution.low}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

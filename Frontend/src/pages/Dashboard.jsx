@@ -73,7 +73,9 @@ import {
   Activity,
   ListTodo,
   UserCheck,
-  Flag
+  Flag,
+  PieChart,
+  Trophy
 } from 'lucide-react';
 import {
   DndContext,
@@ -120,7 +122,13 @@ import {
   PendingTasksWidget,
   MyTasksWidget,
   PriorityTasksWidget,
-  DeadlineWidget
+  DeadlineWidget,
+  QuickStatsWidget,
+  CompletionRateWidget,
+  TopContributorsWidget,
+  DepartmentPerformanceWidget,
+  WeeklySummaryWidget,
+  TaskDistributionWidget
 } from '../components/DashboardWidgets';
 
 // Veri versiyonu - çalışan isimleri güncellendiğinde bu değeri artır
@@ -2322,6 +2330,12 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
     { id: 'my-tasks', component: 'MyTasksWidget', title: 'Benim Görevlerim', icon: UserCheck, color: 'from-cyan-500 to-blue-500' },
     { id: 'priority-tasks', component: 'PriorityTasksWidget', title: 'Öncelikli Görevler', icon: Flag, color: 'from-red-500 to-pink-500' },
     { id: 'deadline-tasks', component: 'DeadlineWidget', title: 'Son Tarih Yaklaşanlar', icon: CalendarClock, color: 'from-orange-500 to-red-500' },
+    { id: 'quick-stats', component: 'QuickStatsWidget', title: 'Hızlı İstatistikler', icon: BarChart3, color: 'from-teal-500 to-emerald-500' },
+    { id: 'completion-rate', component: 'CompletionRateWidget', title: 'Tamamlanma Oranı', icon: PieChart, color: 'from-green-500 to-emerald-500' },
+    { id: 'top-contributors', component: 'TopContributorsWidget', title: 'En Aktif Kullanıcılar', icon: Trophy, color: 'from-yellow-500 to-amber-500' },
+    { id: 'department-performance', component: 'DepartmentPerformanceWidget', title: 'Departman Performansı', icon: Briefcase, color: 'from-violet-500 to-purple-500' },
+    { id: 'weekly-summary', component: 'WeeklySummaryWidget', title: 'Haftalık Özet', icon: CalendarClock, color: 'from-pink-500 to-rose-500' },
+    { id: 'task-distribution', component: 'TaskDistributionWidget', title: 'Görev Dağılımı', icon: Target, color: 'from-indigo-500 to-blue-500' },
   ];
 
   const defaultWidgets = allAvailableWidgets.slice(0, 6); // İlk 6 widget varsayılan
@@ -2444,6 +2458,18 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
         return <PriorityTasksWidget tasks={tasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
       case 'DeadlineWidget':
         return <DeadlineWidget tasks={tasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
+      case 'QuickStatsWidget':
+        return <QuickStatsWidget tasks={tasks} isDark={isDark} />;
+      case 'CompletionRateWidget':
+        return <CompletionRateWidget tasks={tasks} isDark={isDark} />;
+      case 'TopContributorsWidget':
+        return <TopContributorsWidget tasks={tasks} employees={employees} isDark={isDark} />;
+      case 'DepartmentPerformanceWidget':
+        return <DepartmentPerformanceWidget tasks={tasks} employees={employees} isDark={isDark} />;
+      case 'WeeklySummaryWidget':
+        return <WeeklySummaryWidget tasks={tasks} isDark={isDark} />;
+      case 'TaskDistributionWidget':
+        return <TaskDistributionWidget tasks={tasks} employees={employees} isDark={isDark} />;
       default:
         return null;
     }
