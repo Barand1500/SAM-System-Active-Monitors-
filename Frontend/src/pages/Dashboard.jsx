@@ -65,8 +65,28 @@ import {
   FolderOpen,
   Vote,
   Contact,
-  History
+  History,
+  GripVertical,
+  Settings2,
+  Layout
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Yeni bileşenleri import et
 import TimeTracker from '../components/TimeTracker';
@@ -2230,9 +2250,123 @@ const BulkEmployeeModal = ({ departments, onClose, onSave, isDark }) => {
 };
 
 // ===== GENEL BAKIŞ TAB =====
+// ===== SORTABLE WIDGET WRAPPER =====
+const SortableWidget = ({ id, children, isDark }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        {...attributes}
+        {...listeners}
+        className={`absolute top-2 right-2 z-10 p-1.5 rounded-lg cursor-grab active:cursor-grabbing transition-all opacity-0 group-hover:opacity-100 ${
+          isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-white hover:bg-slate-50 text-slate-500 shadow-md'
+        }`}
+        title="Sürükle"
+      >
+        <GripVertical size={16} />
+      </div>
+      {children}
+    </div>
+  );
+};
+
+// ===== OVERVIEW TAB =====
 const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) => {
   const myTasks = tasks.filter(t => t.assignedTo?.id == user?.id);
   const displayTasks = canManage ? tasks : myTasks;
+
+  // Widget customization state
+  const defaultWidgets = [
+    { id: 'task-stats', component: 'TaskStatsWidget', title: 'Görev İstatistikleri' },
+    { id: 'weekly-hours', component: 'WeeklyHoursWidget', title: 'Bu Hafta' },
+    { id: 'upcoming-tasks', component: 'UpcomingTasksWidget', title: 'Yaklaşan Görevler' },
+    { id: 'team-performance', component: 'TeamPerformanceWidget', title: 'Takım Performansı' },
+    { id: 'recent-activities', component: 'RecentActivitiesWidget', title: 'Son Aktiviteler' },
+    { id: 'notifications', component: 'NotificationSummaryWidget', title: 'Bildirimler' },
+  ];
+
+  const [widgetOrder, setWidgetOrder] = useState(() => {
+    const saved = localStorage.getItem('dashboard_widget_order');
+    return saved ? JSON.parse(saved) : defaultWidgets.map(w => w.id);
+  });
+
+  const [activeId, setActiveId] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setWidgetOrder((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+        return newOrder;
+      });
+    }
+
+    setActiveId(null);
+  };
+
+  const resetWidgetOrder = () => {
+    const defaultOrder = defaultWidgets.map(w => w.id);
+    setWidgetOrder(defaultOrder);
+    localStorage.setItem('dashboard_widget_order', JSON.stringify(defaultOrder));
+  };
+
+  const renderWidget = (widgetId) => {
+    const widget = defaultWidgets.find(w => w.id === widgetId);
+    if (!widget) return null;
+
+    const widgetProps = {
+      tasks,
+      employees,
+      isDark,
+      onTaskClick: (task) => console.log('Task clicked:', task),
+    };
+
+    switch (widget.component) {
+      case 'TaskStatsWidget':
+        return <TaskStatsWidget tasks={tasks} isDark={isDark} />;
+      case 'WeeklyHoursWidget':
+        return <WeeklyHoursWidget isDark={isDark} />;
+      case 'UpcomingTasksWidget':
+        return <UpcomingTasksWidget tasks={displayTasks} isDark={isDark} onTaskClick={widgetProps.onTaskClick} />;
+      case 'TeamPerformanceWidget':
+        return <TeamPerformanceWidget employees={employees} tasks={tasks} isDark={isDark} />;
+      case 'RecentActivitiesWidget':
+        return <RecentActivitiesWidget isDark={isDark} />;
+      case 'NotificationSummaryWidget':
+        return <NotificationSummaryWidget isDark={isDark} />;
+      default:
+        return null;
+    }
+  };
 
   const stats = canManage ? [
     { label: 'Toplam Görev', value: tasks.length, icon: ClipboardList, color: 'from-indigo-500 to-purple-500', bg: isDark ? 'bg-indigo-900/30' : 'bg-indigo-50' },
@@ -2274,14 +2408,42 @@ const OverviewTab = ({ tasks, employees, canManage, isDark, user, onAddTask }) =
         </div>
       </div>
 
-      {/* Dashboard Widgets - Modern Grid Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <TaskStatsWidget tasks={tasks} isDark={isDark} />
-        <WeeklyHoursWidget isDark={isDark} />
-        <UpcomingTasksWidget tasks={displayTasks} isDark={isDark} onTaskClick={(task) => console.log('Task clicked:', task)} />
-        <TeamPerformanceWidget employees={employees} tasks={tasks} isDark={isDark} />
-        <RecentActivitiesWidget isDark={isDark} />
-        <NotificationSummaryWidget isDark={isDark} />
+      {/* Dashboard Widgets - Customizable with Drag & Drop */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layout size={20} className="text-blue-500" />
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Panolar</h3>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+              Sürükle & Bırak
+            </span>
+          </div>
+          <button
+            onClick={resetWidgetOrder}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
+            title="Varsayılan düzene sıfırla"
+          >
+            <Settings2 size={14} />
+            Sıfırla
+          </button>
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {widgetOrder.map((widgetId) => (
+                <SortableWidget key={widgetId} id={widgetId} isDark={isDark}>
+                  {renderWidget(widgetId)}
+                </SortableWidget>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -3135,7 +3297,7 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
           >
             <div className="flex items-center justify-center gap-2">
               <Building2 size={18} />
-              Şirket Ayarları
+              Şirket SAM Bilgisi
             </div>
           </button>
         )}
@@ -3303,40 +3465,6 @@ const SettingsTab = ({ isDark, isBoss, canManage }) => {
                   <span>• Özel Kod: 1-4 karakter (A-Z, 0-9)</span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Açıklama</label>
-            <textarea
-              value={companyDesc}
-              onChange={(e) => { setCompanyDesc(e.target.value); setCompanySaved(false); }}
-              rows={2}
-              placeholder="Şirket hakkında kısa bilgi..."
-              className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5 resize-none`}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Telefon</label>
-              <input
-                type="tel"
-                value={companyPhone}
-                onChange={(e) => { setCompanyPhone(e.target.value); setCompanySaved(false); }}
-                placeholder="+90 212 555 0000"
-                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5`}
-              />
-            </div>
-            <div>
-              <label className={`block text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Adres</label>
-              <input
-                type="text"
-                value={companyAddress}
-                onChange={(e) => { setCompanyAddress(e.target.value); setCompanySaved(false); }}
-                placeholder="İstanbul, Türkiye"
-                className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2.5`}
-              />
             </div>
           </div>
 

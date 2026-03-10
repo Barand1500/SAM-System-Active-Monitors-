@@ -1048,7 +1048,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   );
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="w-full space-y-5">
       {/* Başlık */}
       <div className="flex items-center justify-between">
         <div>
@@ -1088,25 +1088,16 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       >
         <div className="space-y-5">
           {/* Görünürlük Bilgilendirmesi */}
-          <div className={`flex items-start gap-3 p-4 rounded-xl border-2 ${
+          <div className={`flex items-center gap-3 p-3 rounded-xl border ${
             isDark 
               ? 'bg-blue-500/10 border-blue-500/30 text-blue-300' 
               : 'bg-blue-50 border-blue-200 text-blue-700'
           }`}>
-            <Info size={18} className="shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm">
-              <p className="font-semibold mb-1.5">👁️ Görünürlük Kontrolleri</p>
-              <p className={isDark ? 'text-blue-200/80' : 'text-blue-600/90'}>
-                Her alanın ve her kaydın yanındaki <Eye size={14} className="inline mx-0.5 text-emerald-500" /> simgesine tıklayarak 
-                o bilginin çalışanlar tarafından görülüp görülmeyeceğini belirleyebilirsiniz. 
-                <span className="font-semibold"><Eye size={14} className="inline mx-0.5 text-emerald-500" /> Yeşil</span> = Herkes görebilir, 
-                <span className="font-semibold"><EyeOff size={14} className="inline mx-0.5 text-slate-400" /> Gri</span> = Sadece patronlar görebilir.
-              </p>
-              <p className={`text-xs mt-2 ${isDark ? 'text-blue-300/70' : 'text-blue-600/70'}`}>
-                💡 <strong>Örnek:</strong> "Merkez Adres" herkese açık, "Özel Ofis" sadece patronlara görünür yapabilirsiniz. 
-                Her telefon, adres, email ve web sitesi için ayrı ayrı kontrol edebilirsiniz.
-              </p>
-            </div>
+            <Info size={16} className="shrink-0" />
+            <p className="text-sm">
+              <Eye size={14} className="inline mx-0.5 text-emerald-500" /> <strong>Yeşil</strong> = Herkes görebilir, 
+              <EyeOff size={14} className="inline mx-0.5 text-slate-400" /> <strong>Gri</strong> = Sadece patronlar görebilir
+            </p>
           </div>
 
           {/* Ünvan */}
