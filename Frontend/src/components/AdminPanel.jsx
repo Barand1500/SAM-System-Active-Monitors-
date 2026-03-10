@@ -342,13 +342,254 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   }));
   const [profileSaved, setProfileSaved] = useState(false);
 
-  // Print & PDF fonksiyonları
+  // Print & PDF fonksiyonları - Gelişmiş versiyon
   const handlePrint = () => {
-    window.print();
+    const printWindow = window.open('', '_blank');
+    const printContent = generatePrintableCompanyProfile();
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Şirket Profili - ${companyProfile.unvan || 'Bilgi Yok'}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              padding: 40px;
+              color: #1e293b;
+              line-height: 1.6;
+            }
+            .header {
+              border-bottom: 4px solid #3b82f6;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header h1 {
+              color: #1e40af;
+              font-size: 28px;
+              margin-bottom: 8px;
+            }
+            .header .subtitle {
+              color: #64748b;
+              font-size: 14px;
+            }
+            .section {
+              margin-bottom: 30px;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              background: #f1f5f9;
+              padding: 12px 16px;
+              border-left: 4px solid #3b82f6;
+              font-size: 16px;
+              font-weight: 600;
+              color: #1e40af;
+              margin-bottom: 16px;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 200px 1fr;
+              gap: 12px 24px;
+              margin-bottom: 16px;
+            }
+            .info-label {
+              color: #64748b;
+              font-weight: 500;
+              font-size: 14px;
+            }
+            .info-value {
+              color: #1e293b;
+              font-weight: 400;
+              font-size: 14px;
+            }
+            .list-item {
+              padding: 10px;
+              background: #f8fafc;
+              border-radius: 6px;
+              margin-bottom: 8px;
+              border-left: 3px solid #3b82f6;
+            }
+            .list-item-title {
+              font-weight: 600;
+              color: #1e40af;
+              margin-bottom: 4px;
+              font-size: 14px;
+            }
+            .list-item-content {
+              color: #475569;
+              font-size: 13px;
+            }
+            .footer {
+              margin-top: 50px;
+              padding-top: 20px;
+              border-top: 2px solid #e2e8f0;
+              text-align: center;
+              color: #94a3b8;
+              font-size: 12px;
+            }
+            @media print {
+              body { padding: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+          <div class="footer">
+            <p>Bu belge ${new Date().toLocaleDateString('tr-TR', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })} tarihinde oluşturulmuştur.</p>
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 100);
+              }, 250);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const generatePrintableCompanyProfile = () => {
+    let html = `
+      <div class="header">
+        <h1>${companyProfile.unvan || 'Şirket Bilgisi Yok'}</h1>
+        <p class="subtitle">Şirket Profil Bilgileri</p>
+      </div>
+    `;
+
+    // Temel Bilgiler
+    if (companyProfile.unvan || companyProfile.vergiDairesi || companyProfile.vergiNo) {
+      html += `
+        <div class="section">
+          <div class="section-title">📋 Temel Bilgiler</div>
+          <div class="info-grid">
+            ${companyProfile.unvan ? `<div class="info-label">Ünvan:</div><div class="info-value">${companyProfile.unvan}</div>` : ''}
+            ${companyProfile.vergiDairesi ? `<div class="info-label">Vergi Dairesi:</div><div class="info-value">${companyProfile.vergiDairesi}</div>` : ''}
+            ${companyProfile.vergiNo ? `<div class="info-label">Vergi No:</div><div class="info-value">${companyProfile.vergiNo}</div>` : ''}
+            ${companyProfile.mersisNo ? `<div class="info-label">MERSİS No:</div><div class="info-value">${companyProfile.mersisNo}</div>` : ''}
+            ${companyProfile.ticaretSicilNo ? `<div class="info-label">Ticaret Sicil No:</div><div class="info-value">${companyProfile.ticaretSicilNo}</div>` : ''}
+            ${companyProfile.kepAdresi ? `<div class="info-label">KEP Adresi:</div><div class="info-value">${companyProfile.kepAdresi}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Adresler
+    if (companyProfile.adresler?.length > 0) {
+      html += `
+        <div class="section">
+          <div class="section-title">📍 Adresler</div>
+      `;
+      companyProfile.adresler.forEach(addr => {
+        const addrParts = [addr.mahalle, addr.sokak, addr.binaNo, addr.ilce, addr.il, addr.postaKodu].filter(Boolean);
+        html += `
+          <div class="list-item">
+            <div class="list-item-title">${addr.label || 'Adres'}</div>
+            <div class="list-item-content">${addrParts.join(', ') || 'Bilgi yok'}</div>
+          </div>
+        `;
+      });
+      html += `</div>`;
+    }
+
+    // Telefonlar
+    if (companyProfile.telefonlar?.length > 0) {
+      html += `
+        <div class="section">
+          <div class="section-title">📞 Telefon Numaraları</div>
+      `;
+      companyProfile.telefonlar.forEach(tel => {
+        if (tel.value) {
+          html += `
+            <div class="list-item">
+              <div class="list-item-title">${tel.label || 'Telefon'}</div>
+              <div class="list-item-content">${tel.value}</div>
+            </div>
+          `;
+        }
+      });
+      html += `</div>`;
+    }
+
+    // Emailler
+    if (companyProfile.emails?.length > 0) {
+      html += `
+        <div class="section">
+          <div class="section-title">✉️ E-posta Adresleri</div>
+      `;
+      companyProfile.emails.forEach(email => {
+        if (email.value) {
+          html += `
+            <div class="list-item">
+              <div class="list-item-title">${email.label || 'E-posta'}</div>
+              <div class="list-item-content">${email.value}</div>
+            </div>
+          `;
+        }
+      });
+      html += `</div>`;
+    }
+
+    // Websiteler
+    if (companyProfile.websites?.length > 0) {
+      html += `
+        <div class="section">
+          <div class="section-title">🌐 Web Siteleri</div>
+      `;
+      companyProfile.websites.forEach(site => {
+        if (site.value) {
+          html += `
+            <div class="list-item">
+              <div class="list-item-title">${site.label || 'Website'}</div>
+              <div class="list-item-content">${site.value}</div>
+            </div>
+          `;
+        }
+      });
+      html += `</div>`;
+    }
+
+    // Banka/Finans Bilgileri
+    if (companyProfile.ibanlar?.length > 0 || companyProfile.sermaye) {
+      html += `
+        <div class="section">
+          <div class="section-title">💰 Finans Bilgileri</div>
+          <div class="info-grid">
+            ${companyProfile.sermaye ? `<div class="info-label">Sermaye:</div><div class="info-value">${companyProfile.sermaye}</div>` : ''}
+          </div>
+      `;
+      if (companyProfile.ibanlar?.length > 0) {
+        companyProfile.ibanlar.forEach(iban => {
+          if (iban.value) {
+            html += `
+              <div class="list-item">
+                <div class="list-item-title">${iban.label || 'IBAN'}</div>
+                <div class="list-item-content">${iban.value}</div>
+              </div>
+            `;
+          }
+        });
+      }
+      html += `</div>`;
+    }
+
+    return html;
   };
 
   const handleExportPDF = () => {
-    window.print();
+    // PDF için aynı print fonksiyonunu kullan (browser'ın "PDF olarak kaydet" özelliği)
+    handlePrint();
   };
 
   const updateProfile = (field, value) => {

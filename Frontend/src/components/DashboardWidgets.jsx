@@ -22,7 +22,7 @@ export const TaskStatsWidget = ({ tasks, isDark }) => {
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -79,7 +79,7 @@ export const WeeklyHoursWidget = ({ isDark }) => {
   const percentage = Math.round((hours / target) * 100);
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -137,7 +137,7 @@ export const UpcomingTasksWidget = ({ tasks, isDark, onTaskClick }) => {
   };
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -203,7 +203,7 @@ export const TeamPerformanceWidget = ({ employees, tasks, isDark }) => {
     .slice(0, 5);
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -266,7 +266,7 @@ export const RecentActivitiesWidget = ({ isDark }) => {
   const activities = JSON.parse(localStorage.getItem('sam_change_history') || '[]').slice(0, 5);
 
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -316,7 +316,7 @@ export const NotificationSummaryWidget = ({ isDark }) => {
   const unreadCount = 3; // Bu gerçek veriyle değiştirilecek
   
   return (
-    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+    <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
