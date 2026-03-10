@@ -5,8 +5,8 @@ class SupportTicketController {
     try {
       const ticket = await SupportTicketService.create({
         ...req.body,
-        company_id: req.user.company_id,
-        created_by: req.user.id
+        companyId: req.user.company_id,
+        createdBy: req.user.id
       });
       res.status(201).json(ticket);
     } catch (err) {
@@ -19,7 +19,7 @@ class SupportTicketController {
       const filters = {};
       if (req.query.status) filters.status = req.query.status;
       if (req.query.priority) filters.priority = req.query.priority;
-      if (req.query.assigned_to) filters.assigned_to = req.query.assigned_to;
+      if (req.query.assignedTo) filters.assignedTo = req.query.assignedTo;
 
       const tickets = await SupportTicketService.getByCompany(req.user.company_id, filters);
       res.json(tickets);
@@ -57,10 +57,14 @@ class SupportTicketController {
 
   async updateStatus(req, res) {
     try {
+      const { status, resolution } = req.body;
+      const extraData = {};
+      if (resolution) extraData.resolution = resolution;
       const ticket = await SupportTicketService.updateStatus(
         req.params.id,
-        req.body.status,
-        req.user.company_id
+        status,
+        req.user.company_id,
+        extraData
       );
       res.json(ticket);
     } catch (err) {
@@ -72,7 +76,7 @@ class SupportTicketController {
     try {
       const ticket = await SupportTicketService.assignTicket(
         req.params.id,
-        req.body.user_id,
+        req.body.userId,
         req.user.company_id
       );
       res.json(ticket);
@@ -86,8 +90,8 @@ class SupportTicketController {
       const message = await SupportTicketService.addMessage(
         req.params.id,
         req.user.id,
-        req.body.message_text,
-        req.body.is_internal || false
+        req.body.messageText,
+        req.body.isInternal || false
       );
       res.status(201).json(message);
     } catch (err) {
@@ -99,12 +103,12 @@ class SupportTicketController {
     try {
       const file = await SupportTicketService.addFile(
         req.params.id,
-        req.body.message_id,
+        req.body.messageId,
         {
-          file_url: req.body.file_url,
-          file_name: req.body.file_name,
-          file_size: req.body.file_size,
-          uploaded_by: req.user.id
+          fileUrl: req.body.fileUrl,
+          fileName: req.body.fileName,
+          fileSize: req.body.fileSize,
+          uploadedBy: req.user.id
         }
       );
       res.status(201).json(file);

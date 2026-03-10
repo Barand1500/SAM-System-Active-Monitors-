@@ -6,24 +6,30 @@ class SupportTicketRepository extends BaseRepository {
     super(SupportTicket);
   }
 
-  async findByCompany(company_id, filters = {}) {
-    const where = { company_id, ...filters };
+  async findByCompany(companyId, filters = {}) {
+    const where = { companyId, ...filters };
     return this.model.findAll({
       where,
       include: [
         {
           model: TicketMessage,
-          include: [User, TicketFile]
+          include: [
+            {
+              model: User,
+              attributes: ["id", "firstName", "lastName", "email"]
+            },
+            TicketFile
+          ]
         },
         {
           model: User,
           as: "creator",
-          attributes: ["id", "first_name", "last_name", "email"]
+          attributes: ["id", "firstName", "lastName", "email"]
         },
         {
           model: User,
           as: "assignee",
-          attributes: ["id", "first_name", "last_name", "email"]
+          attributes: ["id", "firstName", "lastName", "email"]
         }
       ],
       order: [["created_at", "DESC"]]
@@ -38,37 +44,36 @@ class SupportTicketRepository extends BaseRepository {
           include: [
             {
               model: User,
-              attributes: ["id", "first_name", "last_name", "email", "avatar_url"]
+              attributes: ["id", "firstName", "lastName", "email", "avatarUrl"]
             },
             TicketFile
-          ],
-          order: [["created_at", "ASC"]]
+          ]
         },
         {
           model: User,
           as: "creator",
-          attributes: ["id", "first_name", "last_name", "email"]
+          attributes: ["id", "firstName", "lastName", "email"]
         },
         {
           model: User,
           as: "assignee",
-          attributes: ["id", "first_name", "last_name", "email"]
+          attributes: ["id", "firstName", "lastName", "email"]
         }
       ]
     });
   }
 
-  async getStats(company_id) {
-    const open = await this.model.count({ where: { company_id, status: "open" } });
-    const inProgress = await this.model.count({ where: { company_id, status: "in_progress" } });
-    const resolved = await this.model.count({ where: { company_id, status: "resolved" } });
+  async getStats(companyId) {
+    const open = await this.model.count({ where: { companyId, status: "open" } });
+    const inProgress = await this.model.count({ where: { companyId, status: "in_progress" } });
+    const resolved = await this.model.count({ where: { companyId, status: "resolved" } });
 
     return { open, inProgress, resolved };
   }
 
-  async getByStatus(company_id, status) {
+  async getByStatus(companyId, status) {
     return this.model.findAll({
-      where: { company_id, status },
+      where: { companyId, status },
       order: [["created_at", "DESC"]]
     });
   }

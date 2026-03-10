@@ -12,7 +12,7 @@ class SupportTicketService {
 
   async getById(id, company_id) {
     const ticket = await ticketRepo.findWithMessages(id);
-    if (!ticket || ticket.company_id !== company_id) {
+    if (!ticket || ticket.companyId != company_id) {
       throw new Error("Ticket not found");
     }
     return ticket;
@@ -26,40 +26,40 @@ class SupportTicketService {
     return ticketRepo.delete(id, company_id);
   }
 
-  async addMessage(ticket_id, user_id, messageText, isInternal = false) {
+  async addMessage(ticketId, userId, messageText, isInternal = false) {
     return TicketMessage.create({
-      ticket_id,
-      user_id,
-      message_text: messageText,
-      is_internal: isInternal
+      ticketId,
+      userId,
+      messageText,
+      isInternal
     });
   }
 
-  async addFile(ticket_id, message_id, fileData) {
+  async addFile(ticketId, messageId, fileData) {
     return TicketFile.create({
-      ticket_id,
-      message_id,
-      file_url: fileData.file_url,
-      file_name: fileData.file_name,
-      file_size: fileData.file_size,
-      uploaded_by: fileData.uploaded_by
+      ticketId,
+      messageId,
+      fileUrl: fileData.fileUrl,
+      fileName: fileData.fileName,
+      fileSize: fileData.fileSize,
+      uploadedBy: fileData.uploadedBy
     });
   }
 
-  async updateStatus(id, status, company_id) {
-    const updateData = { status };
+  async updateStatus(id, status, company_id, extraData = {}) {
+    const updateData = { status, ...extraData };
     
     if (status === "resolved") {
-      updateData.resolved_at = new Date();
+      updateData.resolvedAt = new Date();
     } else if (status === "closed") {
-      updateData.closed_at = new Date();
+      updateData.closedAt = new Date();
     }
 
     return ticketRepo.update(id, updateData, company_id);
   }
 
-  async assignTicket(id, user_id, company_id) {
-    return this.update(id, { assigned_to: user_id }, company_id);
+  async assignTicket(id, userId, company_id) {
+    return this.update(id, { assignedTo: userId }, company_id);
   }
 
   async getStats(company_id) {
@@ -70,12 +70,12 @@ class SupportTicketService {
     return ticketRepo.getByStatus(company_id, status);
   }
 
-  async checkUserAccess(ticket_id, user_id, company_id) {
-    const ticket = await SupportTicket.findByPk(ticket_id);
-    if (!ticket || ticket.company_id !== company_id) {
+  async checkUserAccess(ticketId, userId, companyId) {
+    const ticket = await SupportTicket.findByPk(ticketId);
+    if (!ticket || ticket.companyId != companyId) {
       return false;
     }
-    return ticket.created_by === user_id || ticket.assigned_to === user_id;
+    return ticket.createdBy == userId || ticket.assignedTo == userId;
   }
 }
 

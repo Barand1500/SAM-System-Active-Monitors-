@@ -119,4 +119,18 @@ export const leaveAPI = {
   reject: (id, reason) => apiClient.patch(`/leaves/${id}/reject`, { rejection_reason: reason })
 };
 
+// ============== SUPPORT TICKET ENDPOINTS ==============
+export const supportTicketAPI = {
+  list: (params) => apiClient.get('/support-tickets', { params }),
+  create: (data) => apiClient.post('/support-tickets', data),
+  get: (id) => apiClient.get(`/support-tickets/${id}`),
+  update: (id, data) => apiClient.put(`/support-tickets/${id}`, data),
+  delete: (id) => apiClient.delete(`/support-tickets/${id}`),
+  updateStatus: (id, data) => apiClient.put(`/support-tickets/${id}/status`, data),
+  getByStatus: (status) => apiClient.get(`/support-tickets/status/${status}`),
+  assign: (id, userId) => apiClient.put(`/support-tickets/${id}/assign`, { userId }),
+  addMessage: (id, data) => apiClient.post(`/support-tickets/${id}/messages`, data),
+  getStats: () => apiClient.get('/support-tickets/company/stats')
+};
+
 export default apiClient;

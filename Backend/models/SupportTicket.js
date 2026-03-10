@@ -51,6 +51,38 @@ module.exports = (sequelize, DataTypes) => {
       field: "assigned_to"
     },
 
+    callerName: {
+      type: DataTypes.STRING(200),
+      field: "caller_name"
+    },
+
+    callerPhone: {
+      type: DataTypes.STRING(30),
+      field: "caller_phone"
+    },
+
+    callerCompany: {
+      type: DataTypes.STRING(200),
+      field: "caller_company"
+    },
+
+    callerAddress: {
+      type: DataTypes.TEXT,
+      field: "caller_address",
+      get() {
+        const val = this.getDataValue('callerAddress');
+        if (!val) return null;
+        try { return JSON.parse(val); } catch { return val; }
+      },
+      set(val) {
+        this.setDataValue('callerAddress', val ? JSON.stringify(val) : null);
+      }
+    },
+
+    resolution: {
+      type: DataTypes.TEXT
+    },
+
     relatedTaskId: {
       type: DataTypes.BIGINT,
       field: "related_task_id"
