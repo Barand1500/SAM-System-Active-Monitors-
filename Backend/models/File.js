@@ -38,13 +38,36 @@ module.exports = (sequelize, DataTypes) => {
     fileSize: {
       type: DataTypes.BIGINT,
       field: "file_size"
+    },
+
+    folderId: {
+      type: DataTypes.STRING(100),
+      defaultValue: "root",
+      field: "folder_id"
+    },
+
+    tags: {
+      type: DataTypes.TEXT,
+      get() {
+        const val = this.getDataValue('tags');
+        if (!val) return [];
+        try { return JSON.parse(val); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue('tags', val ? JSON.stringify(val) : '[]');
+      }
+    },
+
+    downloads: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
     }
 
   }, {
     tableName: "files",
     timestamps: true,
     createdAt: "created_at",
-    updatedAt: false
+    updatedAt: "updated_at"
   });
 
   return File;

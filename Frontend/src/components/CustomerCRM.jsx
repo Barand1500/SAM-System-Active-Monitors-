@@ -3,8 +3,9 @@ import {
   Plus, Search, Building2, User, Phone, Mail, Clock,
   Edit, Trash2, X, ChevronRight, FileText, Headphones,
   MapPin, Globe, Tag, Filter, Eye, Users, CreditCard, Plane, ChevronDown,
-  Save, AlertCircle, CheckCircle2
+  Save, AlertCircle, CheckCircle2, Loader2
 } from 'lucide-react';
+import { customerAPI, supportTicketAPI } from '../services/api';
 
 const TYPE_META = {
   gercek:  { label: 'Gerçek Kişi', color: 'from-emerald-500 to-teal-600', icon: User, short: 'GK' },
@@ -28,12 +29,27 @@ const fmtVergiNo = (v) => {
   return v.replace(/\D/g, '').slice(0, 10);
 };
 
-const loadCustomers = () => {
-  try {
-    const saved = localStorage.getItem('sam_customers');
-    return saved ? JSON.parse(saved) : defaultCustomers;
-  } catch { return defaultCustomers; }
-};
+const backendToFrontendCustomer = (c) => ({
+  id: c.id,
+  type: c.type || 'gercek',
+  company: c.companyName || '',
+  contactName: c.contactName || '',
+  email: c.email || '',
+  phones: c.phones || [],
+  addresses: c.addresses || [],
+  sector: c.sector || '',
+  notes: c.notes || '',
+  tags: c.tags || [],
+  tcNo: c.tcNo || '',
+  vergiDairesi: c.vergiDairesi || '',
+  vergiNo: c.vergiNo || '',
+  passportNo: c.passportNo || '',
+  parentId: c.parentId,
+  createdAt: c.createdAt,
+  creator: c.creator,
+  parent: c.parent,
+  children: c.children || []
+});
 
 const defaultContacts = [
   {
@@ -49,31 +65,9 @@ const loadContacts = () => {
   } catch { return defaultContacts; }
 };
 
-const defaultCustomers = [
-  {
-    id: 1, type: 'tuzel', company: 'Mega Holding A.Ş.', contactName: 'Ali Vural', email: 'ali@megaholding.com',
-    phones: ['0532 999 11 22'], addresses: [{ label: 'Merkez', value: 'İstanbul, Levent' }], sector: 'Finans',
-    notes: 'Büyük müşteri, öncelikli destek.', tags: ['VIP', 'Kurumsal'],
-    vergiDairesi: 'Beşiktaş VD', vergiNo: '1234567890', parentId: null,
-    createdAt: new Date(Date.now() - 90 * 86400000).toISOString()
-  },
-  {
-    id: 2, type: 'gercek', company: '', contactName: 'Selin Koç', email: 'selin@datasoft.com',
-    phones: ['0545 333 44 55'], addresses: [{ label: 'Ev', value: 'Ankara, Çankaya' }], sector: 'Teknoloji',
-    notes: 'Yazılım lisans yenileme Mart ayında.', tags: ['Teknoloji'],
-    tcNo: '12345678901', parentId: 1,
-    createdAt: new Date(Date.now() - 60 * 86400000).toISOString()
-  },
-  {
-    id: 3, type: 'yabanci', company: 'ABC Logistics', contactName: 'John Smith', email: 'john@abclog.com',
-    phones: ['0555 666 77 88'], addresses: [{ label: 'Ofis', value: 'İzmir, Alsancak' }], sector: 'Lojistik',
-    notes: '', tags: ['Lojistik'], passportNo: 'US12345678', parentId: null,
-    createdAt: new Date(Date.now() - 30 * 86400000).toISOString()
-  }
-];
-
 const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
-  const [customers, setCustomers] = useState(loadCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -81,12 +75,28 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
   const [filterSector, setFilterSector] = useState('all');
   const [filterType, setFilterType] = useState('all');
 
-  useEffect(() => { localStorage.setItem('sam_customers', JSON.stringify(customers)); }, [customers]);
-
-  const getTicketsForCustomer = (name) => {
+  const fetchCustomers = async () => {
     try {
-      const tickets = JSON.parse(localStorage.getItem('sam_support_tickets') || '[]');
-      return tickets.filter(t => t.callerCompany?.toLowerCase() === name.toLowerCase() || t.callerName?.toLowerCase() === name.toLowerCase());
+      const res = await customerAPI.list();
+      setCustomers((res.data || []).map(backendToFrontendCustomer));
+    } catch (err) {
+      console.error('Müşteri yükleme hatası:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchCustomers(); }, []);
+
+  const getTicketsForCustomer = async (name) => {
+    try {
+      const res = await supportTicketAPI.list();
+      return (res.data || []).filter(t => {
+        const cn = (t.callerCompany || '').toLowerCase();
+        const nm = (t.callerName || '').toLowerCase();
+        const q = name.toLowerCase();
+        return cn === q || nm === q;
+      });
     } catch { return []; }
   };
 
@@ -108,20 +118,46 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
 
-  const saveCustomer = (data) => {
-    if (editingCustomer) {
-      setCustomers(prev => prev.map(c => c.id === editingCustomer.id ? { ...c, ...data } : c));
-    } else {
-      setCustomers(prev => [{ ...data, id: Date.now(), createdAt: new Date().toISOString(), tags: data.tags || [] }, ...prev]);
+  const saveCustomer = async (data) => {
+    try {
+      const payload = {
+        type: data.type,
+        companyName: data.company || '',
+        contactName: data.contactName,
+        email: data.email || '',
+        phones: data.phones || [],
+        addresses: data.addresses || [],
+        sector: data.sector || '',
+        notes: data.notes || '',
+        tags: data.tags || [],
+        tcNo: data.tcNo || '',
+        vergiDairesi: data.vergiDairesi || '',
+        vergiNo: data.vergiNo || '',
+        passportNo: data.passportNo || '',
+        parentId: data.parentId || null
+      };
+      if (editingCustomer) {
+        await customerAPI.update(editingCustomer.id, payload);
+      } else {
+        await customerAPI.create(payload);
+      }
+      await fetchCustomers();
+      setView('list');
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error('Müşteri kaydetme hatası:', err);
     }
-    setView('list');
-    setEditingCustomer(null);
   };
 
-  const deleteCustomer = (id) => {
-    setCustomers(prev => prev.map(c => c.parentId === id ? { ...c, parentId: null } : c).filter(c => c.id !== id));
-    setSelectedCustomer(null);
-    setView('list');
+  const deleteCustomer = async (id) => {
+    try {
+      await customerAPI.delete(id);
+      await fetchCustomers();
+      setSelectedCustomer(null);
+      setView('list');
+    } catch (err) {
+      console.error('Müşteri silme hatası:', err);
+    }
   };
 
   // ─── FORM ─────────────────
@@ -531,7 +567,10 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
     if (!selectedCustomer) return null;
     const c = customers.find(cu => cu.id === selectedCustomer.id);
     if (!c) return null;
-    const relatedTickets = getTicketsForCustomer(c.company || c.contactName);
+    const [relatedTickets, setRelatedTickets] = useState([]);
+    useEffect(() => {
+      getTicketsForCustomer(c.company || c.contactName).then(setRelatedTickets);
+    }, [c.id]);
     const subCustomers = getSubCustomers(c.id);
     const parent = c.parentId ? getParent(c.parentId) : null;
     const meta = TYPE_META[c.type] || TYPE_META.gercek;
@@ -750,7 +789,12 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
             )}
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
+              <Loader2 size={40} className={`mx-auto mb-3 animate-spin ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`} />
+              <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Yükleniyor...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
               <Building2 size={40} className={`mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
               <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Müşteri bulunamadı</p>
@@ -758,7 +802,6 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map(c => {
-                const ticketCount = getTicketsForCustomer(c.company || c.contactName).length;
                 const meta = TYPE_META[c.type] || TYPE_META.gercek;
                 const subs = getSubCustomers(c.id);
                 return (
@@ -787,11 +830,6 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
                         {subs.length > 0 && (
                           <span className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                             <Users size={12} /> {subs.length}
-                          </span>
-                        )}
-                        {ticketCount > 0 && (
-                          <span className={`flex items-center gap-1 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            <Headphones size={12} /> {ticketCount}
                           </span>
                         )}
                       </div>

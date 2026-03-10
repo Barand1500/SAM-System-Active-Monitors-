@@ -133,4 +133,24 @@ export const supportTicketAPI = {
   getStats: () => apiClient.get('/support-tickets/company/stats')
 };
 
+// ============== CUSTOMER (CRM) ENDPOINTS ==============
+export const customerAPI = {
+  list: (params) => apiClient.get('/customers', { params }),
+  create: (data) => apiClient.post('/customers', data),
+  get: (id) => apiClient.get(`/customers/${id}`),
+  update: (id, data) => apiClient.put(`/customers/${id}`, data),
+  delete: (id) => apiClient.delete(`/customers/${id}`)
+};
+
+// ============== FILE SHARING ENDPOINTS ==============
+export const fileAPI = {
+  list: () => apiClient.get('/files/company'),
+  upload: (formData) => apiClient.post('/files', formData, {
+    headers: { 'Content-Type': undefined },
+    timeout: 60000
+  }),
+  download: (id) => apiClient.get(`/files/${id}/download`, { responseType: 'blob' }),
+  delete: (id) => apiClient.delete(`/files/${id}`)
+};
+
 export default apiClient;

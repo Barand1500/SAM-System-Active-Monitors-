@@ -14,18 +14,42 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
-    "image/jpeg", "image/png", "image/gif", "image/webp",
+    // Görseller
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml",
+    // PDF
     "application/pdf",
+    // Word
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    // Excel
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain", "text/csv"
+    // PowerPoint
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    // Text
+    "text/plain", "text/csv",
+    // Arşiv
+    "application/zip", "application/x-zip-compressed",
+    "application/x-rar-compressed", "application/vnd.rar",
+    "application/x-7z-compressed",
+    // Diğer
+    "application/octet-stream",
+    "application/json", "application/xml"
   ];
-  if (allowedTypes.includes(file.mimetype)) {
+
+  // MIME type veya dosya uzantısı ile kontrol
+  const allowedExts = [
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".txt", ".csv", ".zip", ".rar", ".7z", ".json", ".xml"
+  ];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  if (allowedTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error("File type not allowed"), false);
+    cb(new Error("Desteklenmeyen dosya tipi: " + ext), false);
   }
 };
 

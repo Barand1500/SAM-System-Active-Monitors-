@@ -13,6 +13,9 @@ router.post("/", upload.single("file"), FileController.uploadFile);
 // Şirketin dosyalarını al
 router.get("/company", FileController.getFilesByCompany);
 
+// Dosya indir (download count artır + serve)
+router.get("/:id/download", FileController.downloadFile);
+
 // Dosya sil
 router.delete("/:id", FileController.deleteFile);
 

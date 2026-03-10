@@ -15,6 +15,13 @@ class FileService {
     return fileRepo.findById(id, companyId);
   }
 
+  async download(id, companyId) {
+    const file = await fileRepo.findById(id, companyId);
+    if (!file) throw new Error("File not found");
+    await fileRepo.incrementDownloads(id);
+    return file;
+  }
+
   async delete(id, companyId = null) {
     const file = await fileRepo.findById(id, companyId);
     if (!file) throw new Error("File not found");

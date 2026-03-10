@@ -4,8 +4,10 @@ import {
   Music, Archive, Search, Plus, X, Share2, Users, User, Clock,
   HardDrive, Eye, Filter, Grid, List, ChevronRight, FolderPlus,
   Folder, BookOpen, Camera, Code, Database, Globe, Heart, Home,
-  Inbox, Layers, Mail, Map, Monitor, Package, Palette, Shield, Star, Zap
+  Inbox, Layers, Mail, Map, Monitor, Package, Palette, Shield, Star, Zap,
+  Loader2
 } from 'lucide-react';
+import { fileAPI } from '../services/api';
 
 const FOLDER_ICONS = [
   { id: 'folder', label: 'Klasör', Icon: FolderOpen },
@@ -82,12 +84,17 @@ const formatSize = (bytes) => {
   return (bytes / 1048576).toFixed(1) + ' MB';
 };
 
-const loadFiles = () => {
-  try {
-    const saved = localStorage.getItem('sam_shared_files');
-    return saved ? JSON.parse(saved) : defaultFiles;
-  } catch { return defaultFiles; }
-};
+const backendToFrontendFile = (f) => ({
+  id: f.id,
+  name: f.fileName || f.file_name,
+  size: Number(f.fileSize || f.file_size || 0),
+  folderId: f.folderId || f.folder_id || 'root',
+  uploadedBy: f.uploader ? `${f.uploader.first_name || ''} ${f.uploader.last_name || ''}`.trim() || f.uploader.email : 'Kullanıcı',
+  uploadedAt: f.created_at || f.createdAt,
+  tags: f.tags || [],
+  downloads: f.downloads || 0,
+  fileUrl: f.fileUrl || f.file_url
+});
 
 const loadFolders = () => {
   try {
@@ -103,31 +110,9 @@ const defaultFolders = [
   { id: 'media', name: 'Medya', parentId: 'root', icon: 'camera', color: 'pink' },
 ];
 
-const defaultFiles = [
-  {
-    id: 1, name: 'Aylık Rapor - Aralık.pdf', size: 2457600, folderId: 'reports',
-    uploadedBy: 'Mehmet Yılmaz', uploadedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-    sharedWith: ['all'], tags: ['rapor', 'aylık'], downloads: 12
-  },
-  {
-    id: 2, name: 'Proje Planı.xlsx', size: 512000, folderId: 'root',
-    uploadedBy: 'Ayşe Demir', uploadedAt: new Date(Date.now() - 10 * 86400000).toISOString(),
-    sharedWith: ['all'], tags: ['plan'], downloads: 8
-  },
-  {
-    id: 3, name: 'Logo.png', size: 184320, folderId: 'media',
-    uploadedBy: 'patron', uploadedAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-    sharedWith: ['all'], tags: ['marka'], downloads: 24
-  },
-  {
-    id: 4, name: 'İzin Formu Şablonu.docx', size: 62464, folderId: 'templates',
-    uploadedBy: 'patron', uploadedAt: new Date(Date.now() - 60 * 86400000).toISOString(),
-    sharedWith: ['all'], tags: ['şablon', 'izin'], downloads: 18
-  },
-];
-
 const FileSharing = ({ user, isBoss, canManage, isDark }) => {
-  const [files, setFiles] = useState(loadFiles);
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [folders, setFolders] = useState(loadFolders);
   const [currentFolder, setCurrentFolder] = useState('root');
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,17 +124,22 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
   const [newFolderColor, setNewFolderColor] = useState('amber');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const fileInputRef = useRef(null);
-  const [employees, setEmployees] = useState([]);
 
-  useEffect(() => { localStorage.setItem('sam_shared_files', JSON.stringify(files)); }, [files]);
-  useEffect(() => { localStorage.setItem('sam_file_folders', JSON.stringify(folders)); }, [folders]);
-
-  useEffect(() => {
+  const fetchFiles = async () => {
     try {
-      const emps = JSON.parse(localStorage.getItem('app_employees') || '[]');
-      setEmployees(emps);
-    } catch { setEmployees([]); }
-  }, []);
+      setLoading(true);
+      const res = await fileAPI.list();
+      const data = Array.isArray(res.data) ? res.data : [];
+      setFiles(data.map(backendToFrontendFile));
+    } catch (err) {
+      console.error('Dosyalar yüklenemedi:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchFiles(); }, []);
+  useEffect(() => { localStorage.setItem('sam_file_folders', JSON.stringify(folders)); }, [folders]);
 
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';
   const inputClass = isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400';
@@ -176,20 +166,21 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
 
   const subFolders = folders.filter(f => f.parentId === currentFolder);
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const uploadedFiles = Array.from(e.target.files || []);
-    const newFiles = uploadedFiles.map((file, idx) => ({
-      id: Date.now() + idx,
-      name: file.name,
-      size: file.size,
-      folderId: currentFolder,
-      uploadedBy: user?.name || user?.username || 'Kullanıcı',
-      uploadedAt: new Date().toISOString(),
-      sharedWith: ['all'],
-      tags: [],
-      downloads: 0
-    }));
-    setFiles(prev => [...newFiles, ...prev]);
+    try {
+      for (const file of uploadedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folderId', currentFolder);
+        formData.append('tags', JSON.stringify([]));
+        await fileAPI.upload(formData);
+      }
+      await fetchFiles();
+    } catch (err) {
+      console.error('Dosya yüklenemedi:', err);
+      alert('Dosya yüklenirken hata oluştu: ' + (err.response?.data?.error || err.message));
+    }
     setShowUpload(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -204,24 +195,52 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
     setShowNewFolder(false);
   };
 
-  const deleteFile = (fileId) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
+  const deleteFile = async (fileId) => {
+    try {
+      await fileAPI.delete(fileId);
+      await fetchFiles();
+    } catch (err) {
+      console.error('Dosya silinemedi:', err);
+    }
     setSelectedFile(null);
   };
 
-  const deleteFolder = (folderId) => {
+  const deleteFolder = async (folderId) => {
     // Klasördeki dosyaları ve alt klasörleri de sil
     const collectIds = (id) => {
       const children = folders.filter(f => f.parentId === id);
       return [id, ...children.flatMap(c => collectIds(c.id))];
     };
     const folderIds = collectIds(folderId);
+    // Klasörlerdeki dosyaları backend'den sil
+    const filesToDelete = files.filter(f => folderIds.includes(f.folderId));
+    try {
+      for (const f of filesToDelete) {
+        await fileAPI.delete(f.id);
+      }
+    } catch (err) {
+      console.error('Klasör dosyaları silinemedi:', err);
+    }
     setFolders(prev => prev.filter(f => !folderIds.includes(f.id)));
-    setFiles(prev => prev.filter(f => !folderIds.includes(f.folderId)));
+    await fetchFiles();
   };
 
-  const downloadFile = (file) => {
-    setFiles(prev => prev.map(f => f.id === file.id ? { ...f, downloads: f.downloads + 1 } : f));
+  const downloadFile = async (file) => {
+    try {
+      const res = await fileAPI.download(file.id);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', file.name);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      // Downloads count güncelle
+      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, downloads: f.downloads + 1 } : f));
+    } catch (err) {
+      console.error('İndirme hatası:', err);
+    }
   };
 
   // Total storage used
@@ -351,7 +370,11 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
       )}
 
       {/* Files */}
-      {currentFiles.length === 0 && subFolders.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="animate-spin text-indigo-500" size={32} />
+        </div>
+      ) : currentFiles.length === 0 && subFolders.length === 0 ? (
         <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
           <FolderOpen size={40} className={`mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
           <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Bu klasör boş</p>
@@ -438,9 +461,7 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Share2 size={14} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
-                <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
-                  {selectedFile.sharedWith?.includes('all') ? 'Herkesle paylaşılıyor' : `${selectedFile.sharedWith?.length || 0} kişi ile paylaşılıyor`}
-                </span>
+                <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>Şirket geneli</span>
               </div>
             </div>
             {selectedFile.tags?.length > 0 && (

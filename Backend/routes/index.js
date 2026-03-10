@@ -64,4 +64,7 @@ router.use("/surveys", require("./surveys"));
 // Support Tickets
 router.use("/support-tickets", require("./supportTickets"));
 
+// Customers
+router.use("/customers", require("./customers"));
+
 module.exports = router;

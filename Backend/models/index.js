@@ -140,7 +140,8 @@ TaskHistory.belongsTo(User, { foreignKey: "user_id", as: "changedBy" });
 
 
 // FILES
-File.belongsTo(User, { foreignKey: "uploaded_by" });
+File.belongsTo(User, { as: "uploader", foreignKey: "uploaded_by", onDelete: "SET NULL" });
+File.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 TaskFile.belongsTo(Task, { foreignKey: "task_id" });
 TaskFile.belongsTo(File, { foreignKey: "file_id" });
@@ -230,8 +231,13 @@ AuditLog.belongsTo(User, { foreignKey: "user_id" });
 
 
 // CUSTOMER
-Customer.belongsTo(User, { foreignKey: "user_id" });
-User.hasOne(Customer, { foreignKey: "user_id" });
+Customer.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(Customer, { foreignKey: "company_id", onDelete: "CASCADE" });
+
+Customer.belongsTo(Customer, { as: "parent", foreignKey: "parent_id", onDelete: "SET NULL" });
+Customer.hasMany(Customer, { as: "children", foreignKey: "parent_id", onDelete: "SET NULL" });
+
+Customer.belongsTo(User, { as: "creator", foreignKey: "created_by", onDelete: "SET NULL" });
 
 
 // SURVEY

@@ -6,49 +6,111 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true
     },
 
-    userId: {
+    companyId: {
       type: DataTypes.BIGINT,
       allowNull: false,
-      unique: true,
-      field: "user_id"
+      field: "company_id"
     },
 
-    isReseller: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      field: "is_reseller"
-    },
-
-    userType: {
-      type: DataTypes.ENUM("individual_tr", "individual_foreign", "legal_entity"),
-      defaultValue: "individual_tr",
-      field: "user_type"
-    },
-
-    identityNumber: {
-      type: DataTypes.STRING(20),
-      field: "identity_number"
-    },
-
-    taxNumber: {
-      type: DataTypes.STRING(20),
-      field: "tax_number"
-    },
-
-    taxOffice: {
-      type: DataTypes.STRING(100),
-      field: "tax_office"
+    type: {
+      type: DataTypes.ENUM("gercek", "tuzel", "yabanci"),
+      defaultValue: "gercek"
     },
 
     companyName: {
       type: DataTypes.STRING(255),
       field: "company_name"
+    },
+
+    contactName: {
+      type: DataTypes.STRING(200),
+      allowNull: false,
+      field: "contact_name"
+    },
+
+    email: {
+      type: DataTypes.STRING(255)
+    },
+
+    phones: {
+      type: DataTypes.TEXT,
+      get() {
+        const val = this.getDataValue('phones');
+        if (!val) return [];
+        try { return JSON.parse(val); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue('phones', val ? JSON.stringify(val) : '[]');
+      }
+    },
+
+    addresses: {
+      type: DataTypes.TEXT,
+      get() {
+        const val = this.getDataValue('addresses');
+        if (!val) return [];
+        try { return JSON.parse(val); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue('addresses', val ? JSON.stringify(val) : '[]');
+      }
+    },
+
+    sector: {
+      type: DataTypes.STRING(100)
+    },
+
+    notes: {
+      type: DataTypes.TEXT
+    },
+
+    tags: {
+      type: DataTypes.TEXT,
+      get() {
+        const val = this.getDataValue('tags');
+        if (!val) return [];
+        try { return JSON.parse(val); } catch { return []; }
+      },
+      set(val) {
+        this.setDataValue('tags', val ? JSON.stringify(val) : '[]');
+      }
+    },
+
+    tcNo: {
+      type: DataTypes.STRING(11),
+      field: "tc_no"
+    },
+
+    vergiDairesi: {
+      type: DataTypes.STRING(100),
+      field: "vergi_dairesi"
+    },
+
+    vergiNo: {
+      type: DataTypes.STRING(10),
+      field: "vergi_no"
+    },
+
+    passportNo: {
+      type: DataTypes.STRING(20),
+      field: "passport_no"
+    },
+
+    parentId: {
+      type: DataTypes.BIGINT,
+      field: "parent_id"
+    },
+
+    createdBy: {
+      type: DataTypes.BIGINT,
+      field: "created_by"
     }
 
   }, {
     tableName: "customers",
-    underscored: true,
-    timestamps: true
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at"
   });
 
   return Customer;
