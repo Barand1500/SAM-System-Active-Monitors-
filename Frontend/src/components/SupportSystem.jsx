@@ -4,16 +4,44 @@ import {
   Eye, UserPlus, CheckCircle2, X, ChevronRight, MessageSquare,
   Send, Search, Filter, Headphones, LogOut, FileText,
   AlertTriangle, Info, Wrench, HelpCircle, BarChart3,
-  MapPin, ArrowLeft, Save
+  MapPin, ArrowLeft, Save, Loader2
 } from 'lucide-react';
-import { supportTickets as initialTickets } from '../data/mockData';
+import { supportTicketAPI } from '../services/api';
 
-const loadTickets = () => {
-  try {
-    const saved = localStorage.getItem('sam_support_tickets');
-    return saved ? JSON.parse(saved) : initialTickets;
-  } catch { return initialTickets; }
-};
+// Backend ↔ Frontend durum eşleştirmeleri
+const STATUS_FROM_BACKEND = { open: 'new', in_progress: 'assigned', waiting_customer: 'assigned', resolved: 'resolved', closed: 'resolved' };
+const STATUS_TO_BACKEND = { new: 'open', assigned: 'in_progress', resolved: 'resolved' };
+const PRIORITY_FROM_BACKEND = { critical: 'urgent', high: 'high', medium: 'medium', low: 'low' };
+const PRIORITY_TO_BACKEND = { urgent: 'critical', high: 'high', medium: 'medium', low: 'low' };
+
+const backendToFrontendTicket = (t) => ({
+  id: t.id,
+  subject: t.title,
+  description: t.description,
+  status: STATUS_FROM_BACKEND[t.status] || 'new',
+  priority: PRIORITY_FROM_BACKEND[t.priority] || 'medium',
+  category: t.category || 'other',
+  callerName: t.callerName || '',
+  callerPhone: t.callerPhone || '',
+  callerCompany: t.callerCompany || '',
+  callerAddress: t.callerAddress,
+  createdBy: t.creator ? { id: t.creator.id, firstName: t.creator.firstName, lastName: t.creator.lastName } : null,
+  createdAt: t.createdAt,
+  assignee: t.assignee ? { id: t.assignee.id, firstName: t.assignee.firstName, lastName: t.assignee.lastName } : null,
+  assignedAt: t.updatedAt,
+  resolution: t.resolution,
+  resolvedAt: t.resolvedAt,
+  notes: (t.TicketMessages || []).map(m => ({
+    id: m.id,
+    userId: m.userId,
+    userName: m.User ? `${m.User.firstName} ${m.User.lastName}` : 'Bilinmeyen',
+    text: m.messageText,
+    at: m.createdAt
+  })),
+  helpers: [],
+  viewers: [],
+  history: []
+});
 
 const defaultContacts = [
   {
@@ -435,8 +463,9 @@ const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, i
 };
 
 const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
-  const [tickets, setTickets] = useState(loadTickets);
-  const [view, setView] = useState('pool'); // pool | create | resolved
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('pool');
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -444,7 +473,18 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [contacts, setContacts] = useState(loadContacts);
 
-  useEffect(() => { localStorage.setItem('sam_support_tickets', JSON.stringify(tickets)); }, [tickets]);
+  const fetchTickets = async () => {
+    try {
+      const res = await supportTicketAPI.list();
+      setTickets((res.data || []).map(backendToFrontendTicket));
+    } catch (err) {
+      console.error('Ticket yükleme hatası:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchTickets(); }, []);
   useEffect(() => { localStorage.setItem('sam_contacts', JSON.stringify(contacts)); }, [contacts]);
   useEffect(() => { const t = setInterval(() => setCurrentTime(Date.now()), 30000); return () => clearInterval(t); }, []);
 
@@ -488,87 +528,79 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   };
 
   // Actions
-  const createTicket = (data) => {
-    const newTicket = {
-      id: Date.now(),
-      ...data,
-      status: 'new',
-      createdBy: { id: user.id, firstName: user.firstName, lastName: user.lastName },
-      createdAt: new Date().toISOString(),
-      assignee: null,
-      assignedAt: null,
-      helpers: [],
-      viewers: [],
-      history: [{ type: 'created', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }],
-      notes: [],
-      resolution: null,
-      resolvedAt: null
-    };
-    setTickets(prev => [newTicket, ...prev]);
-    setView('pool');
+  const createTicket = async (data) => {
+    try {
+      await supportTicketAPI.create({
+        title: data.subject,
+        description: data.description,
+        priority: PRIORITY_TO_BACKEND[data.priority] || data.priority,
+        category: data.category,
+        callerName: data.callerName,
+        callerPhone: data.callerPhone,
+        callerCompany: data.callerCompany,
+        callerAddress: data.callerAddress,
+      });
+      await fetchTickets();
+      setView('pool');
+    } catch (err) {
+      console.error('Ticket oluşturma hatası:', err);
+    }
   };
 
   const viewTicket = (ticket) => {
-    const already = ticket.viewers.some(v => v.userId === user.id);
-    if (!already) {
-      setTickets(prev => prev.map(t => t.id === ticket.id ? {
-        ...t,
-        viewers: [...t.viewers, { userId: user.id, viewedAt: new Date().toISOString() }],
-        history: [...t.history, { type: 'viewed', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }]
-      } : t));
-    }
     setSelectedTicket(ticket);
   };
 
-  const claimTicket = (ticketId) => {
-    setTickets(prev => prev.map(t => t.id === ticketId ? {
-      ...t,
-      status: 'assigned',
-      assignee: { id: user.id, firstName: user.firstName, lastName: user.lastName, assignedAt: new Date().toISOString() },
-      assignedAt: new Date().toISOString(),
-      history: [...t.history, { type: 'assigned', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }]
-    } : t));
+  const claimTicket = async (ticketId) => {
+    try {
+      await supportTicketAPI.assign(ticketId, user.id);
+      await supportTicketAPI.updateStatus(ticketId, { status: 'in_progress' });
+      await fetchTickets();
+    } catch (err) {
+      console.error('Ticket alma hatası:', err);
+    }
   };
 
-  const leaveTicket = (ticketId) => {
-    setTickets(prev => prev.map(t => t.id === ticketId ? {
-      ...t,
-      status: 'new',
-      assignee: null,
-      assignedAt: null,
-      history: [...t.history, { type: 'left', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }]
-    } : t));
-    setSelectedTicket(null);
+  const leaveTicket = async (ticketId) => {
+    try {
+      await supportTicketAPI.update(ticketId, { assignedTo: null });
+      await supportTicketAPI.updateStatus(ticketId, { status: 'open' });
+      await fetchTickets();
+      setSelectedTicket(null);
+    } catch (err) {
+      console.error('Ticket bırakma hatası:', err);
+    }
   };
 
   const helpTicket = (ticketId) => {
+    // Yardımcı özelliği henüz backend'de yok, lokal çalışıyor
     setTickets(prev => prev.map(t => {
       if (t.id !== ticketId) return t;
       if (t.helpers.some(h => h.id === user.id)) return t;
       return {
         ...t,
         helpers: [...t.helpers, { id: user.id, firstName: user.firstName, lastName: user.lastName, joinedAt: new Date().toISOString() }],
-        history: [...t.history, { type: 'helper_joined', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }]
       };
     }));
   };
 
-  const addNote = (ticketId, text) => {
-    setTickets(prev => prev.map(t => t.id === ticketId ? {
-      ...t,
-      notes: [...t.notes, { id: Date.now(), userId: user.id, userName: `${user.firstName} ${user.lastName}`, text, at: new Date().toISOString() }]
-    } : t));
+  const addNote = async (ticketId, text) => {
+    try {
+      await supportTicketAPI.addMessage(ticketId, { messageText: text, isInternal: true });
+      await fetchTickets();
+    } catch (err) {
+      console.error('Not ekleme hatası:', err);
+    }
   };
 
-  const resolveTicket = (ticketId, resolutionText) => {
-    setTickets(prev => prev.map(t => t.id === ticketId ? {
-      ...t,
-      status: 'resolved',
-      resolution: resolutionText,
-      resolvedAt: new Date().toISOString(),
-      history: [...t.history, { type: 'resolved', userId: user.id, userName: `${user.firstName} ${user.lastName}`, at: new Date().toISOString() }]
-    } : t));
-    setSelectedTicket(null);
+  const resolveTicket = async (ticketId, resolutionText) => {
+    try {
+      await supportTicketAPI.updateStatus(ticketId, { status: 'resolved', resolution: resolutionText });
+      await fetchTickets();
+      setSelectedTicket(null);
+    } catch (err) {
+      console.error('Ticket çözme hatası:', err);
+    }
   };
 
   // Filtering
@@ -1109,7 +1141,12 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
       {/* Content */}
       {view === 'create' && <CreateForm contacts={contacts} setContacts={setContacts} onCreateTicket={createTicket} onCancel={() => setView('pool')} isDark={isDark} inputClass={inputClass} cardClass={cardClass} priorities={priorities} categories={categories} />}
       {view === 'pool' && (
-        filteredPool.length === 0 ? (
+        loading ? (
+          <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
+            <Loader2 size={40} className={`mx-auto mb-3 animate-spin ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`} />
+            <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Yükleniyor...</p>
+          </div>
+        ) : filteredPool.length === 0 ? (
           <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
             <Headphones size={40} className={`mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
             <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Havuzda destek talebi yok</p>
