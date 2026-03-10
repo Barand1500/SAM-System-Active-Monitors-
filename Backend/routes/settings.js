@@ -6,4 +6,8 @@ const { authenticate, authorizeRoles } = require("../middleware/authMiddleware")
 router.get("/", authenticate, CompanySettingController.get);
 router.put("/", authenticate, authorizeRoles("boss"), CompanySettingController.update);
 
+// Şirket Profili
+router.get("/profile", authenticate, CompanySettingController.getProfile);
+router.put("/profile", authenticate, authorizeRoles("boss"), CompanySettingController.updateProfile);
+
 module.exports = router;

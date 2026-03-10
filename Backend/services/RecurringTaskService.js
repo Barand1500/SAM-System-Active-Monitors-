@@ -6,7 +6,7 @@ class RecurringTaskService {
   }
 
   async getByCompany(company_id) {
-    return RecurringTask.findAll({ where: { company_id } });
+    return RecurringTask.findAll({ where: { company_id }, order: [["created_at", "DESC"]] });
   }
 
   async getById(id) {

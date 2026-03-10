@@ -1,5 +1,5 @@
 const BaseRepository = require("./BaseRepository");
-const { Survey, SurveyQuestion, SurveyQuestionOption, SurveyResponse, SurveyAnswer } = require("../models");
+const { Survey, SurveyQuestion, SurveyQuestionOption, SurveyResponse, SurveyAnswer, User } = require("../models");
 
 class SurveyRepository extends BaseRepository {
   constructor() {
@@ -10,17 +10,24 @@ class SurveyRepository extends BaseRepository {
     return this.model.findAll({
       where: { company_id },
       include: [
+        { model: User, as: 'creator', attributes: ['id', 'first_name', 'last_name', 'email'] },
         {
           model: SurveyQuestion,
           include: [SurveyQuestionOption]
+        },
+        {
+          model: SurveyResponse,
+          include: [SurveyAnswer]
         }
-      ]
+      ],
+      order: [['created_at', 'DESC']]
     });
   }
 
   async findWithDetails(id) {
     return this.model.findByPk(id, {
       include: [
+        { model: User, as: 'creator', attributes: ['id', 'first_name', 'last_name', 'email'] },
         {
           model: SurveyQuestion,
           include: [SurveyQuestionOption]

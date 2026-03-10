@@ -30,7 +30,11 @@ module.exports = (sequelize, DataTypes) => {
         "short_answer",
         "long_answer",
         "rating",
-        "matrix"
+        "matrix",
+        "single",
+        "multiple",
+        "text",
+        "yesno"
       ),
       allowNull: false
     },
@@ -39,6 +43,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
       field: "is_required"
+    },
+
+    hasOther: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: "has_other"
     },
 
     conditionalParentId: {

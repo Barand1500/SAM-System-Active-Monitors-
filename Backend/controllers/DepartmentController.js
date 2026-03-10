@@ -24,7 +24,7 @@ class DepartmentController {
     try {
       const department = await DepartmentService.create({
         ...req.body,
-        company_id: req.user.company_id
+        companyId: req.user.company_id
       });
       res.status(201).json(department);
     } catch (err) {

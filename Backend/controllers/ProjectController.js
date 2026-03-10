@@ -10,6 +10,15 @@ class ProjectController {
     }
   }
 
+  async listByCompany(req, res) {
+    try {
+      const projects = await ProjectService.getByCompany(req.user.company_id);
+      res.json(projects);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
   async get(req, res) {
     try {
       const project = await ProjectService.getById(req.params.id);
@@ -22,10 +31,11 @@ class ProjectController {
 
   async create(req, res) {
     try {
-      const { name, description, workspaceId, color, icon, startDate, endDate } = req.body;
+      const { name, description, workspaceId, color, icon, startDate, endDate, members } = req.body;
       const project = await ProjectService.create({
         name, description, workspaceId, color, icon, startDate, endDate,
-        createdBy: req.user.id
+        createdBy: req.user.id,
+        companyId: req.user.company_id
       });
       res.status(201).json(project);
     } catch (err) {

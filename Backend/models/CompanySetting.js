@@ -32,6 +32,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
       field: "overtime_allowed"
+    },
+
+    profileData: {
+      type: DataTypes.TEXT("long"),
+      field: "profile_data",
+      get() {
+        const raw = this.getDataValue("profileData");
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch { return null; }
+      },
+      set(val) {
+        this.setDataValue("profileData", val ? JSON.stringify(val) : null);
+      }
     }
 
   }, {

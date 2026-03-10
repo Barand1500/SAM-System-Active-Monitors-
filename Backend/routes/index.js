@@ -55,6 +55,9 @@ router.use("/dashboard", require("./dashboard"));
 // Recurring Tasks
 router.use("/recurring-tasks", require("./recurringTasks"));
 
+// Audit Logs
+router.use("/audit-logs", require("./auditLogs"));
+
 // Automation Rules
 router.use("/automation-rules", require("./automationRules"));
 
@@ -66,5 +69,11 @@ router.use("/support-tickets", require("./supportTickets"));
 
 // Customers
 router.use("/customers", require("./customers"));
+
+// Task Statuses
+router.use("/task-statuses", require("./taskStatuses"));
+
+// Task Priorities
+router.use("/task-priorities", require("./taskPriorities"));
 
 module.exports = router;

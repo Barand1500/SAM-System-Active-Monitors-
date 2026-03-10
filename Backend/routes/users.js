@@ -9,7 +9,8 @@ const companyIsolation = require("../middleware/companyIsolation");
 router.get("/", authenticate, companyIsolation, UserController.list);
 router.get("/:id", authenticate, companyIsolation, UserController.get);
 router.post("/", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.create);
-router.put("/:id", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.update);
+router.put("/:id", authenticate, companyIsolation, UserController.update);
+router.put("/:id/skills", authenticate, companyIsolation, UserController.updateSkills);
 router.delete("/:id", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.delete);
 
 module.exports = router;

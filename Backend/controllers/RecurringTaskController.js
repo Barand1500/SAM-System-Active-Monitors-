@@ -3,7 +3,7 @@ const RecurringTaskService = require("../services/RecurringTaskService");
 class RecurringTaskController {
   async list(req, res) {
     try {
-      const tasks = await RecurringTaskService.getByCompany(req.body.company_id || req.query.company_id);
+      const tasks = await RecurringTaskService.getByCompany(req.user.company_id);
       res.json(tasks);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -14,7 +14,7 @@ class RecurringTaskController {
     try {
       const task = await RecurringTaskService.getById(req.params.id);
       if (!task) return res.status(404).json({ error: "Recurring task not found" });
-      if (String(task.companyId) !== String(req.body.company_id || req.query.company_id)) {
+      if (String(task.companyId) !== String(req.user.company_id)) {
         return res.status(403).json({ error: "Access denied" });
       }
       res.json(task);
@@ -26,8 +26,8 @@ class RecurringTaskController {
   async create(req, res) {
     try {
       const { company_id, id, ...safeData } = req.body;
-      safeData.company_id = req.user.company_id;
-      safeData.created_by = req.user.id;
+      safeData.companyId = req.user.company_id;
+      safeData.createdBy = req.user.id;
       const task = await RecurringTaskService.create(safeData);
       res.status(201).json(task);
     } catch (err) {

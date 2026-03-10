@@ -1,8 +1,14 @@
 const projectRepo = require("../repositories/ProjectRepository");
-const { ProjectMember } = require("../models");
+const { ProjectMember, Workspace } = require("../models");
 
 class ProjectService {
   async create(data) {
+    // workspaceId yoksa company'nin ilk workspace'ini kullan
+    if (!data.workspaceId && data.companyId) {
+      const ws = await Workspace.findOne({ where: { company_id: data.companyId } });
+      if (!ws) throw new Error("No workspace found for this company");
+      data.workspaceId = ws.id;
+    }
     const project = await projectRepo.create(data);
     // Oluşturanı lead olarak ekle
     await ProjectMember.create({
@@ -11,11 +17,15 @@ class ProjectService {
       role: "lead",
       joinedAt: new Date()
     });
-    return project;
+    return projectRepo.findWithMembers(project.id);
   }
 
   async getByWorkspace(workspace_id) {
     return projectRepo.findByWorkspace(workspace_id);
+  }
+
+  async getByCompany(company_id) {
+    return projectRepo.findByCompany(company_id);
   }
 
   async getById(id) {

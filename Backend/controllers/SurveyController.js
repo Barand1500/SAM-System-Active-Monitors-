@@ -5,8 +5,8 @@ class SurveyController {
     try {
       const survey = await SurveyService.create({
         ...req.body,
-        company_id: req.user.company_id,
-        created_by: req.user.id
+        companyId: req.user.company_id,
+        createdBy: req.user.id
       });
       res.status(201).json(survey);
     } catch (err) {

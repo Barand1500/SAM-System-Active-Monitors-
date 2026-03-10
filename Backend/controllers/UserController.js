@@ -47,6 +47,15 @@ class UserController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async updateSkills(req, res) {
+    try {
+      const user = await UserService.updateSkills(req.params.id, req.user.company_id, req.body.skills);
+      res.json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new UserController();

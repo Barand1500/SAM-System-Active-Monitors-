@@ -27,6 +27,19 @@ class UserService {
   async deleteUser(id, companyId) {
     return UserRepo.delete(id, companyId);
   }
+
+  async updateSkills(userId, companyId, skills) {
+    // skills = ["React", "JavaScript", ...]
+    const user = await UserRepo.getWithSkills(userId, companyId);
+    if (!user) throw new Error("User not found");
+    // Mevcut skill'leri sil
+    await UserSkill.destroy({ where: { userId } });
+    // Yenilerini ekle
+    if (skills && skills.length > 0) {
+      await UserSkill.bulkCreate(skills.map(name => ({ userId, name })));
+    }
+    return UserRepo.getWithSkills(userId, companyId);
+  }
 }
 
 module.exports = new UserService();

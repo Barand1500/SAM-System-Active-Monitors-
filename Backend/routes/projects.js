@@ -6,6 +6,7 @@ const companyIsolation = require("../middleware/companyIsolation");
 
 router.use(authenticate, companyIsolation);
 
+router.get("/company", ProjectController.listByCompany);
 router.get("/workspace/:workspaceId", ProjectController.list);
 router.get("/:id", ProjectController.get);
 router.post("/", authorizeRoles("boss", "manager"), ProjectController.create);
