@@ -75,7 +75,8 @@ import {
   UserCheck,
   Flag,
   PieChart,
-  Trophy
+  Trophy,
+  BookTemplate
 } from 'lucide-react';
 import {
   DndContext,
@@ -244,6 +245,9 @@ const Dashboard = () => {
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsHistory, setSmsHistory] = useState(() => loadFromStorage('app_sms_history', []));
   const [smsGroups, setSmsGroups] = useState(() => loadFromStorage('app_sms_groups', []));
+  
+  // Görev Şablonları State
+  const [taskTemplates, setTaskTemplates] = useState(() => loadFromStorage('task_templates', []));
 
   // LocalStorage'a kaydet (tasks hariç - API'den geliyor)
 
@@ -254,6 +258,10 @@ const Dashboard = () => {
   useEffect(() => {
     saveToStorage('app_announcements', announcementsList);
   }, [announcementsList]);
+  
+  useEffect(() => {
+    saveToStorage('task_templates', taskTemplates);
+  }, [taskTemplates]);
 
   // Backend API'den veri çek (Component mount olduğunda)
   useEffect(() => {
@@ -547,6 +555,34 @@ const Dashboard = () => {
     }
   };
 
+  // ===== GÖREV ŞABLONU FONKSİYONLARI =====
+  
+  // Şablon Kaydet
+  const saveAsTemplate = (templateData) => {
+    const newTemplate = {
+      id: Date.now(),
+      name: templateData.name,
+      description: templateData.description,
+      priority: templateData.priority,
+      department: templateData.department,
+      taskType: templateData.taskType,
+      tags: templateData.tags || [],
+      createdAt: new Date().toISOString()
+    };
+    setTaskTemplates(prev => [...prev, newTemplate]);
+    return newTemplate;
+  };
+  
+  // Şablon Sil
+  const deleteTemplate = (templateId) => {
+    setTaskTemplates(prev => prev.filter(t => t.id !== templateId));
+  };
+  
+  // Şablon Güncelle
+  const updateTemplate = (templateId, updates) => {
+    setTaskTemplates(prev => prev.map(t => t.id === templateId ? { ...t, ...updates } : t));
+  };
+
   // Görev Ekleme Modal
   const openTaskModal = (task = null, date = null) => {
     setEditingTask(task);
@@ -831,6 +867,10 @@ const Dashboard = () => {
           task={editingTask}
           employees={employees}
           defaultDate={calendarDate}
+          taskTemplates={taskTemplates}
+          onSaveTemplate={saveAsTemplate}
+          onDeleteTemplate={deleteTemplate}
+          onUpdateTemplate={updateTemplate}
           onClose={() => { setShowTaskModal(false); setEditingTask(null); setCalendarDate(null); }}
           onSave={(data) => {
             if (editingTask) {
@@ -925,7 +965,7 @@ const Dashboard = () => {
 };
 
 // ===== GÖREV FORM MODAL =====
-const TaskFormModal = ({ task, employees, defaultDate, onClose, onSave, isDark }) => {
+const TaskFormModal = ({ task, employees, defaultDate, taskTemplates, onSaveTemplate, onDeleteTemplate, onUpdateTemplate, onClose, onSave, isDark }) => {
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -938,6 +978,10 @@ const TaskFormModal = ({ task, employees, defaultDate, onClose, onSave, isDark }
     taskType: task?.taskType || 'single',
     attachments: task?.attachments || []
   });
+  
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templateName, setTemplateName] = useState('');
 
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -1103,6 +1147,40 @@ const TaskFormModal = ({ task, employees, defaultDate, onClose, onSave, isDark }
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
+  
+  // ===== ŞABLON FONKSİYONLARI =====
+  
+  // Şablonu forma uygula
+  const applyTemplate = (template) => {
+    setForm(prev => ({
+      ...prev,
+      description: template.description || '',
+      priority: template.priority || 'medium',
+      department: template.department || 'Yazılım',
+      taskType: template.taskType || 'single',
+      tags: template.tags || []
+    }));
+    setSelectedTemplate(template);
+  };
+  
+  // Mevcut formu şablon olarak kaydet
+  const saveCurrentAsTemplate = () => {
+    if (!templateName.trim()) {
+      alert('Lütfen şablon adı girin!');
+      return;
+    }
+    const templateData = {
+      name: templateName,
+      description: form.description,
+      priority: form.priority,
+      department: form.department,
+      taskType: form.taskType,
+      tags: form.tags
+    };
+    onSaveTemplate(templateData);
+    setTemplateName('');
+    alert('Şablon kaydedildi! ✅');
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1124,6 +1202,47 @@ const TaskFormModal = ({ task, employees, defaultDate, onClose, onSave, isDark }
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
           <div className="space-y-5">
+
+            {/* ŞABLON SEÇİCİ - Sadece yeni görev oluştururken göster */}
+            {!task && taskTemplates && taskTemplates.length > 0 && (
+              <div className={`p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50 border-purple-200'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <BookTemplate size={18} className="text-purple-500" />
+                  <label className={`text-sm font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
+                    Şablon Kullan
+                  </label>
+                </div>
+                <select
+                  value={selectedTemplate?.id || ''}
+                  onChange={(e) => {
+                    const template = taskTemplates.find(t => t.id === Number(e.target.value));
+                    if (template) applyTemplate(template);
+                  }}
+                  className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-purple-200 text-slate-800'} border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-transparent`}
+                >
+                  <option value="">Şablon seçin...</option>
+                  {taskTemplates.map(template => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} • {template.department} • {template.priority}
+                    </option>
+                  ))}
+                </select>
+                {selectedTemplate && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={`text-xs ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                      ✓ Şablon uygulandı: {selectedTemplate.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateManager(true)}
+                      className={`ml-auto text-xs ${isDark ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'} underline`}
+                    >
+                      Şablonları Yönet
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Görev Tipi - Tekil / Çoğul */}
             <div>
@@ -1484,23 +1603,157 @@ const TaskFormModal = ({ task, employees, defaultDate, onClose, onSave, isDark }
           </div>
         </form>
 
-        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'} flex gap-3`}>
-          <button
-            type="button"
-            onClick={onClose}
-            className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
-          >
-            İptal
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
-                     hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25"
-          >
-            {task ? 'Güncelle' : 'Oluştur'}
-          </button>
+        {/* Modal Footer */}
+        <div className={`p-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+          {/* Şablon Kaydetme Alanı - Sadece yeni görev oluştururken */}
+          {!task && (
+            <div className="mb-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Şablon adı girin..."
+                  className={`flex-1 ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent`}
+                />
+                <button
+                  type="button"
+                  onClick={saveCurrentAsTemplate}
+                  disabled={!templateName.trim()}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    templateName.trim()
+                      ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/25'
+                      : isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <BookTemplate size={16} />
+                  Şablon Kaydet
+                </button>
+              </div>
+              <p className={`text-xs mt-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                Bu görevin ayarlarını şablon olarak kaydedip sonra tekrar kullanabilirsiniz
+              </p>
+            </div>
+          )}
+          
+          {/* Ana Butonlar */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className={`flex-1 py-3 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl
+                       hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/25"
+            >
+              {task ? 'Güncelle' : 'Oluştur'}
+            </button>
+          </div>
         </div>
       </div>
+      
+      {/* Şablon Yönetim Modalı */}
+      {showTemplateManager && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl max-h-[80vh] flex flex-col`}>
+            <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'} flex items-center justify-between`}>
+              <div className="flex items-center gap-2">
+                <BookTemplate size={20} className="text-purple-500" />
+                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  Görev Şablonları
+                </h3>
+              </div>
+              <button onClick={() => setShowTemplateManager(false)} className={`p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
+                <X size={18} className={isDark ? 'text-slate-400' : 'text-slate-500'} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {taskTemplates.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookTemplate size={48} className={`mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Henüz şablon yok
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {taskTemplates.map(template => (
+                    <div key={template.id} className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {template.name}
+                          </h4>
+                          {template.description && (
+                            <p className={`text-sm mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'} line-clamp-2`}>
+                              {template.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <span className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                              {template.department}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              template.priority === 'urgent' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' :
+                              template.priority === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300' :
+                              template.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300' :
+                              'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'
+                            }`}>
+                              {template.priority === 'urgent' ? 'Acil' : 
+                               template.priority === 'high' ? 'Yüksek' : 
+                               template.priority === 'medium' ? 'Orta' : 'Düşük'}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                              {template.taskType === 'single' ? 'Tekil' : 'Çoğul'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              applyTemplate(template);
+                              setShowTemplateManager(false);
+                            }}
+                            className={`p-2 rounded-lg ${isDark ? 'hover:bg-emerald-500/20 text-emerald-400' : 'hover:bg-emerald-100 text-emerald-600'} transition-colors`}
+                            title="Şablonu Uygula"
+                          >
+                            <CheckCircle2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`"${template.name}" şablonunu silmek istediğinizden emin misiniz?`)) {
+                                onDeleteTemplate(template.id);
+                              }
+                            }}
+                            className={`p-2 rounded-lg ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-600'} transition-colors`}
+                            title="Şablonu Sil"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className={`p-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+              <button
+                onClick={() => setShowTemplateManager(false)}
+                className={`w-full py-2.5 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} font-semibold rounded-xl transition-colors`}
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
