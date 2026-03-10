@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   Plus, Search, Building2, User, Phone, Mail, Clock,
   Edit, Trash2, X, ChevronRight, FileText, Headphones,
-  MapPin, Globe, Tag, Filter, Eye, Users, CreditCard, Plane, ChevronDown
+  MapPin, Globe, Tag, Filter, Eye, Users, CreditCard, Plane, ChevronDown,
+  Save, AlertCircle, CheckCircle2
 } from 'lucide-react';
 
 const TYPE_META = {
@@ -32,6 +33,20 @@ const loadCustomers = () => {
     const saved = localStorage.getItem('sam_customers');
     return saved ? JSON.parse(saved) : defaultCustomers;
   } catch { return defaultCustomers; }
+};
+
+const defaultContacts = [
+  {
+    id: 1, name: 'Ercan Güzel', phone: '0538 930 33 14', company: 'Güzel Teknoloji',
+    addresses: [{ id: 1, name: 'Merkez', city: 'Antalya', district: '', neighborhood: '', quarter: 'Emel Mahallesi', buildingInfo: '88055 Sok. Türkiye' }]
+  }
+];
+
+const loadContacts = () => {
+  try {
+    const saved = localStorage.getItem('sam_contacts');
+    return saved ? JSON.parse(saved) : defaultContacts;
+  } catch { return defaultContacts; }
 };
 
 const defaultCustomers = [
@@ -116,6 +131,30 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
       return { type: 'gercek', company: '', contactName: '', email: '', phones: [''], addresses: [{ label: '', value: '' }], sector: '', notes: '', tags: [], tcNo: '', vergiDairesi: '', vergiNo: '', passportNo: '', parentId: null };
     });
     const [tagInput, setTagInput] = useState('');
+    const [contacts, setContacts] = useState(loadContacts);
+    const [phoneSearchResults, setPhoneSearchResults] = useState([]);
+    const [showAddressForm, setShowAddressForm] = useState(false);
+    const [addrSearch, setAddrSearch] = useState('');
+    const [addrName, setAddrName] = useState('');
+    const [addrCity, setAddrCity] = useState('');
+    const [addrDistrict, setAddrDistrict] = useState('');
+    const [addrNeighborhood, setAddrNeighborhood] = useState('');
+    const [addrQuarter, setAddrQuarter] = useState('');
+    const [addrBuilding, setAddrBuilding] = useState('');
+
+    useEffect(() => { localStorage.setItem('sam_contacts', JSON.stringify(contacts)); }, [contacts]);
+
+    const allAddresses = contacts.flatMap(c =>
+      c.addresses.map(a => ({ ...a, contactName: c.name, contactCompany: c.company }))
+    );
+
+    const filteredAddresses = addrSearch.trim()
+      ? allAddresses.filter(a => {
+          const q = addrSearch.toLowerCase();
+          return [a.name, a.city, a.district, a.neighborhood, a.quarter, a.buildingInfo]
+            .some(field => (field || '').toLowerCase().includes(q));
+        })
+      : [];
 
     const addTag = () => {
       if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
@@ -128,12 +167,62 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
       const phones = [...form.phones];
       phones[i] = fmtPhone(val);
       setForm(p => ({ ...p, phones }));
+      
+      // Telefon araması
+      const digits = fmtPhone(val).replace(/\D/g, '');
+      if (digits.length >= 4) {
+        const results = customers.filter(c => 
+          (c.phones || []).some(p => p.replace(/\D/g, '').includes(digits))
+        );
+        setPhoneSearchResults(results);
+      } else {
+        setPhoneSearchResults([]);
+      }
     };
 
     const updateAddress = (i, field, val) => {
       const addresses = [...form.addresses];
       addresses[i] = { ...addresses[i], [field]: val };
       setForm(p => ({ ...p, addresses }));
+    };
+
+    const resetAddrForm = () => {
+      setAddrSearch(''); setAddrName(''); setAddrCity(''); setAddrDistrict('');
+      setAddrNeighborhood(''); setAddrQuarter(''); setAddrBuilding('');
+    };
+
+    const selectSearchAddr = (a) => {
+      setAddrName(a.name || ''); setAddrCity(a.city || ''); setAddrDistrict(a.district || '');
+      setAddrNeighborhood(a.neighborhood || ''); setAddrQuarter(a.quarter || '');
+      setAddrBuilding(a.buildingInfo || ''); setAddrSearch('');
+    };
+
+    const saveAddress = () => {
+      const addr = {
+        id: Date.now(), name: addrName.trim(), city: addrCity.trim(), district: addrDistrict.trim(),
+        neighborhood: addrNeighborhood.trim(), quarter: addrQuarter.trim(), buildingInfo: addrBuilding.trim()
+      };
+      const fullAddr = {
+        label: addrName.trim() || 'Adres',
+        value: [addrQuarter, addrNeighborhood, addrDistrict, addrCity, addrBuilding].filter(Boolean).join(', ')
+      };
+      setForm(p => ({ ...p, addresses: [...p.addresses, fullAddr] }));
+      
+      // Adres veritabanına da ekle
+      const contactIndex = contacts.findIndex(c => 
+        (c.phone === form.phones[0]) || (c.name === form.contactName)
+      );
+      if (contactIndex >= 0) {
+        const updatedContacts = [...contacts];
+        updatedContacts[contactIndex] = {
+          ...updatedContacts[contactIndex],
+          addresses: [...(updatedContacts[contactIndex].addresses || []), addr]
+        };
+        setContacts(updatedContacts);
+      }
+      
+      setShowAddressForm(false);
+      resetAddrForm();
     };
 
     const meta = TYPE_META[form.type];
@@ -273,15 +362,30 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
           <label className={`block text-sm mb-2 font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Telefon Numaraları</label>
           <div className="space-y-2">
             {form.phones.map((ph, i) => (
-              <div key={i} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type="tel" value={ph} onChange={e => updatePhone(i, e.target.value)}
-                    placeholder="0XXX XXX XX XX" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
+              <div key={i} className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="tel" value={ph} onChange={e => updatePhone(i, e.target.value)}
+                      placeholder="0XXX XXX XX XX" className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 pl-9 text-sm`} />
+                  </div>
+                  {form.phones.length > 1 && (
+                    <button type="button" onClick={() => setForm(p => ({ ...p, phones: p.phones.filter((_, idx) => idx !== i) }))}
+                      className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"><X size={16} /></button>
+                  )}
                 </div>
-                {form.phones.length > 1 && (
-                  <button type="button" onClick={() => setForm(p => ({ ...p, phones: p.phones.filter((_, idx) => idx !== i) }))}
-                    className="p-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"><X size={16} /></button>
+                {/* Telefon Arama Sonuçları */}
+                {i === 0 && phoneSearchResults.length > 0 && ph.replace(/\D/g, '').length >= 4 && (
+                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'}`}>
+                    <p className={`text-xs font-medium mb-2 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                      <AlertCircle size={12} className="inline mr-1" /> Bu telefon numarası sistemde kayıtlı: {phoneSearchResults.length} müşteri bulundu
+                    </p>
+                    {phoneSearchResults.slice(0, 3).map(c => (
+                      <div key={c.id} className={`text-xs py-1 ${isDark ? 'text-amber-300' : 'text-amber-600'}`}>
+                        • {displayName(c)} {c.type === 'tuzel' && `(${c.contactName})`}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             ))}
@@ -313,10 +417,66 @@ const CustomerCRM = ({ user, isBoss, canManage, isDark }) => {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={() => setForm(p => ({ ...p, addresses: [...p.addresses, { label: '', value: '' }] }))}
-              className={`text-sm font-medium flex items-center gap-1 ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
-              <Plus size={14} /> Adres Ekle
-            </button>
+            
+            {/* Detaylı Adres Ekleme Formu */}
+            {showAddressForm && (
+              <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} space-y-3`}>
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  <MapPin size={15} className="inline mr-1.5" /> Detaylı Adres Ekle
+                </h4>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="text" value={addrSearch} onChange={e => setAddrSearch(e.target.value)}
+                    placeholder="Kayıtlı adresler içinde ara..." className={`w-full ${inputClass} border rounded-xl px-4 py-2 pl-9 text-sm`} />
+                  {filteredAddresses.length > 0 && addrSearch && (
+                    <div className={`absolute z-10 w-full mt-1 rounded-xl border shadow-lg max-h-40 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+                      {filteredAddresses.map((a, idx) => (
+                        <button key={idx} type="button" onClick={() => selectSearchAddr(a)}
+                          className={`w-full text-left px-4 py-2.5 text-sm border-b last:border-b-0 ${isDark ? 'hover:bg-slate-700 text-slate-300 border-slate-700' : 'hover:bg-slate-50 text-slate-700 border-slate-100'}`}>
+                          <span className="font-medium">{a.name || 'Adres'}</span>
+                          <span className="text-xs opacity-70 ml-2">{[a.quarter, a.neighborhood, a.district, a.city].filter(Boolean).join(', ')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <input type="text" value={addrName} onChange={e => setAddrName(e.target.value)}
+                  placeholder="Adres Adı (ör: Merkez Ofis)" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={addrCity} onChange={e => setAddrCity(e.target.value)}
+                    placeholder="İl" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                  <input type="text" value={addrDistrict} onChange={e => setAddrDistrict(e.target.value)}
+                    placeholder="İlçe" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                  <input type="text" value={addrNeighborhood} onChange={e => setAddrNeighborhood(e.target.value)}
+                    placeholder="Semt" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                  <input type="text" value={addrQuarter} onChange={e => setAddrQuarter(e.target.value)}
+                    placeholder="Mahalle" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                </div>
+                <input type="text" value={addrBuilding} onChange={e => setAddrBuilding(e.target.value)}
+                  placeholder="Bina Bilgisi / Adres Tarifi" className={`w-full ${inputClass} border rounded-xl px-4 py-2 text-sm`} />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => { setShowAddressForm(false); resetAddrForm(); }}
+                    className={`px-4 py-2 text-sm rounded-xl ${isDark ? 'text-slate-300 hover:bg-slate-600' : 'text-slate-600 hover:bg-slate-100'}`}>
+                    İptal
+                  </button>
+                  <button type="button" onClick={saveAddress} disabled={!addrCity.trim()}
+                    className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5">
+                    <Save size={14} /> Kaydet
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setForm(p => ({ ...p, addresses: [...p.addresses, { label: '', value: '' }] }))}
+                className={`text-sm font-medium flex items-center gap-1 ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-700'}`}>
+                <Plus size={14} /> Basit Adres Ekle
+              </button>
+              <button type="button" onClick={() => setShowAddressForm(!showAddressForm)}
+                className={`text-sm font-medium flex items-center gap-1 ${isDark ? 'text-emerald-400 hover:text-emerald-300' : 'text-emerald-600 hover:text-emerald-700'}`}>
+                <MapPin size={14} /> Detaylı Adres Ekle
+              </button>
+            </div>
           </div>
         </div>
 
