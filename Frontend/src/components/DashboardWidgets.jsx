@@ -273,7 +273,7 @@ export const TeamPerformanceWidget = ({ employees, tasks, isDark }) => {
 
 // Widget: Son Aktiviteler
 export const RecentActivitiesWidget = ({ isDark }) => {
-  const activities = JSON.parse(localStorage.getItem('sam_change_history') || '[]').slice(0, 5);
+  const activities = JSON.parse(localStorage.getItem('sam_change_history') || '[]').slice(0, 15);
 
   return (
     <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6 min-h-[320px] flex flex-col`}>
@@ -292,16 +292,16 @@ export const RecentActivitiesWidget = ({ isDark }) => {
       </div>
 
       {activities.length === 0 ? (
-        <div className="text-center py-6">
-          <Activity size={32} className={`mx-auto mb-2 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+        <div className="flex-1 flex flex-col items-center justify-center py-12">
+          <Activity size={48} className={`mb-3 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
           <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             Henüz aktivite yok
           </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-2">
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2">
           {activities.map((activity, idx) => (
-            <div key={idx} className={`p-3 rounded-lg ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+            <div key={idx} className={`p-3 rounded-lg ${isDark ? 'bg-slate-700/30 hover:bg-slate-700/50' : 'bg-slate-50 hover:bg-slate-100'} transition-colors`}>
               <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {activity.description}
               </p>
@@ -346,13 +346,28 @@ export const NotificationSummaryWidget = ({ isDark }) => {
         </div>
       </div>
 
-      <div className="text-center py-8">
-        <div className={`text-5xl font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className={`text-6xl font-bold mb-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
           {unreadCount}
         </div>
-        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        <p className={`text-base font-medium mb-6 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           Okunmamış bildirim
         </p>
+        
+        <div className={`w-full space-y-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+          <div className={`flex items-center justify-between p-3 rounded-lg ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+            <span className="text-sm">Görev Bildirimleri</span>
+            <span className="font-semibold">{unreadCount}</span>
+          </div>
+          <div className={`flex items-center justify-between p-3 rounded-lg ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+            <span className="text-sm">Sistem Bildirimleri</span>
+            <span className="font-semibold">0</span>
+          </div>
+          <div className={`flex items-center justify-between p-3 rounded-lg ${isDark ? 'bg-slate-700/30' : 'bg-slate-50'}`}>
+            <span className="text-sm">Duyurular</span>
+            <span className="font-semibold">0</span>
+          </div>
+        </div>
       </div>
     </div>
   );
