@@ -356,7 +356,13 @@ const Dashboard = () => {
         }
         if (config.defaultTaskListId) setDefaultTaskListId(config.defaultTaskListId);
       } catch (err) {
-        console.error('Task config yüklerken hata:', err);
+        console.error('❌ Task config yüklerken hata:', {
+          message: err.message,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          url: err.config?.url
+        });
       }
 
       try {
