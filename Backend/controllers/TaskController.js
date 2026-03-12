@@ -5,21 +5,50 @@ class TaskController {
   async getConfig(req, res) {
     try {
       const companyId = req.user.company_id;
-      const statuses = await TaskStatus.findAll({ where: { companyId }, order: [['orderNo', 'ASC']] });
-      const priorities = await TaskPriority.findAll({ where: { companyId }, order: [['orderNo', 'ASC']] });
-      // Varsayılan TaskList ID'sini bul
-      const workspace = await Workspace.findOne({ where: { companyId } });
-      let defaultTaskListId = null;
-      if (workspace) {
-        const project = await Project.findOne({ where: { workspaceId: workspace.id } });
-        if (project) {
-          const taskList = await TaskList.findOne({ where: { projectId: project.id }, order: [['orderNo', 'ASC']] });
-          if (taskList) defaultTaskListId = taskList.id;
-        }
+      
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found in user data" });
       }
-      res.json({ statuses, priorities, defaultTaskListId });
+
+      // Veritabanı sorgularını yap
+      const statuses = await TaskStatus.findAll({ 
+        where: { companyId }, 
+        order: [['orderNo', 'ASC']] 
+      });
+      
+      const priorities = await TaskPriority.findAll({ 
+        where: { companyId }, 
+        order: [['orderNo', 'ASC']] 
+      });
+      
+      // Varsayılan TaskList ID'sini bul
+      let defaultTaskListId = null;
+      try {
+        const workspace = await Workspace.findOne({ where: { companyId } });
+        if (workspace) {
+          const project = await Project.findOne({ where: { workspaceId: workspace.id } });
+          if (project) {
+            const taskList = await TaskList.findOne({ 
+              where: { projectId: project.id }, 
+              order: [['orderNo', 'ASC']] 
+            });
+            if (taskList) defaultTaskListId = taskList.id;
+          }
+        }
+      } catch (workspaceErr) {
+        console.warn("Workspace/Project/TaskList lookup failed:", workspaceErr.message);
+        // defaultTaskListId null olarak kalacak, bu normal bir durum
+      }
+
+      // Boş sonuç bile olsa başarılı response dön
+      res.json({ 
+        statuses: statuses || [], 
+        priorities: priorities || [], 
+        defaultTaskListId 
+      });
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error("TaskController.getConfig error:", err);
+      res.status(500).json({ error: "Failed to fetch task configuration: " + err.message });
     }
   }
 

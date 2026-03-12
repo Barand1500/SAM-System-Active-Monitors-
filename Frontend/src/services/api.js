@@ -23,11 +23,16 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 401 Unauthorized ise token'ı sil ve login'e yönelt
+    // 401 Unauthorized ise token'ı sil ve sayfayı yenile (sonsuz döngü önlenir)
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('currentUser');
-      window.location.href = '/';
+      localStorage.removeItem('currentCompany');
+      
+      // Sadece login sayfasında değilsek yönlendir
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

@@ -51,9 +51,13 @@ const getActivityIcon = (type) => {
 export const ActivityLogProvider = ({ children }) => {
   const [activities, setActivities] = useState([]);
 
-  // API'den yükle
+  // API'den yükle (sadece giriş yapılmışsa)
   useEffect(() => {
     const load = async () => {
+      // Token yoksa API çağrısı yapma (sonsuz döngü önlenir)
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
       try {
         const res = await auditLogAPI.list({ limit: 500 });
         const data = res.data?.data || res.data || [];

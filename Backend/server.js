@@ -9,9 +9,7 @@ const httpServer = http.createServer(app);
 // ─── Socket.io ───────────────────────────────────────────────────────────────
 const io = new SocketIO(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production'
-      ? false
-      : (process.env.FRONTEND_URL || 'http://localhost:3000'),
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   },
 });

@@ -25,7 +25,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'panel',
+    outDir: '../Backend/public',
     emptyOutDir: true,
   },
 })
