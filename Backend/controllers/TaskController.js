@@ -4,6 +4,12 @@ const { TaskStatus, TaskPriority, Workspace, Project, TaskList } = require("../m
 class TaskController {
   async getConfig(req, res) {
     try {
+      // Auth kontrolü
+      if (!req.user || !req.user.company_id) {
+        console.error('🔥 YENİ SÜRÜM v1.0 - getConfig: user veya company_id yok!', req.user);
+        return res.status(401).json({ error: '🔥 YENİ SÜRÜM v1.0 - Kullanıcı doğrulanamadı' });
+      }
+      
       const companyId = req.user.company_id;
       
       // Statuses ve priorities - boş liste de olabilir
@@ -30,6 +36,13 @@ class TaskController {
         }
       }
       
+      console.log('🔥 YENİ SÜRÜM v1.0 - getConfig başarılı:', { 
+        companyId,
+        statusCount: statuses.length, 
+        priorityCount: priorities.length, 
+        defaultTaskListId 
+      });
+      
       // Boş sonuç da normal, başarılı response dön
       res.json({ 
         statuses: statuses || [], 
@@ -38,7 +51,7 @@ class TaskController {
       });
     } catch (err) {
       console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getConfig error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      res.status(500).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
     }
   }
 
