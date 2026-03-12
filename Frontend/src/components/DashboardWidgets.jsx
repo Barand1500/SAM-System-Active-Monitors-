@@ -299,7 +299,13 @@ export const RecentActivitiesWidget = ({ isDark }) => {
           timestamp: a.created_at || a.createdAt
         })));
       } catch (err) {
-        console.error('Aktiviteler yüklenemedi:', err);
+        console.error('❌ Aktiviteler yüklenemedi:', {
+          message: err.message,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          url: err.config?.url
+        });
       }
     };
     load();

@@ -279,4 +279,14 @@ export const smsAPI = {
   send: (data) => apiClient.post('/sms/send', data),
 };
 
+// ============== SYSTEM ENDPOINTS ==============
+export const systemAPI = {
+  // Server restart (sadece boss)
+  restart: () => apiClient.post('/system/restart'),
+  // Emergency restart (gizli token ile)
+  emergencyRestart: (token) => apiClient.post(`/system/emergency-restart/${token}`),
+  // Server health check
+  health: () => apiClient.get('/system/health'),
+};
+
 export default apiClient;
