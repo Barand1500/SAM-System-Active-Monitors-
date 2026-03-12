@@ -7,18 +7,32 @@ class TaskController {
       const companyId = req.user.company_id;
       
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found in user data" });
+        console.error("[TaskController] getConfig - Missing company_id:", {
+          userId: req.user.id,
+          userEmail: req.user.email,
+          allUserData: req.user
+        });
+        return res.status(400).json({ 
+          error: "Company ID not found in user data",
+          debug: {
+            userId: req.user.id,
+            hasCompanyId: !!req.user.company_id,
+            userKeys: Object.keys(req.user)
+          }
+        });
       }
 
       // Veritabanı sorgularını yap
       const statuses = await TaskStatus.findAll({ 
         where: { companyId }, 
-        order: [['orderNo', 'ASC']] 
+        order: [['orderNo', 'ASC']],  // Sıralama ekledim, böylece öncelik sırasına göre gelirler Ali
+        raw: true
       });
       
       const priorities = await TaskPriority.findAll({ 
         where: { companyId }, 
-        order: [['orderNo', 'ASC']] 
+        order: [['orderNo', 'ASC']], // Sıralama ekledim, böylece öncelik sırasına göre gelirler Ali
+        raw: true
       });
       
       // Varsayılan TaskList ID'sini bul

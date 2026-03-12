@@ -16,11 +16,23 @@ async function authenticate(req, res, next) {
     // Convert to plain object and add snake_case aliases
     // Models use camelCase attributes (companyId) but code uses snake_case (company_id)
     const userData = user.toJSON();
-    userData.company_id = userData.companyId;
+    userData.company_id = userData.companyId || decoded.company_id; //Burayi değiştirdim çünkü token'da snake_case var ama modelde camelCase
+    
+    // Debug logging
+    if (!userData.company_id) {
+      console.error("[AUTH] Missing company_id for user:", {
+        userId: decoded.id,
+        userCompanyId: userData.companyId,
+        decodedCompanyId: decoded.company_id,
+        userData: { id: userData.id, email: userData.email }
+      });
+    }
+    
     delete userData.password;
     req.user = userData;
     next();
   } catch (err) {
+    console.error("[AUTH] Token verification error:", err.message);
     return res.status(403).json({ error: "Invalid token" });
   }
 }

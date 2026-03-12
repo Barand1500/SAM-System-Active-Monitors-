@@ -22,8 +22,17 @@ class AuthService {
 
   // JWT üret
   generateJWT(user) {
+    const companyId = user.companyId || user.company_id;
+    if (!companyId) {
+      console.error("[AuthService] generateJWT - User without companyId:", {
+        userId: user.id,
+        email: user.email,
+        userCompanyId: user.companyId
+      });
+      throw new Error("Cannot generate JWT: User has no company assigned");
+    }
     return jwt.sign(
-      { id: user.id, company_id: user.companyId || user.company_id, role: user.role },
+      { id: user.id, company_id: companyId, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -142,6 +151,17 @@ class AuthService {
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new Error("Invalid password");
+
+    // Eğer kullanıcının şirketi yoksa, ilk şirkete ata (production fix)
+    if (!user.companyId) {
+      console.warn("[AuthService] User has no company, assigning to first company:", { userId: user.id, email: user.email });
+      const firstCompany = await Company.findOne({ order: [['id', 'ASC']] });
+      if (firstCompany) {
+        user.companyId = firstCompany.id;
+        await user.save();
+        console.log("[AuthService] User assigned to company:", { userId: user.id, companyId: firstCompany.id });
+      }
+    }
 
     const token = this.generateJWT(user);
     

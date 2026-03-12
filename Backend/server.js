@@ -33,6 +33,14 @@ io.on('connection', (socket) => {
 // io'yu route'lara iletilebilir hale getir
 app.set('io', io);
 
+// ─── Gizli restart endpoint ───────────────────────────────────────────────────
+app.get('/gizli-restart-8472', (req, res) => {
+  res.send('Yeniden başlatılıyor...');
+  setTimeout(() => {
+    process.exit(0); // PM2 otomatik olarak yeniden başlatır
+  }, 500);
+});
+
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
   // Start recurring task scheduler (every 60s)
