@@ -31,10 +31,15 @@ class LeaveController {
 
   async getPendingLeaves(req, res) {
     try {
-      const leaves = await LeaveService.getPendingByCompany(req.user.company_id);
-      res.json(leaves);
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const leaves = await LeaveService.getPendingByCompany(companyId);
+      res.json(leaves || []);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error('[LeaveController] getPendingLeaves error:', err.message);
+      res.status(500).json({ error: "Failed to fetch pending leaves" });
     }
   }
 

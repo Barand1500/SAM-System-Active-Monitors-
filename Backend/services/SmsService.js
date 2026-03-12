@@ -30,15 +30,31 @@ class SmsService {
   }
 
   async send(companyId, userId, data) {
-    // TODO: Gerçek SMS entegrasyonu (Netgsm, Twilio vb.) buraya eklenecek
-    // Şu an sadece DB'ye kaydediliyor
+    // SMS entegrasyonu placeholder
+    // Production'da Netgsm, Twilio, vb. entegrasyonu eklemelisiniz
+    
+    if (!data.recipients || data.recipients.length === 0) {
+      throw new Error("Recipients list is required");
+    }
+    
+    if (!data.message || data.message.trim() === "") {
+      throw new Error("Message content is required");
+    }
+    
+    console.warn('[SmsService] SMS sending - INTEGRATION PENDING', {
+      companyId,
+      userId,
+      recipientCount: data.recipients.length,
+      provider: process.env.SMS_PROVIDER || 'not-configured'
+    });
+    
     const record = await smsRepo.createHistory({
       companyId,
       message: data.message,
       recipients: data.recipients,
       sendTo: data.sendTo || "all",
       templateUsed: data.templateUsed || null,
-      status: "pending", // Gerçek entegrasyon olduğunda "sent" veya "failed" olacak
+      status: "pending", // TODO: Integration with real SMS provider
       sentBy: userId,
       sentAt: new Date(),
     });

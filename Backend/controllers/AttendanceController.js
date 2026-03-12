@@ -25,13 +25,18 @@ class AttendanceController {
 
   async list(req, res) {
     try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
       const attendances = await AttendanceService.listByCompany(
-        req.user.company_id,
+        companyId,
         req.query.date
       );
-      res.json(attendances);
+      res.json(attendances || []);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error('[AttendanceController] list error:', err.message);
+      res.status(500).json({ error: "Failed to fetch attendance records" });
     }
   }
 

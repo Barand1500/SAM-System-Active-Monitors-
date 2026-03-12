@@ -3,21 +3,43 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
+const logger = require('./utils/logger');
 
 const app = express();
+
+// ─── Environment Validation ──────────────────────────────────────────────────
+const requiredEnvVars = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME'];
+const missingEnvVars = requiredEnvVars.filter(env => !process.env[env]);
+if (missingEnvVars.length > 0) {
+  logger.error('CRITICAL: Missing environment variables:', missingEnvVars.join(', '));
+  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+}
 
 // ─── Güvenlik ───────────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-// ─── CORS (sadece development'ta gerekli, prod'da same-origin) ───────────────
-if (process.env.NODE_ENV !== 'production') {
-  app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  }));
-}
+// ─── CORS (Development ve Production handling) ──────────────────────────────
+const allowedOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : process.env.NODE_ENV === 'production'
+    ? ['https://yourdomain.com']
+    : ['http://localhost:3000', 'http://localhost:5000'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.warn('CORS rejected:', origin);
+      callback(new Error('CORS policy violation'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // ─── Body parsers ────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));

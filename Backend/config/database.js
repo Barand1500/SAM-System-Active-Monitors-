@@ -18,10 +18,10 @@ const sequelize = new Sequelize(
       collate: 'utf8mb4_general_ci'
     },
     pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
+      max: 20,        // İncreased for better concurrency
+      min: 2,         // Keep minimum connections
+      acquire: 30000, // 30s timeout for acquiring connection
+      idle: 10000     // 10s idle timeout
     }
   }
 );

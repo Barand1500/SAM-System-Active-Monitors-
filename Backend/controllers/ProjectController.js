@@ -12,10 +12,15 @@ class ProjectController {
 
   async listByCompany(req, res) {
     try {
-      const projects = await ProjectService.getByCompany(req.user.company_id);
-      res.json(projects);
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const projects = await ProjectService.getByCompany(companyId);
+      res.json(projects || []);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error('[ProjectController] listByCompany error:', err.message);
+      res.status(500).json({ error: "Failed to fetch projects" });
     }
   }
 
@@ -31,14 +36,19 @@ class ProjectController {
 
   async create(req, res) {
     try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
       const { name, description, workspaceId, color, icon, startDate, endDate, members } = req.body;
       const project = await ProjectService.create({
         name, description, workspaceId, color, icon, startDate, endDate,
         createdBy: req.user.id,
-        companyId: req.user.company_id
+        companyId: companyId
       });
       res.status(201).json(project);
     } catch (err) {
+      console.error('[ProjectController] create error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }

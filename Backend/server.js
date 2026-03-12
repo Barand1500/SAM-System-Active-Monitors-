@@ -2,6 +2,7 @@ const http = require('http');
 const { Server: SocketIO } = require('socket.io');
 require('dotenv').config();
 const app = require('./app');
+const { authenticate, authorizeRoles } = require('./middleware/authMiddleware');
 
 const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
@@ -33,12 +34,15 @@ io.on('connection', (socket) => {
 // io'yu route'lara iletilebilir hale getir
 app.set('io', io);
 
-// ─── Gizli restart endpoint ───────────────────────────────────────────────────
-app.get('/gizli-restart-8472', (req, res) => {
-  res.send('Yeniden başlatılıyor...');
+// ─── Admin restart endpoint (auth required) ─────────────────────────────────────
+// Kullanım: POST /admin/restart (JWT token gerekli + boss role)
+app.post('/admin/restart', authenticate, authorizeRoles('boss'), (req, res) => {
+  console.log(`[RESTART] Admin restart triggered by user ${req.user.id} (${req.user.email})`);
+  res.json({ message: 'Sunucu yeniden başlatılacak...' });
   setTimeout(() => {
-    process.exit(0); // PM2 otomatik olarak yeniden başlatır
-  }, 500);
+    console.log('[RESTART] Process exiting - PM2 will auto-restart');
+    process.exit(0);
+  }, 1000);
 });
 
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Pro
 const userRepo = require("../repositories/UserRepository");
 
 class AuthService {
-  // Şirket için benzersiz 8 haneli kod üret
+  // Şirket için benzersiz 8 haneli kod üret (UPPERCASE olarak)
   async generateCompanyCode() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let code;
@@ -14,6 +14,7 @@ class AuthService {
       for (let i = 0; i < 8; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
       }
+      code = code.toUpperCase();
       const existing = await Company.findOne({ where: { company_code: code } });
       exists = !!existing;
     }
@@ -23,16 +24,29 @@ class AuthService {
   // JWT üret
   generateJWT(user) {
     const companyId = user.companyId || user.company_id;
+    
     if (!companyId) {
-      console.error("[AuthService] generateJWT - User without companyId:", {
+      console.error("[AuthService] CRITICAL: generateJWT - User without companyId:", {
         userId: user.id,
         email: user.email,
-        userCompanyId: user.companyId
+        userCompanyId: user.companyId,
+        userCompanyIdSnake: user.company_id
       });
       throw new Error("Cannot generate JWT: User has no company assigned");
     }
+    
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not configured in environment");
+    }
+    
     return jwt.sign(
-      { id: user.id, company_id: companyId, role: user.role },
+      { 
+        id: user.id,
+        company_id: companyId,
+        companyId: companyId,
+        role: user.role,
+        email: user.email
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -97,12 +111,18 @@ class AuthService {
 
   // Çalışan kaydı
   async registerEmployee(employeeData) {
+    // CRITICAL: companyId 必ず存在する必要がある
+    if (!employeeData.companyId) {
+      throw new Error("Company ID is required to register an employee");
+    }
+
     const allowedRoles = ["employee", "manager"];
     const role = allowedRoles.includes(employeeData.role) ? employeeData.role : "employee";
 
     const hashedPassword = await bcrypt.hash(employeeData.password, 10);
     const user = await userRepo.create({
       ...employeeData,
+      companyId: employeeData.companyId,
       password: hashedPassword,
       role
     });
@@ -114,7 +134,7 @@ class AuthService {
   // Şirket koduna katıl (public join)
   async joinCompany(companyCode, employeeData) {
     // Şirket koduna göre şirketi bul
-    const company = await Company.findOne({ where: { company_code: companyCode } });
+    const company = await Company.findOne({ where: { company_code: companyCode.toUpperCase() } });
     if (!company) throw new Error("Invalid company code");
 
     // Email unique olmalı (global olarak)
@@ -125,12 +145,21 @@ class AuthService {
     const role = allowedRoles.includes(employeeData.role) ? employeeData.role : "employee";
 
     const hashedPassword = await bcrypt.hash(employeeData.password, 10);
-    const user = await userRepo.create({
+    
+    // CRITICAL: Ensure companyId is set
+    const userData = {
       ...employeeData,
       companyId: company.id,
       password: hashedPassword,
       role
-    });
+    };
+    
+    const user = await userRepo.create(userData);
+    
+    // Verify user has company assigned
+    if (!user.companyId) {
+      throw new Error("Failed to assign company to user");
+    }
 
     const token = this.generateJWT(user);
     return { user: this.sanitizeUser(user), company, token };

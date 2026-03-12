@@ -4,57 +4,101 @@ const CompanySettingService = require("../services/CompanySettingService");
 class CompanySettingController {
   async get(req, res) {
     try {
-      const settings = await CompanySettingService.getByCompany(req.user.company_id);
-      res.json(settings);
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const settings = await CompanySettingService.getByCompany(companyId);
+      res.json(settings || {});
     } catch (err) {
+      console.error('[CompanySettingController] get error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }
 
   async update(req, res) {
     try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
       const { company_id, id, profileData, foldersData, ...safeData } = req.body;
-      const settings = await CompanySettingService.upsert(req.user.company_id, safeData);
+      const settings = await CompanySettingService.upsert(companyId, safeData);
       res.json(settings);
     } catch (err) {
+      console.error('[CompanySettingController] update error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }
 
   async getProfile(req, res) {
     try {
-      const settings = await CompanySettingService.getByCompany(req.user.company_id);
-      res.json(settings?.profileData || null);
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const settings = await CompanySettingService.getByCompany(companyId);
+      res.json(settings?.profileData || {});
     } catch (err) {
+      console.error('[CompanySettingController] getProfile error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }
 
   async updateProfile(req, res) {
     try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
       const profileData = req.body;
-      const settings = await CompanySettingService.upsert(req.user.company_id, { profileData });
+      const settings = await CompanySettingService.upsert(companyId, { profileData });
       res.json(settings.profileData);
     } catch (err) {
+      console.error('[CompanySettingController] updateProfile error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }
 
   async getFolders(req, res) {
     try {
-      const settings = await CompanySettingService.getByCompany(req.user.company_id);
-      res.json(settings?.foldersData || null);
+      const companyId = req.user?.company_id || req.user?.companyId;
+
+      if (!companyId) {
+        console.error('[CompanySettingController.getFolders] CRITICAL - Missing company_id:', {
+          userId: req.user?.id,
+          hasCompanyId: !!companyId,
+          userKeys: Object.keys(req.user || {})
+        });
+        return res.status(400).json({ 
+          error: "Company ID not found in user context"
+        });
+      }
+
+      const settings = await CompanySettingService.getByCompany(companyId);
+      res.json(settings?.foldersData || {});
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      console.error('[CompanySettingController] getFolders error:', {
+        message: err.message,
+        stack: err.stack
+      });
+      res.status(500).json({ 
+        error: "Failed to load folder settings"
+      });
     }
   }
 
   async updateFolders(req, res) {
     try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
       const foldersData = req.body;
-      const settings = await CompanySettingService.upsert(req.user.company_id, { foldersData });
+      const settings = await CompanySettingService.upsert(companyId, { foldersData });
       res.json(settings.foldersData);
     } catch (err) {
+      console.error('[CompanySettingController] updateFolders error:', err.message);
       res.status(400).json({ error: err.message });
     }
   }

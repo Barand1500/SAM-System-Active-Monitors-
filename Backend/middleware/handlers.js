@@ -7,11 +7,19 @@ function notFound(req, res, next) {
 
 // Global error handler
 function errorHandler(err, req, res, next) {
-  logger.error(err.message, { stack: err.stack });
+  logger.error(err.message, { 
+    stack: err.stack,
+    method: req.method,
+    path: req.path,
+    ip: req.ip
+  });
 
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || err.status || 500;
+  const isDev = process.env.NODE_ENV !== "production";
+  
   res.status(statusCode).json({
-    error: process.env.NODE_ENV === "production" ? "Internal server error" : err.message
+    error: isDev ? err.message : "An error occurred",
+    ...(isDev && { stack: err.stack })
   });
 }
 
