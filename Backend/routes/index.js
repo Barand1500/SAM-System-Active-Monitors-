@@ -94,4 +94,7 @@ router.use("/task-priorities", require("./taskPriorities"));
 // SMS
 router.use("/sms", require("./sms"));
 
+// System (Restart & Health)
+router.use("/system", require("./system"));
+
 module.exports = router;
