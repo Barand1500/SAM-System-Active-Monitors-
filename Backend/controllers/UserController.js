@@ -88,6 +88,34 @@ class UserController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async uploadAvatar(req, res) {
+    try {
+      const companyId = req.user.company_id || req.user.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Dosya yolu oluştur (avatars klasörüne kaydedilen dosyalar)
+      const avatarUrl = "/uploads/avatars/" + req.file.filename;
+      
+      // User'ı güncelle
+      const user = await UserService.updateUser(req.params.id, { avatarUrl }, companyId);
+      
+      res.json({
+        message: "Avatar uploaded successfully",
+        avatarUrl,
+        user
+      });
+    } catch (err) {
+      console.error('[UserController] uploadAvatar error:', err.message);
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new UserController();

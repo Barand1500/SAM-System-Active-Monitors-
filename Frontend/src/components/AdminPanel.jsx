@@ -10,7 +10,7 @@ import {
   Phone, Mail, Globe, MapPin, FileText, Banknote, Hash, Users,
   AlertTriangle, Tag, Palette, Crown, UserCog, ClipboardList, Pipette,
   Eye, EyeOff, Info, GripVertical, Settings, CheckSquare, Briefcase,
-  BarChart3, Megaphone, Calendar, Printer, Download, Loader2
+  BarChart3, Megaphone, Calendar, Printer, Download, Loader2, Upload
 } from 'lucide-react';
 import { 
   validateEmail, 
@@ -295,9 +295,20 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     onConfirm: () => {}
   });
 
+  // Helper: Backend dosya URL'sini tam adrese çevir
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const baseUrl = API_URL.replace('/api', '');
+    if (path.startsWith('http')) return path;
+    if (path.startsWith('/')) return baseUrl + path;
+    return baseUrl + '/' + path;
+  };
+
   // ===== ŞİRKET PROFİLİ =====
   const defaultProfile = {
     unvan: '',
+    logoUrl: null,
     adresler: [],
     vergiDairesi: '',
     vergiNo: '',
@@ -321,6 +332,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   const [companyProfile, setCompanyProfile] = useState(defaultProfile);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [logoPreview, setLogoPreview] = useState(null);
 
   // Şirket profilini API'den yükle
   useEffect(() => {
@@ -328,7 +340,9 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       try {
         const res = await companyProfileAPI.get();
         if (res.data) {
-          setCompanyProfile({ ...defaultProfile, ...res.data });
+          const profileData = { ...defaultProfile, ...res.data };
+          setCompanyProfile(profileData);
+          setLogoPreview(getImageUrl(profileData.logoUrl || res.data.logoUrl));
         }
       } catch (err) {
         console.error('Şirket profili yüklenemedi:', err);
@@ -1346,7 +1360,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   );
 
   // ===== VISIBILITY TOGGLE =====
-  const VisibilityToggle = ({ field, label }) => {
+  const renderVisibilityToggle = (field, label) => {
     const isVisible = companyProfile.visibility?.[field];
     return (
       <button
@@ -1366,14 +1380,14 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   };
 
   // ===== FIELD HELPER =====
-  const ProfileField = ({ label, icon: FieldIcon, value, field, placeholder, type = 'text', showVisibility = false }) => (
+  const renderProfileField = (label, FieldIcon, value, field, placeholder, type = 'text', showVisibility = false) => (
     <div>
       <div className="flex items-center justify-between mb-1">
         <label className={`flex items-center gap-1.5 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
           <FieldIcon size={13} />
           {label}
         </label>
-        {showVisibility && <VisibilityToggle field={field} label={label} />}
+        {showVisibility && renderVisibilityToggle(field, label)}
       </div>
       {type === 'textarea' ? (
         <textarea
@@ -1456,8 +1470,70 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
             </p>
           </div>
 
+          {/* Şirket Logosu */}
+          <div className={`flex items-center gap-6 p-6 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="relative">
+              <div className={`w-24 h-24 rounded-2xl border-2 overflow-hidden flex items-center justify-center ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-slate-100 border-slate-200'}`}>
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 size={48} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
+                )}
+              </div>
+              <label className="absolute -bottom-2 -right-2 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full cursor-pointer transition-colors shadow-lg">
+                <Upload size={16} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    
+                    if (file.size > 5 * 1024 * 1024) {
+                      addToast({ type: 'error', title: 'Hata', message: 'Logo en fazla 5MB olabilir', duration: 3000 });
+                      return;
+                    }
+
+                    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+                      addToast({ type: 'error', title: 'Hata', message: 'Sadece resim dosyaları yüklenebilir', duration: 3000 });
+                      return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                      setLogoPreview(reader.result);
+                      
+                      try {
+                        const formData = new FormData();
+                        formData.append('logo', file);
+                        const response = await companyProfileAPI.uploadLogo(formData);
+                        
+                        const newLogoUrl = response.data.logoUrl;
+                        setCompanyProfile(prev => ({ ...prev, logoUrl: newLogoUrl }));
+                        setLogoPreview(getImageUrl(newLogoUrl));
+                        
+                        addToast({ type: 'success', title: 'Başarılı', message: 'Logo yüklendi', duration: 2000 });
+                      } catch (err) {
+                        console.error('Logo yükleme hatası:', err);
+                        addToast({ type: 'error', title: 'Hata', message: 'Logo yüklenirken hata oluştu', duration: 3000 });
+                        setLogoPreview(getImageUrl(companyProfile.logoUrl) || null);
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
+            <div className="flex-1">
+              <p className={`font-semibold mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>Şirket Logosu</p>
+              <p className={`text-sm mb-3 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Şirket logonuzu yükleyin. İdeal boyut: 200x200px</p>
+              <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>Desteklenen formatlar: JPG, PNG, GIF, WebP (Max 5MB)</p>
+            </div>
+          </div>
+
           {/* Ünvan */}
-          <ProfileField label="Ünvan" icon={FileText} value={companyProfile.unvan} field="unvan" placeholder="Şirket ünvanı..." showVisibility={true} />
+          {renderProfileField('Ünvan', FileText, companyProfile.unvan, 'unvan', 'Şirket ünvanı...', 'text', true)}
 
           {/* Dinamik Adresler */}
           <div className={`p-4 rounded-xl border ${isDark ? 'border-slate-700 bg-slate-700/30' : 'border-slate-200 bg-slate-50/50'}`}>
@@ -1591,8 +1667,8 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
 
           {/* Vergi Bilgileri */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ProfileField label="Vergi Dairesi" icon={Banknote} value={companyProfile.vergiDairesi} field="vergiDairesi" placeholder="Vergi dairesi..." showVisibility={true} />
-            <ProfileField label="Vergi No" icon={Hash} value={companyProfile.vergiNo} field="vergiNo" placeholder="Vergi numarası..." showVisibility={true} />
+            {renderProfileField('Vergi Dairesi', Banknote, companyProfile.vergiDairesi, 'vergiDairesi', 'Vergi dairesi...', 'text', true)}
+            {renderProfileField('Vergi No', Hash, companyProfile.vergiNo, 'vergiNo', 'Vergi numarası...', 'text', true)}
           </div>
 
           {/* Dinamik Telefonlar */}
@@ -1829,10 +1905,10 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
               <FileText size={14} /> Ticari Bilgiler
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ProfileField label="Mersis No" icon={Hash} value={companyProfile.mersisNo} field="mersisNo" placeholder="Mersis numarası..." showVisibility={true} />
-              <ProfileField label="Ticaret Sicil Numarası" icon={Hash} value={companyProfile.ticaretSicilNo} field="ticaretSicilNo" placeholder="Sicil no..." showVisibility={true} />
-              <ProfileField label="Ticaret Odası" icon={Building2} value={companyProfile.ticaretOdasi} field="ticaretOdasi" placeholder="Ticaret odası..." showVisibility={true} />
-              <ProfileField label="Oda Sicil Numarası" icon={Hash} value={companyProfile.odaSicilNo} field="odaSicilNo" placeholder="Oda sicil no..." showVisibility={true} />
+              {renderProfileField('Mersis No', Hash, companyProfile.mersisNo, 'mersisNo', 'Mersis numarası...', 'text', true)}
+              {renderProfileField('Ticaret Sicil Numarası', Hash, companyProfile.ticaretSicilNo, 'ticaretSicilNo', 'Sicil no...', 'text', true)}
+              {renderProfileField('Ticaret Odası', Building2, companyProfile.ticaretOdasi, 'ticaretOdasi', 'Ticaret odası...', 'text', true)}
+              {renderProfileField('Oda Sicil Numarası', Hash, companyProfile.odaSicilNo, 'odaSicilNo', 'Oda sicil no...', 'text', true)}
             </div>
           </div>
 

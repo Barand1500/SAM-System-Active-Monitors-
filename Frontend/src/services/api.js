@@ -45,7 +45,10 @@ export const userAPI = {
   create: (data) => apiClient.post('/users', data),
   update: (id, data) => apiClient.put(`/users/${id}`, data),
   delete: (id) => apiClient.delete(`/users/${id}`),
-  updateSkills: (id, skills) => apiClient.put(`/users/${id}/skills`, { skills })
+  updateSkills: (id, skills) => apiClient.put(`/users/${id}/skills`, { skills }),
+  uploadAvatar: (id, formData) => apiClient.post(`/users/${id}/avatar`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 };
 
 // ============== ANNOUNCEMENTS ENDPOINTS ==============
@@ -210,6 +213,9 @@ export const recurringTaskAPI = {
 export const companyProfileAPI = {
   get: () => apiClient.get('/settings/profile'),
   update: (data) => apiClient.put('/settings/profile', data),
+  uploadLogo: (formData) => apiClient.post('/settings/profile/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 };
 
 export const foldersAPI = {

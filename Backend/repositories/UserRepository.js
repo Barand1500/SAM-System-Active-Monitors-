@@ -12,7 +12,7 @@ class UserRepository extends BaseRepository {
   }
 
   async getByCompany(company_id) {
-    return this.model.findAll({ where: { company_id }, include: [{ model: Department }] });
+    return this.model.findAll({ where: { company_id }, include: [{ model: Department }, { model: UserSkill }] });
   }
 
   async getWithSkills(userId, companyId) {
