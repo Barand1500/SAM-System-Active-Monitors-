@@ -17,6 +17,10 @@ class LeaveService {
     return leaveRepo.findPendingByCompany(companyId);
   }
 
+  async getAllByCompany(companyId) {
+    return leaveRepo.findAllByCompany(companyId);
+  }
+
   async approve(id, approvedBy) {
     const leave = await leaveRepo.findById(id);
     if (!leave) throw new Error("Leave request not found");

@@ -23,6 +23,17 @@ class LeaveRepository extends BaseRepository {
       order: [["created_at", "ASC"]]
     });
   }
+
+  async findAllByCompany(companyId) {
+    return this.model.findAll({
+      include: [{
+        model: User,
+        where: { companyId },
+        attributes: ["id", "first_name", "last_name", "email"]
+      }],
+      order: [["created_at", "DESC"]]
+    });
+  }
 }
 
 module.exports = new LeaveRepository();

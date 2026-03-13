@@ -130,6 +130,7 @@ export const leaveAPI = {
   list: () => apiClient.get('/leaves'),
   create: (data) => apiClient.post('/leaves', data),
   getPending: () => apiClient.get('/leaves/pending'),
+  getAll: () => apiClient.get('/leaves/all'),
   approve: (id) => apiClient.patch(`/leaves/${id}/approve`),
   reject: (id, reason) => apiClient.patch(`/leaves/${id}/reject`, { rejection_reason: reason })
 };
