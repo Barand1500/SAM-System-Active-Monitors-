@@ -43,7 +43,7 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
     const loadLeaves = async () => {
       try {
         if (canManage) {
-          const res = await leaveAPI.getPending();
+          const res = await leaveAPI.getAll();
           const data = res.data?.data || res.data;
           if (Array.isArray(data)) {
             setRequests(data.map(l => ({
@@ -57,6 +57,8 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
               days: l.leaveDays || l.leave_days,
               reason: l.reasonText || l.reason_text,
               status: l.approvalStatus || l.approval_status || 'pending',
+              rejectionReason: l.rejectionReason || l.rejection_reason || null,
+              approvedAt: l.approvedAt || l.approved_at || null,
               createdAt: l.created_at || l.createdAt
             })));
           }
@@ -75,6 +77,8 @@ const LeaveRequestSystem = ({ user, isBoss, canManage, isDark }) => {
               days: l.leaveDays || l.leave_days,
               reason: l.reasonText || l.reason_text,
               status: l.approvalStatus || l.approval_status || 'pending',
+              rejectionReason: l.rejectionReason || l.rejection_reason || null,
+              approvedAt: l.approvedAt || l.approved_at || null,
               createdAt: l.created_at || l.createdAt
             })));
           }

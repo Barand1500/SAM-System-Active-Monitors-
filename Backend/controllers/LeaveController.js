@@ -43,6 +43,20 @@ class LeaveController {
     }
   }
 
+  async getAllLeaves(req, res) {
+    try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const leaves = await LeaveService.getAllByCompany(companyId);
+      res.json(leaves || []);
+    } catch (err) {
+      console.error('[LeaveController] getAllLeaves error:', err.message);
+      res.status(500).json({ error: "Failed to fetch leaves" });
+    }
+  }
+
   async approveLeave(req, res) {
     try {
       const leave = await LeaveService.approve(req.params.id, req.user.id);

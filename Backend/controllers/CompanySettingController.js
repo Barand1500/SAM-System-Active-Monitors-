@@ -102,6 +102,36 @@ class CompanySettingController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async uploadLogo(req, res) {
+    try {
+      const companyId = req.user?.company_id || req.user?.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Dosya yolu oluştur (logos klasörüne kaydedilen dosyalar)
+      const logoUrl = "/uploads/logos/" + req.file.filename;
+
+      // Şirket profili settings'ini güncelle
+      const settings = await CompanySettingService.upsert(companyId, {
+        profileData: { logoUrl }
+      });
+
+      res.json({
+        message: "Logo uploaded successfully",
+        logoUrl,
+        data: settings.profileData
+      });
+    } catch (err) {
+      console.error('[CompanySettingController] uploadLogo error:', err.message);
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new CompanySettingController();

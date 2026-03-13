@@ -45,7 +45,10 @@ export const userAPI = {
   create: (data) => apiClient.post('/users', data),
   update: (id, data) => apiClient.put(`/users/${id}`, data),
   delete: (id) => apiClient.delete(`/users/${id}`),
-  updateSkills: (id, skills) => apiClient.put(`/users/${id}/skills`, { skills })
+  updateSkills: (id, skills) => apiClient.put(`/users/${id}/skills`, { skills }),
+  uploadAvatar: (id, formData) => apiClient.post(`/users/${id}/avatar`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 };
 
 // ============== ANNOUNCEMENTS ENDPOINTS ==============
@@ -127,6 +130,7 @@ export const leaveAPI = {
   list: () => apiClient.get('/leaves'),
   create: (data) => apiClient.post('/leaves', data),
   getPending: () => apiClient.get('/leaves/pending'),
+  getAll: () => apiClient.get('/leaves/all'),
   approve: (id) => apiClient.patch(`/leaves/${id}/approve`),
   reject: (id, reason) => apiClient.patch(`/leaves/${id}/reject`, { rejection_reason: reason })
 };
@@ -210,6 +214,9 @@ export const recurringTaskAPI = {
 export const companyProfileAPI = {
   get: () => apiClient.get('/settings/profile'),
   update: (data) => apiClient.put('/settings/profile', data),
+  uploadLogo: (formData) => apiClient.post('/settings/profile/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 };
 
 export const foldersAPI = {

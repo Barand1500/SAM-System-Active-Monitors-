@@ -7,6 +7,16 @@ import {
 import { validateEmail, validatePhone, validateRequired } from '../utils/validation';
 import { userAPI, departmentAPI } from '../services/api';
 
+// Helper: Backend dosya URL'sini tam adrese çevir
+const getImageUrl = (path) => {
+  if (!path) return null;
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const baseUrl = API_URL.replace('/api', ''); // Remove /api
+  if (path.startsWith('http')) return path; // Already full URL
+  if (path.startsWith('/')) return baseUrl + path;
+  return baseUrl + '/' + path;
+};
+
 const UserProfile = ({ isDark }) => {
   const { user } = useAuth();
   const { addToast } = useNotification();
@@ -37,6 +47,7 @@ const UserProfile = ({ isDark }) => {
 
       const skills = (u.UserSkills || []).map(s => s.name);
       const deptName = u.Department?.name || '';
+      const avatarUrl = u.avatarUrl || u.avatar_url || null;
       setProfile({
         firstName: u.firstName || u.first_name || '',
         lastName: u.lastName || u.last_name || '',
@@ -46,9 +57,10 @@ const UserProfile = ({ isDark }) => {
         departmentId: u.departmentId || u.department_id || null,
         departmentName: deptName,
         skills,
-        avatarUrl: u.avatarUrl || u.avatar_url || null
+        avatarUrl: avatarUrl
       });
-      setPhotoPreview(u.avatarUrl || u.avatar_url || null);
+      // Backend URL'sini ekleyerek full path oluştur
+      setPhotoPreview(getImageUrl(avatarUrl));
     } catch (err) {
       console.error('Profil yüklenemedi:', err);
     } finally {
@@ -58,28 +70,76 @@ const UserProfile = ({ isDark }) => {
 
   useEffect(() => { if (user?.id) fetchProfile(); }, [user?.id]);
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Dosya boyutu kontrolü (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
+    // Dosya boyutu kontrolü (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
       addToast({
         type: 'error',
         title: 'Dosya Çok Büyük',
-        message: 'Profil fotoğrafı en fazla 2MB olabilir',
+        message: 'Profil fotoğrafı en fazla 5MB olabilir',
         duration: 3000
       });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result;
-      setProfile(prev => ({ ...prev, profilePhoto: base64 }));
-      setPhotoPreview(base64);
-    };
-    reader.readAsDataURL(file);
+    // Dosya türü kontrolü
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      addToast({
+        type: 'error',
+        title: 'Geçersiz Dosya',
+        message: 'Sadece resim dosyaları yüklenebilir (jpg, png, gif, webp)',
+        duration: 3000
+      });
+      return;
+    }
+
+    try {
+      // Önce preview göster
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+
+      // Hemen dosyayı upload et
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await userAPI.uploadAvatar(user.id, formData);
+      
+      // Profile state'ini güncelle
+      const newAvatarUrl = response.data.avatarUrl;
+      setProfile(prev => ({
+        ...prev,
+        avatarUrl: newAvatarUrl
+      }));
+
+      // PhotoPreview'u backend URL'si ile güncelle
+      setPhotoPreview(getImageUrl(newAvatarUrl));
+
+      // Dashboard sidebar'daki avatarı da güncelle
+      window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { avatarUrl: newAvatarUrl } }));
+
+      addToast({
+        type: 'success',
+        title: 'Başarılı',
+        message: 'Profil fotoğrafı yüklendi',
+        duration: 2000
+      });
+    } catch (err) {
+      console.error('Fotoğraf yükleme hatası:', err);
+      addToast({
+        type: 'error',
+        title: 'Hata',
+        message: 'Fotoğraf yüklenirken bir hata oluştu',
+        duration: 3000
+      });
+      // Preview'ı geri al
+      setPhotoPreview(getImageUrl(profile.avatarUrl) || null);
+    }
   };
 
   const handleAddSkill = () => {
@@ -141,13 +201,15 @@ const UserProfile = ({ isDark }) => {
 
     setIsSaving(true);
     try {
-      await userAPI.update(user.id, {
+      const updateData = {
         firstName: profile.firstName,
         lastName: profile.lastName,
         phone: profile.phone,
         position: profile.position,
         departmentId: profile.departmentId || null
-      });
+      };
+
+      await userAPI.update(user.id, updateData);
       await userAPI.updateSkills(user.id, profile.skills);
       setIsEditing(false);
       addToast({

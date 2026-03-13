@@ -12,6 +12,7 @@ router.post("/", LeaveController.createLeave);
 
 // Manager/Boss approval endpoints
 router.get("/pending", authorizeRoles("boss", "manager"), LeaveController.getPendingLeaves);
+router.get("/all", authorizeRoles("boss", "manager"), LeaveController.getAllLeaves);
 router.patch("/:id/approve", authorizeRoles("boss", "manager"), LeaveController.approveLeave);
 router.patch("/:id/reject", authorizeRoles("boss", "manager"), LeaveController.rejectLeave);
 

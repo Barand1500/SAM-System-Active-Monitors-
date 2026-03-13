@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import logger from '../utils/logger';
 
-import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI, smsAPI } from '../services/api';
+import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI, smsAPI, roleAPI } from '../services/api';
 import { 
   LayoutDashboard,
   Users,
@@ -215,6 +215,16 @@ const backendToFrontendTask = (bt) => {
   };
 };
 
+// Helper: Backend dosya URL'sini tam adrese çevir
+const getImageUrl = (imgPath) => {
+  if (!imgPath) return null;
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const baseUrl = API_URL.replace('/api', '');
+  if (imgPath.startsWith('http')) return imgPath;
+  if (imgPath.startsWith('/')) return baseUrl + imgPath;
+  return baseUrl + '/' + imgPath;
+};
+
 // Ana Dashboard bileşeni
 const Dashboard = () => {
   const { user, company, logout, isBoss, isManager, isEmployee, userRoles } = useAuth();
@@ -223,7 +233,35 @@ const Dashboard = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   
+  // Kullanıcı avatar'ını yükle
+  useEffect(() => {
+    const loadAvatar = async () => {
+      if (!user?.id) return;
+      try {
+        const res = await userAPI.get(user.id);
+        const u = res.data?.data || res.data;
+        const avatar = u?.avatarUrl || u?.avatar_url;
+        if (avatar) setUserAvatarUrl(getImageUrl(avatar));
+      } catch (err) {
+        // Avatar yüklenemezse sessizce devam et
+      }
+    };
+    loadAvatar();
+
+    // Avatar güncellendiğinde yeniden yükle
+    const handleAvatarUpdate = (e) => {
+      if (e.detail?.avatarUrl) {
+        setUserAvatarUrl(getImageUrl(e.detail.avatarUrl));
+      } else {
+        loadAvatar();
+      }
+    };
+    window.addEventListener('avatar-updated', handleAvatarUpdate);
+    return () => window.removeEventListener('avatar-updated', handleAvatarUpdate);
+  }, [user?.id]);
+
   // Ana state'ler - LocalStorage ile senkronize
   const [tasks, setTasks] = useState([]);
   const [statusIdMap, setStatusIdMap] = useState({});   // { 'pending': 1, 'in_progress': 2, ... }
@@ -232,6 +270,7 @@ const Dashboard = () => {
   const [employees, setEmployees] = useState([]);
   const [announcementsList, setAnnouncementsList] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
   
   // Modal state'leri
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -296,7 +335,12 @@ const Dashboard = () => {
         const usersRes = await userAPI.list();
         if (usersRes.data?.data || usersRes.data) {
           const userData = usersRes.data.data || usersRes.data;
-          setEmployees(Array.isArray(userData) ? userData : []);
+          const mapped = (Array.isArray(userData) ? userData : []).map(u => ({
+            ...u,
+            skills: u.UserSkills || u.skills || [],
+            roles: u.roles || (u.role ? [u.role] : ['employee'])
+          }));
+          setEmployees(mapped);
         }
         logger.success('DATA-LOAD', `${employees.length} çalışan yüklendi`);
       } catch (err) {
@@ -325,6 +369,17 @@ const Dashboard = () => {
         logger.success('DATA-LOAD', 'Departmanlar yüklendi');
       } catch (err) {
         logger.error('DATA-LOAD', 'Departmanlar yüklenirken hata', err);
+      }
+
+      try {
+        // Rolleri Backend'den çek
+        const rolesRes = await roleAPI.list();
+        const rolesData = rolesRes.data?.data || rolesRes.data;
+        if (Array.isArray(rolesData)) {
+          setAvailableRoles(rolesData.filter(r => (r.roleKey || r.role_key || r.id) !== 'boss'));
+        }
+      } catch (err) {
+        console.error('Rolleri yüklerken hata:', err);
       }
 
       try {
@@ -447,11 +502,11 @@ const Dashboard = () => {
   const addEmployee = async (empData) => {
     try {
       const res = await userAPI.create(empData);
-      const newEmp = res.data.data || res.data;
+      const raw = res.data.data || res.data;
+      const newEmp = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: raw.roles || (raw.role ? [raw.role] : ['employee']) };
       setEmployees(prev => [...prev, newEmp]);
     } catch (err) {
       console.error('Çalışan eklerken hata:', err);
-      // Fallback: local ekle
       const newEmployee = {
         ...empData,
         id: Date.now(),
@@ -465,8 +520,10 @@ const Dashboard = () => {
 
   const updateEmployee = async (empId, updates) => {
     try {
-      await userAPI.update(empId, updates);
-      setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updates } : e));
+      const res = await userAPI.update(empId, updates);
+      const raw = res.data.data || res.data;
+      const updated = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: raw.roles || (raw.role ? [raw.role] : ['employee']) };
+      setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updated } : e));
     } catch (err) {
       console.error('Çalışan güncellerken hata:', err);
       setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updates } : e));
@@ -859,8 +916,14 @@ const Dashboard = () => {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}
                 >
-                  <div className="w-9 h-9 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+                    {userAvatarUrl ? (
+                      <img src={userAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                        {user?.firstName?.[0]}{user?.lastName?.[0]}
+                      </div>
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
                     <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{user?.firstName} {user?.lastName}</p>
@@ -1106,6 +1169,7 @@ const Dashboard = () => {
         <EmployeeFormModal 
           employee={editingEmployee}
           departments={departments}
+          availableRoles={availableRoles}
           onClose={() => { setShowEmployeeModal(false); setEditingEmployee(null); }}
           onSave={(data) => {
             if (editingEmployee) {
@@ -2008,7 +2072,7 @@ const SKILL_CATEGORY_COLORS = {
   'Yönetim': { bg: 'bg-red-100 dark:bg-red-500/15', text: 'text-red-700 dark:text-red-300', dot: 'bg-red-500' }
 };
 
-const EmployeeFormModal = ({ employee, departments, onClose, onSave, isDark }) => {
+const EmployeeFormModal = ({ employee, departments, availableRoles = [], onClose, onSave, isDark }) => {
   const [form, setForm] = useState({
     firstName: employee?.firstName || '',
     lastName: employee?.lastName || '',
@@ -2149,10 +2213,18 @@ const EmployeeFormModal = ({ employee, departments, onClose, onSave, isDark }) =
                   Roller
                 </label>
                 <div className="flex flex-col gap-2">
-                  {[
-                    { value: 'manager', label: 'Yönetici', icon: '👔' },
-                    { value: 'employee', label: 'Çalışan', icon: '👤' },
-                  ].map(roleOpt => {
+                  {(availableRoles.length > 0
+                    ? availableRoles.map(r => ({
+                        value: r.roleKey || r.role_key || r.label?.toLowerCase(),
+                        label: r.label,
+                        icon: (r.roleKey || r.role_key) === 'manager' ? '👔' : '👤',
+                        color: r.color
+                      }))
+                    : [
+                        { value: 'manager', label: 'Yönetici', icon: '👔' },
+                        { value: 'employee', label: 'Çalışan', icon: '👤' },
+                      ]
+                  ).map(roleOpt => {
                     const isChecked = form.roles.includes(roleOpt.value);
                     return (
                       <label key={roleOpt.value}

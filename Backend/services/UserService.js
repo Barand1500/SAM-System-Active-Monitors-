@@ -5,15 +5,40 @@ const UserSkill = require("../models").UserSkill;
 
 class UserService {
   async createUser(data) {
+    const skills = data.skills;
+    delete data.skills;
     data.password = await bcrypt.hash(data.password, 10);
-    return UserRepo.create(data);
+    const user = await UserRepo.create(data);
+    if (skills && skills.length > 0) {
+      await UserSkill.bulkCreate(skills.map(s => ({
+        userId: user.id,
+        name: typeof s === 'string' ? s : s.name,
+        category: typeof s === 'string' ? null : (s.category || null),
+        level: typeof s === 'string' ? 'intermediate' : (s.level || 'intermediate')
+      })));
+    }
+    return UserRepo.getWithSkills(user.id, user.companyId || user.company_id);
   }
 
   async updateUser(id, data, companyId) {
+    const skills = data.skills;
+    delete data.skills;
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-    return UserRepo.update(id, data, companyId);
+    const user = await UserRepo.update(id, data, companyId);
+    if (skills !== undefined) {
+      await UserSkill.destroy({ where: { userId: id } });
+      if (skills && skills.length > 0) {
+        await UserSkill.bulkCreate(skills.map(s => ({
+          userId: id,
+          name: typeof s === 'string' ? s : s.name,
+          category: typeof s === 'string' ? null : (s.category || null),
+          level: typeof s === 'string' ? 'intermediate' : (s.level || 'intermediate')
+        })));
+      }
+    }
+    return UserRepo.getWithSkills(id, companyId);
   }
 
   async getUserWithSkills(userId, companyId) {
