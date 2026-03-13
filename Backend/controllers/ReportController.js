@@ -46,6 +46,22 @@ class ReportController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async userAttendanceReport(req, res) {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+      const data = await ReportService.getUserAttendanceReport(
+        userId, 
+        req.user.company_id,
+        startDate,
+        endDate
+      );
+      res.json(data);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new ReportController();

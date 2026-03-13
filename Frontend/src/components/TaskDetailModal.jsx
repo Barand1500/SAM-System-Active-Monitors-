@@ -585,9 +585,17 @@ const TaskDetailModal = ({ task, onClose, onUpdate, user, isDark, canManage = tr
               </div>
               {activities.map((activity, index) => {
                 const elapsed = index > 0 ? (() => {
-                  const prev = new Date(activities[index - 1].date);
-                  const curr = new Date(activity.date);
+                  const prevDate = activities[index - 1]?.date;
+                  const currDate = activity?.date;
+                  if (!prevDate || !currDate) return null;
+                  
+                  const prev = new Date(prevDate);
+                  const curr = new Date(currDate);
+                  if (isNaN(prev.getTime()) || isNaN(curr.getTime())) return null;
+                  
                   const diffMs = curr - prev;
+                  if (diffMs < 0) return null;
+                  
                   const mins = Math.floor(diffMs / (1000 * 60));
                   const hrs = Math.floor(mins / 60);
                   const days = Math.floor(hrs / 24);

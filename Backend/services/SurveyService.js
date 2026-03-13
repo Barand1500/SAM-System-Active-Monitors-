@@ -120,6 +120,20 @@ class SurveyService {
   async submitResponse(survey_id, user_id, answers) {
     const t = await sequelize.transaction();
     try {
+      // ✅ Kullanıcı daha önce bu ankete katıldı mı kontrol et
+      const existingResponse = await SurveyResponse.findOne({
+        where: { 
+          surveyId: survey_id, 
+          userId: user_id 
+        },
+        transaction: t
+      });
+
+      if (existingResponse) {
+        await t.rollback();
+        throw new Error('Bu ankete zaten katıldınız. Bir ankete sadece bir kez cevap verebilirsiniz.');
+      }
+
       const response = await SurveyResponse.create({
         surveyId: survey_id,
         userId: user_id,
