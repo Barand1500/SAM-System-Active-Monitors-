@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 30000, // 30 saniye
   headers: {
     'Content-Type': 'application/json'
   }
@@ -74,7 +74,7 @@ export const notificationAPI = {
 
 // ============== TASKS ENDPOINTS ==============
 export const taskAPI = {
-  list: () => apiClient.get('/tasks'),
+  list: () => apiClient.get('/tasks', { timeout: 60000 }), // 60 saniye
   get: (id) => apiClient.get(`/tasks/${id}`),
   create: (data) => apiClient.post('/tasks', data),
   update: (id, data) => apiClient.put(`/tasks/${id}`, data),

@@ -11,16 +11,43 @@ class TaskRepository extends BaseRepository {
   }
 
   async findByCompany(companyId) {
-    return this.model.findAll({
-      where: { companyId },
-      include: [
-        { model: TaskStatus },
-        { model: TaskPriority },
-        { model: TaskAssignment, include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'avatarUrl'] }] },
-        { model: User, as: 'creator', attributes: ['id', 'firstName', 'lastName'] }
-      ],
-      order: [['created_at', 'DESC']]
-    });
+    try {
+      return await this.model.findAll({
+        where: { companyId },
+        include: [
+          { 
+            model: TaskStatus,
+            required: false,
+            attributes: ['id', 'name', 'color']
+          },
+          { 
+            model: TaskPriority,
+            required: false,
+            attributes: ['id', 'name', 'color']
+          },
+          { 
+            model: TaskAssignment,
+            required: false,
+            include: [{ 
+              model: User, 
+              required: false,
+              attributes: ['id', 'firstName', 'lastName', 'avatarUrl'] 
+            }]
+          },
+          { 
+            model: User, 
+            as: 'creator',
+            required: false,
+            attributes: ['id', 'firstName', 'lastName'] 
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: 1000 // Limit ekle
+      });
+    } catch (error) {
+      console.error('TaskRepository.findByCompany error:', error);
+      throw error;
+    }
   }
 }
 

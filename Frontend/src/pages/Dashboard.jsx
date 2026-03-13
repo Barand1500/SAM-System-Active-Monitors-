@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import logger from '../utils/logger';
 
 import { userAPI, announcementAPI, departmentAPI, notificationAPI, taskAPI, dashboardSettingAPI, smsAPI } from '../services/api';
 import { 
@@ -297,8 +298,9 @@ const Dashboard = () => {
           const userData = usersRes.data.data || usersRes.data;
           setEmployees(Array.isArray(userData) ? userData : []);
         }
+        logger.success('DATA-LOAD', `${employees.length} çalışan yüklendi`);
       } catch (err) {
-        console.error('Çalışanları yüklerken hata:', err);
+        logger.error('DATA-LOAD', 'Çalışanlar yüklenirken hata', err);
       }
 
       try {
@@ -308,8 +310,9 @@ const Dashboard = () => {
           const announcementData = announcementsRes.data.data || announcementsRes.data;
           setAnnouncementsList(Array.isArray(announcementData) ? announcementData : []);
         }
+        logger.success('DATA-LOAD', 'Duyurular yüklendi');
       } catch (err) {
-        console.error('Duyuruları yüklerken hata:', err);
+        logger.error('DATA-LOAD', 'Duyurular yüklenirken hata', err);
       }
 
       try {
@@ -319,8 +322,9 @@ const Dashboard = () => {
         if (Array.isArray(deptData)) {
           setDepartments(deptData);
         }
+        logger.success('DATA-LOAD', 'Departmanlar yüklendi');
       } catch (err) {
-        console.error('Departmanları yüklerken hata:', err);
+        logger.error('DATA-LOAD', 'Departmanlar yüklenirken hata', err);
       }
 
       try {
@@ -330,8 +334,9 @@ const Dashboard = () => {
         if (Array.isArray(taskData)) {
           setTasks(taskData.map(backendToFrontendTask));
         }
+        logger.success('DATA-LOAD', `${taskData?.length || 0} görev yüklendi`);
       } catch (err) {
-        console.error('Görevleri yüklerken hata:', err);
+        logger.error('DATA-LOAD', 'Görevler yüklenirken hata', err);
       }
 
       try {
@@ -390,6 +395,24 @@ const Dashboard = () => {
 
     loadData();
   }, []); // Sadece component mount olduğunda çalış
+
+  // Otomatik yenilenme için polling (her 30 saniyede bir)
+  useEffect(() => {
+    const refreshTasks = async () => {
+      try {
+        const tasksRes = await taskAPI.list();
+        const taskData = tasksRes.data?.data || tasksRes.data;
+        if (Array.isArray(taskData)) {
+          setTasks(taskData.map(backendToFrontendTask));
+        }
+      } catch (err) {
+        console.error('Görevler otomatik yenilenirken hata:', err);
+      }
+    };
+
+    const interval = setInterval(refreshTasks, 30000); // 30 saniye
+    return () => clearInterval(interval);
+  }, []);
 
   const canManage = isBoss || isManager;
 
@@ -499,36 +522,66 @@ const Dashboard = () => {
 
   // Task CRUD - Backend API bağlantılı
   const addTask = async (taskData) => {
-    if (!defaultTaskListId || !Object.keys(statusIdMap).length || !Object.keys(priorityIdMap).length) {
+    let currentTaskListId = defaultTaskListId;
+    let currentStatusIdMap = statusIdMap;
+    let currentPriorityIdMap = priorityIdMap;
+
+    if (!currentTaskListId || !Object.keys(currentStatusIdMap).length || !Object.keys(currentPriorityIdMap).length) {
       console.warn('Task config henüz yüklenmedi, yeniden yükleniyor...');
       try {
         const configRes = await taskAPI.getConfig();
         const config = configRes.data;
-        if (config.statuses) {
+        if (config.statuses && config.statuses.length > 0) {
           const sMap = {};
           config.statuses.forEach(s => { const key = STATUS_MAP[s.name]; if (key) sMap[key] = s.id; });
+          currentStatusIdMap = sMap;
           setStatusIdMap(sMap);
         }
-        if (config.priorities) {
+        if (config.priorities && config.priorities.length > 0) {
           const pMap = {};
           config.priorities.forEach(p => { const key = PRIORITY_MAP[p.name]; if (key) pMap[key] = p.id; });
+          currentPriorityIdMap = pMap;
           setPriorityIdMap(pMap);
         }
-        if (config.defaultTaskListId) setDefaultTaskListId(config.defaultTaskListId);
-      } catch {}
+        if (config.defaultTaskListId) {
+          currentTaskListId = config.defaultTaskListId;
+          setDefaultTaskListId(config.defaultTaskListId);
+        }
+      } catch (err) {
+        console.error('Config yüklenemedi:', err);
+        alert('Görev ayarları yüklenemedi. Lütfen sayfayı yenileyin.');
+        return;
+      }
     }
+
+    // Son kontrol - hala boşsa hata ver
+    if (!currentTaskListId) {
+      alert('Task list bulunamadı. Lütfen sayfayı yenileyin.');
+      return;
+    }
+    if (!Object.keys(currentStatusIdMap).length) {
+      alert('Task status bilgileri bulunamadı. Lütfen sayfayı yenileyin.');
+      return;
+    }
+    if (!Object.keys(currentPriorityIdMap).length) {
+      alert('Task priority bilgileri bulunamadı. Lütfen sayfayı yenileyin.');
+      return;
+    }
+
     try {
       const payload = {
         title: taskData.title,
         description: taskData.description || '',
-        taskListId: defaultTaskListId,
-        statusId: statusIdMap[taskData.status] || statusIdMap['pending'] || Object.values(statusIdMap)[0],
-        priorityId: priorityIdMap[taskData.priority] || priorityIdMap['medium'] || Object.values(priorityIdMap)[0],
+        taskListId: currentTaskListId,
+        statusId: currentStatusIdMap[taskData.status] || currentStatusIdMap['pending'] || Object.values(currentStatusIdMap)[0],
+        priorityId: currentPriorityIdMap[taskData.priority] || currentPriorityIdMap['medium'] || Object.values(currentPriorityIdMap)[0],
         dueDate: taskData.dueDate || null,
         startDate: taskData.startDate || null,
         estimatedHours: taskData.estimatedHours || null,
         type: taskData.taskType === 'group' ? 'task' : 'task',
       };
+
+      console.log('📤 Görev payload:', payload);
       const res = await taskAPI.create(payload);
       const created = res.data?.data || res.data;
       // Atama varsa (assignedTo dizi veya tekil obje olabilir)
@@ -541,19 +594,30 @@ const Dashboard = () => {
       // Listeyi yeniden çek
       const tasksRes = await taskAPI.list();
       const taskList = tasksRes.data?.data || tasksRes.data;
-      if (Array.isArray(taskList)) setTasks(taskList.map(backendToFrontendTask));
+      if (Array.isArray(taskList)) {
+        setTasks(taskList.map(backendToFrontendTask));
+        console.log('✅ Görevler yenilendi:', taskList.length);
+      }
+      // Dashboard layoutlarını da yenile
+      try {
+        const res = await dashboardSettingAPI.get();
+        if (res.data && res.data['dashboard_layouts']) {
+          setDashboardLayouts(res.data['dashboard_layouts']);
+        }
+      } catch (err) {
+        console.log('Dashboard settings yenilenemedi:', err);
+      }
     } catch (err) {
       console.error('Görev eklerken hata:', err);
-      // Fallback: local ekle
-      const newTask = {
-        ...taskData,
-        id: Date.now(),
-        createdAt: new Date().toISOString().split('T')[0],
-        assignedBy: { id: user.id, firstName: user.firstName, lastName: user.lastName },
-        completedAt: null,
-        actualHours: 0
-      };
-      setTasks(prev => [newTask, ...prev]);
+      const errorMsg = err.response?.data?.error || err.message || 'Bilinmeyen hata';
+      console.error('Detaylı hata:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        error: errorMsg,
+        payload: err.config?.data
+      });
+      alert(`Görev eklenemedi: ${errorMsg}`);
+      return; // Fallback yapma, hata göster
     }
   };
 
@@ -568,8 +632,13 @@ const Dashboard = () => {
       if (updates.estimatedHours !== undefined) payload.estimatedHours = updates.estimatedHours;
       if (updates.status === 'completed') payload.completedAt = new Date();
       await taskAPI.update(taskId, payload);
-      // Local state güncelle
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      // Görevleri yeniden çek
+      const tasksRes = await taskAPI.list();
+      const taskList = tasksRes.data?.data || tasksRes.data;
+      if (Array.isArray(taskList)) {
+        setTasks(taskList.map(backendToFrontendTask));
+        console.log('✅ Görevler güncellendi');
+      }
     } catch (err) {
       console.error('Görev güncellerken hata:', err);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
@@ -579,7 +648,13 @@ const Dashboard = () => {
   const deleteTask = async (taskId) => {
     try {
       await taskAPI.delete(taskId);
-      setTasks(prev => prev.filter(t => t.id !== taskId));
+      // Görevleri yeniden çek
+      const tasksRes = await taskAPI.list();
+      const taskList = tasksRes.data?.data || tasksRes.data;
+      if (Array.isArray(taskList)) {
+        setTasks(taskList.map(backendToFrontendTask));
+        console.log('✅ Görevler silindi ve yenilendi');
+      }
     } catch (err) {
       console.error('Görev silerken hata:', err);
       setTasks(prev => prev.filter(t => t.id !== taskId));
@@ -589,7 +664,13 @@ const Dashboard = () => {
   const leaveTask = async (taskId) => {
     try {
       await taskAPI.unassign(taskId, user.id);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: null, taskType: 'group', status: 'pending' } : t));
+      // Görevleri yeniden çek
+      const tasksRes = await taskAPI.list();
+      const taskList = tasksRes.data?.data || tasksRes.data;
+      if (Array.isArray(taskList)) {
+        setTasks(taskList.map(backendToFrontendTask));
+        console.log('✅ Görevden ayrıldı, liste yenilendi');
+      }
     } catch (err) {
       console.error('Görevden ayrılırken hata:', err);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: null, taskType: 'group', status: 'pending' } : t));
@@ -599,11 +680,13 @@ const Dashboard = () => {
   const claimTask = async (taskId) => {
     try {
       await taskAPI.assign(taskId, user.id);
-      setTasks(prev => prev.map(t => t.id === taskId ? {
-        ...t,
-        assignedTo: { id: user.id, firstName: user.firstName, lastName: user.lastName, position: user.position, department: user.department },
-        taskType: 'single'
-      } : t));
+      // Görevleri yeniden çek
+      const tasksRes = await taskAPI.list();
+      const taskList = tasksRes.data?.data || tasksRes.data;
+      if (Array.isArray(taskList)) {
+        setTasks(taskList.map(backendToFrontendTask));
+        console.log('✅ Görev üstlenildi, liste yenilendi');
+      }
     } catch (err) {
       console.error('Görev üstlenirken hata:', err);
       setTasks(prev => prev.map(t => t.id === taskId ? {

@@ -1,82 +1,144 @@
 const TaskService = require("../services/TaskService");
 const { TaskStatus, TaskPriority, Workspace, Project, TaskList } = require("../models");
+const logger = require("../utils/logger");
 
 class TaskController {
   async getConfig(req, res) {
+    const startTime = Date.now();
     try {
       // Auth kontrolü
       if (!req.user || !req.user.company_id) {
-        console.error('🔥 YENİ SÜRÜM v1.0 - getConfig: user veya company_id yok!', req.user);
-        return res.status(401).json({ error: '🔥 YENİ SÜRÜM v1.0 - Kullanıcı doğrulanamadı' });
+        logger.error('TASK-CONFIG', 'Kullanıcı doğrulanamadı', { user: req.user });
+        return res.status(401).json({ error: 'Kullanıcı doğrulanamadı' });
       }
       
       const companyId = req.user.company_id;
+      logger.info('TASK-CONFIG', `Config yükleniyor`, { companyId });
       
-      // Statuses ve priorities - boş liste de olabilir
-      const statuses = await TaskStatus.findAll({ 
-        where: { companyId }, 
-        order: [['orderNo', 'ASC']] 
-      });
-      const priorities = await TaskPriority.findAll({ 
-        where: { companyId }, 
-        order: [['orderNo', 'ASC']] 
-      });
+      // Statuses ve priorities
+      let statuses = [];
+      let priorities = [];
       
-      // Varsayılan TaskList ID'sini bul
-      const workspace = await Workspace.findOne({ where: { companyId } });
-      let defaultTaskListId = null;
-      if (workspace) {
-        const project = await Project.findOne({ where: { workspaceId: workspace.id } });
-        if (project) {
-          const taskList = await TaskList.findOne({ 
-            where: { projectId: project.id }, 
-            order: [['orderNo', 'ASC']] 
-          });
-          if (taskList) defaultTaskListId = taskList.id;
-        }
+      try {
+        statuses = await TaskStatus.findAll({ 
+          where: { companyId }, 
+          order: [['order_no', 'ASC']] 
+        });
+        logger.debug('TASK-CONFIG', `${statuses.length} status yüklendi`);
+      } catch (err) {
+        logger.warning('TASK-CONFIG', 'Status yükleme hatası', err);
       }
       
-      console.log('🔥 YENİ SÜRÜM v1.0 - getConfig başarılı:', { 
-        companyId,
-        statusCount: statuses.length, 
-        priorityCount: priorities.length, 
+      try {
+        priorities = await TaskPriority.findAll({ 
+          where: { companyId }, 
+          order: [['order_no', 'ASC']] 
+        });
+        logger.debug('TASK-CONFIG', `${priorities.length} priority yüklendi`);
+      } catch (err) {
+        logger.warning('TASK-CONFIG', 'Priority yükleme hatası', err);
+      }
+      
+      // Varsayılan TaskList ID
+      let defaultTaskListId = null;
+      try {
+        const workspace = await Workspace.findOne({ where: { companyId } });
+        if (workspace) {
+          const project = await Project.findOne({ where: { workspaceId: workspace.id } });
+          if (project) {
+            const taskList = await TaskList.findOne({ 
+              where: { projectId: project.id }, 
+              order: [['order_no', 'ASC']] 
+            });
+            if (taskList) defaultTaskListId = taskList.id;
+          }
+        }
+      } catch (err) {
+        logger.warning('TASK-CONFIG', 'TaskList yükleme hatası', err);
+      }
+      
+      logger.success('TASK-CONFIG', 'Config başarıyla yüklendi', { 
+        statuses: statuses.length, 
+        priorities: priorities.length, 
         defaultTaskListId 
       });
+      logger.perf('TASK-CONFIG', 'getConfig', Date.now() - startTime);
       
-      // Boş sonuç da normal, başarılı response dön
       res.json({ 
         statuses: statuses || [], 
         priorities: priorities || [], 
         defaultTaskListId 
       });
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getConfig error:', err);
-      res.status(500).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      logger.error('TASK-CONFIG', 'Config yüklenirken hata', err);
+      res.status(500).json({ error: err.message });
     }
   }
 
   async createTask(req, res) {
     try {
+      logger.info('TASK-CREATE', 'Yeni görev oluşturuluyor', { title: req.body.title });
+      
       const { title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId } = req.body;
+      
+      // Validation
+      if (!title || title.trim() === '') {
+        logger.warning('TASK-CREATE', 'Görev başlığı eksik');
+        return res.status(422).json({ error: 'Görev başlığı gereklidir' });
+      }
+      if (!taskListId) {
+        logger.warning('TASK-CREATE', 'Task list ID eksik');
+        return res.status(422).json({ error: 'Task list ID gereklidir' });
+      }
+      if (!statusId) {
+        logger.warning('TASK-CREATE', 'Status ID eksik');
+        return res.status(422).json({ error: 'Status ID gereklidir' });
+      }
+      if (!priorityId) {
+        logger.warning('TASK-CREATE', 'Priority ID eksik');
+        return res.status(422).json({ error: 'Priority ID gereklidir' });
+      }
+      
       const task = await TaskService.create({
-        title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId,
+        title, 
+        description: description || '', 
+        taskListId, 
+        statusId, 
+        priorityId, 
+        type: type || 'task', 
+        departmentId: departmentId || null, 
+        categoryId: categoryId || null, 
+        dueDate: dueDate || null, 
+        startDate: startDate || null, 
+        estimatedHours: estimatedHours || 0, 
+        parentTaskId: parentTaskId || null,
         companyId: req.user.company_id,
         creatorId: req.user.id
       });
+      
+      logger.success('TASK-CREATE', `Görev oluşturuldu: #${task.id}`, { title: task.title });
       res.status(201).json(task);
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.createTask error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
-    }
-  }
-
-  async getTasks(req, res) {
+    const startTime = Date.now();
     try {
+      logger.info('TASK-LIST', 'Görevler yükleniyor', { companyId: req.user.company_id });
+      
       const tasks = await TaskService.getByCompany(req.user.company_id);
+      
+      const duration = Date.now() - startTime;
+      logger.success('TASK-LIST', `${tasks.length} görev yüklendi`);
+      logger.perf('TASK-LIST', 'getTasks', duration);
+      
+      res.json(tasks);
+    } catch (err) {
+      logger.error('TASK-LIST', 'Görevler yüklenirken hata', err);
+      res.status(500).json({ error:
+      console.log(`✅ Tasks yüklendi: ${tasks.length} görev, ${duration}ms`);
+      
       res.json(tasks);
     } catch (err) {
       console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getTasks error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      res.status(500).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
     }
   }
 
