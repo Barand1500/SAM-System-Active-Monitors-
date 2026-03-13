@@ -17,9 +17,9 @@ const rules = {
 
   createTask: [
     body("title").trim().notEmpty().withMessage("Başlık zorunludur"),
-    body("taskListId").isInt({ min: 1 }).withMessage("Geçerli bir liste ID giriniz"),
-    body("statusId").isInt({ min: 1 }).withMessage("Geçerli bir durum ID giriniz"),
-    body("priorityId").isInt({ min: 1 }).withMessage("Geçerli bir öncelik ID giriniz")
+    body("taskListId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("Geçerli bir liste ID giriniz"),
+    body("statusId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("Geçerli bir durum ID giriniz"),
+    body("priorityId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("Geçerli bir öncelik ID giriniz")
   ],
 
   updateTask: [

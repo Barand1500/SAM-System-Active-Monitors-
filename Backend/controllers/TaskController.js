@@ -109,6 +109,7 @@ class TaskController {
           workspace = await Workspace.create({
             name: 'Ana Çalışma Alanı',
             companyId: companyId,
+            createdBy: req.user.id,
             description: 'Otomatik oluşturuldu'
           }, { transaction: t });
           logger.success('TASK-CREATE', `Workspace oluşturuldu: ${workspace.id}`);
@@ -123,8 +124,8 @@ class TaskController {
           project = await Project.create({
             name: 'Genel Proje',
             workspaceId: workspace.id,
-            description: 'Otomatik oluşturuldu',
-            companyId: companyId
+            createdBy: req.user.id,
+            description: 'Otomatik oluşturuldu'
           }, { transaction: t });
           logger.success('TASK-CREATE', `Project oluşturuldu: ${project.id}`);
         }
@@ -142,8 +143,7 @@ class TaskController {
           taskList = await TaskList.create({
             name: 'Yapılacaklar',
             projectId: project.id,
-            order_no: 1,
-            companyId: companyId
+            orderNo: 1
           }, { transaction: t });
           logger.success('TASK-CREATE', `TaskList oluşturuldu: ${taskList.id}`);
         }
