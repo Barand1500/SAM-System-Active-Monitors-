@@ -57,18 +57,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: "employee"
     },
 
-    roles: {
-      type: DataTypes.TEXT,
-      get() {
-        const val = this.getDataValue('roles');
-        if (!val) return null;
-        try { return JSON.parse(val); } catch { return null; }
-      },
-      set(val) {
-        this.setDataValue('roles', val ? JSON.stringify(val) : null);
-      }
-    },
-
     position: DataTypes.STRING(100),
     phone: DataTypes.STRING(20),
 

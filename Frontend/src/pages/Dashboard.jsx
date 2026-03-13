@@ -134,7 +134,7 @@ import {
 } from '../components/DashboardWidgets';
 
 // LocalStorage helpers (cache + API sync)
-const DASHBOARD_KEYS = ['dashboard_layouts', 'active_layout_id', 'task_templates', 'dashboard_widget_order'];
+const DASHBOARD_KEYS = ['dashboard_layouts', 'active_layout_id', 'task_templates'];
 
 const loadFromStorage = (key, defaultValue) => {
   try {
@@ -845,13 +845,7 @@ const Dashboard = () => {
   
   const switchLayout = (layoutId) => {
     setActiveLayoutId(layoutId);
-    // Layout'a özel widget order'ı yükle
-    const layoutOrder = localStorage.getItem(`dashboard_widget_order_${layoutId}`);
-    if (layoutOrder) {
-      localStorage.setItem('dashboard_widget_order', layoutOrder);
-    }
     saveDashboardToAPI();
-    window.location.reload(); // Widgets'ları yeniden render etmek için
   };
   
   const renameLayout = (layoutId, newName) => {
@@ -2948,6 +2942,8 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
   
   const activeLayout = dashboardLayouts.find(l => l.id === activeLayoutId);
 
+  const getDefaultWidgetIds = () => ['task-stats', 'weekly-hours', 'upcoming-tasks', 'team-performance', 'recent-activities', 'notifications'];
+
   // Widget customization state
   const allAvailableWidgets = [
     { id: 'task-stats', component: 'TaskStatsWidget', title: 'Görev İstatistikleri', icon: CheckSquare, color: 'from-blue-500 to-cyan-500' },
@@ -2972,7 +2968,7 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
 
   const [widgetOrder, setWidgetOrder] = useState(() => {
     const saved = localStorage.getItem(`dashboard_widget_order_${activeLayoutId}`);
-    return saved ? JSON.parse(saved) : defaultWidgets.map(w => w.id);
+    return saved ? JSON.parse(saved) : getDefaultWidgetIds();
   });
 
   // Widget boyutlarını state olarak tut
@@ -2980,6 +2976,14 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
     const saved = localStorage.getItem(`dashboard_widget_sizes_${activeLayoutId}`);
     return saved ? JSON.parse(saved) : {};
   });
+
+  // Layout değiştiğinde veya API'den veri geldiğinde widget state'ini güncelle
+  useEffect(() => {
+    const savedOrder = localStorage.getItem(`dashboard_widget_order_${activeLayoutId}`);
+    setWidgetOrder(savedOrder ? JSON.parse(savedOrder) : getDefaultWidgetIds());
+    const savedSizes = localStorage.getItem(`dashboard_widget_sizes_${activeLayoutId}`);
+    setWidgetSizes(savedSizes ? JSON.parse(savedSizes) : {});
+  }, [activeLayoutId]);
 
   const [activeId, setActiveId] = useState(null);
   const [showAddWidgetModal, setShowAddWidgetModal] = useState(false);
@@ -3018,7 +3022,7 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
         const oldIndex = items.indexOf(active.id);
         const newIndex = items.indexOf(over.id);
         const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+        localStorage.setItem(`dashboard_widget_order_${activeLayoutId}`, JSON.stringify(newOrder));
         onSettingsChange?.();
         return newOrder;
       });
@@ -3028,9 +3032,9 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
   };
 
   const resetWidgetOrder = () => {
-    const defaultOrder = defaultWidgets.map(w => w.id);
+    const defaultOrder = getDefaultWidgetIds();
     setWidgetOrder(defaultOrder);
-    localStorage.setItem('dashboard_widget_order', JSON.stringify(defaultOrder));
+    localStorage.setItem(`dashboard_widget_order_${activeLayoutId}`, JSON.stringify(defaultOrder));
     onSettingsChange?.();
   };
 
@@ -3045,7 +3049,7 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
     if (widgetOrder.length < 6) {
       const newOrder = [...widgetOrder, widgetId];
       setWidgetOrder(newOrder);
-      localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+      localStorage.setItem(`dashboard_widget_order_${activeLayoutId}`, JSON.stringify(newOrder));
       onSettingsChange?.();
       setShowAddWidgetModal(false);
       addToast({ type: 'success', title: 'Başarılı', message: 'Widget eklendi!' });
@@ -3060,7 +3064,7 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
   const handleReplaceWidget = (oldWidgetId) => {
     const newOrder = widgetOrder.map(id => id === oldWidgetId ? selectedWidgetToAdd : id);
     setWidgetOrder(newOrder);
-    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    localStorage.setItem(`dashboard_widget_order_${activeLayoutId}`, JSON.stringify(newOrder));
     onSettingsChange?.();
     setShowReplaceWidgetModal(false);
     setSelectedWidgetToAdd(null);
@@ -3074,7 +3078,7 @@ const OverviewTab = ({ tasks, employees, departments, canManage, isDark, user, o
     }
     const newOrder = widgetOrder.filter(id => id !== widgetId);
     setWidgetOrder(newOrder);
-    localStorage.setItem('dashboard_widget_order', JSON.stringify(newOrder));
+    localStorage.setItem(`dashboard_widget_order_${activeLayoutId}`, JSON.stringify(newOrder));
     onSettingsChange?.();
     addToast({ type: 'success', title: 'Başarılı', message: 'Widget kaldırıldı!' });
   };
