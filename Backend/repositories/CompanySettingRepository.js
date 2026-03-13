@@ -8,7 +8,23 @@ class CompanySettingRepository extends BaseRepository {
   }
 
   async getByCompany(company_id) {
-    return this.model.findOne({ where: { company_id } });
+    try {
+      console.log('[CompanySettingRepository.getByCompany] Querying with company_id:', company_id, 'type:', typeof company_id);
+      if (!company_id) {
+        console.error('[CompanySettingRepository.getByCompany] company_id is null/undefined');
+        throw new Error('company_id is required');
+      }
+      
+      const result = await this.model.findOne({ where: { company_id } });
+      console.log('[CompanySettingRepository.getByCompany] Found:', result ? 'YES' : 'NO');
+      return result;
+    } catch (err) {
+      console.error('[CompanySettingRepository.getByCompany] Database error:', {
+        message: err.message,
+        stack: err.stack
+      });
+      throw err;
+    }
   }
 }
 

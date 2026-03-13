@@ -5,8 +5,8 @@ module.exports = {
     instances: 1,
     exec_mode: 'fork',
     
-    // 🔥 OTOMATİK YENİDEN BAŞLATMA
-    watch: true,
+    // 🔥 DEVELOPMENT'TA OTOMATİK RESTART, PRODUCTION'DA KAPATILDI
+    watch: process.env.NODE_ENV !== 'production',
     
     // İzlenecek klasörler
     watch_options: {
@@ -22,12 +22,14 @@ module.exports = {
       'uploads',
       'public',
       '.git',
-      '*.log'
+      '*.log',
+      '.env'
     ],
     
     // Ortam değişkenleri
     env: {
-      NODE_ENV: 'production',
+      NODE_ENV: 'development',
+      DEBUG: 'true'
       PORT: 5000
     },
     

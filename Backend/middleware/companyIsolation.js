@@ -5,9 +5,17 @@ function companyIsolation(req, res, next) {
   }
 
   // Sorgu parametrelerine veya body'ye company_id enjekte et
+  // GET: query parametrelerine ekle
   if (req.method === "GET") {
     req.query.company_id = req.user.company_id;
-  } else {
+  } 
+  // HEAD: query parametrelerine ekle
+  else if (req.method === "HEAD") {
+    req.query.company_id = req.user.company_id;
+  }
+  // POST, PUT, PATCH, DELETE: body'ye ekle
+  else {
+    if (!req.body) req.body = {};
     req.body.company_id = req.user.company_id;
   }
 

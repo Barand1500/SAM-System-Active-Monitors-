@@ -131,13 +131,21 @@ const FileSharing = ({ user, isBoss, canManage, isDark }) => {
     }
   };
 
-  useEffect(() => { fetchFiles(); }, []);
+  useEffect(() => {
+    fetchFiles();
+  }, []);
   useEffect(() => {
     foldersAPI.get().then(res => {
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        setFolders(res.data);
+      if (res.data) {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setFolders(res.data);
+        } else if (typeof res.data === 'object' && Object.keys(res.data).length > 0) {
+          setFolders(res.data);
+        }
       }
-    }).catch(() => {});
+    }).catch(err => {
+      console.warn('[FileSharing] Failed to load folders:', err.response?.data?.error || err.message);
+    });
   }, []);
 
   const cardClass = isDark ? 'bg-slate-800 border-slate-700/60' : 'bg-white border-slate-200/60';

@@ -13,14 +13,29 @@ async function authenticate(req, res, next) {
 
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    // Convert to plain object and add snake_case aliases
-    // Models use camelCase attributes (companyId) but code uses snake_case (company_id)
+    // Convert to plain object and standardize all fields
     const userData = user.toJSON();
-    userData.company_id = userData.companyId;
+    
+    // Ensure both camelCase and snake_case versions exist for compatibility
+    userData.company_id = userData.companyId || decoded.company_id;
+    userData.companyId = userData.companyId || decoded.company_id;
+    
+    // Validate company_id exists (CRITICAL for all operations)
+    if (!userData.company_id && !userData.companyId) {
+      console.error("[AUTH] CRITICAL: Missing company_id for user:", {
+        userId: decoded.id,
+        userCompanyId: userData.companyId,
+        decodedCompanyId: decoded.company_id,
+        tokenData: decoded
+      });
+      return res.status(401).json({ error: "User company assignment error" });
+    }
+    
     delete userData.password;
     req.user = userData;
     next();
   } catch (err) {
+    console.error("[AUTH] Token verification error:", err.message);
     return res.status(403).json({ error: "Invalid token" });
   }
 }

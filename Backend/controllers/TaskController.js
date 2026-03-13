@@ -67,7 +67,7 @@ class TaskController {
       res.json({ 
         statuses: statuses || [], 
         priorities: priorities || [], 
-        defaultTaskListId 
+        defaultTaskListId: defaultTaskListId || null
       });
     } catch (err) {
       logger.error('TASK-CONFIG', 'Config yüklenirken hata', err);
@@ -119,6 +119,7 @@ class TaskController {
       logger.success('TASK-CREATE', `Görev oluşturuldu: #${task.id}`, { title: task.title });
       res.status(201).json(task);
     } catch (err) {
+<<<<<<< HEAD
     const startTime = Date.now();
     try {
       logger.info('TASK-LIST', 'Görevler yükleniyor', { companyId: req.user.company_id });
@@ -139,6 +140,24 @@ class TaskController {
     } catch (err) {
       console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getTasks error:', err);
       res.status(500).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+=======
+      console.error('[TaskController] createTask error:', err.message);
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getTasks(req, res) {
+    try {
+      const companyId = req.user.company_id || req.user.companyId;
+      if (!companyId) {
+        return res.status(400).json({ error: "Company ID not found" });
+      }
+      const tasks = await TaskService.getByCompany(companyId);
+      res.json(tasks || []);
+    } catch (err) {
+      console.error('[TaskController] getTasks error:', err.message);
+      res.status(500).json({ error: "Failed to fetch tasks" });
+>>>>>>> 79e5f6390c5ef9c0a30fce2ba70272f16fdd3209
     }
   }
 
@@ -147,19 +166,19 @@ class TaskController {
       const tasks = await TaskService.getByTaskList(req.params.listId);
       res.json(tasks);
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getTasksByList error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] getTasksByList error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 
   async getTask(req, res) {
     try {
       const task = await TaskService.getById(req.params.id, req.user.company_id);
-      if (!task) return res.status(404).json({ error: "🔥 YENİ SÜRÜM v1.0 - Task not found" });
+      if (!task) return res.status(404).json({ error: "Task not found" });
       res.json(task);
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.getTask error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] getTask error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 
@@ -168,8 +187,8 @@ class TaskController {
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
       res.json(task);
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.updateTask error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] updateTask error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 
@@ -178,8 +197,8 @@ class TaskController {
       await TaskService.delete(req.params.id, req.user.company_id);
       res.json({ message: "Task deleted successfully" });
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.deleteTask error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] deleteTask error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 
@@ -188,8 +207,8 @@ class TaskController {
       const assignment = await TaskService.assignUser(req.params.id, req.body.user_id);
       res.status(201).json(assignment);
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.assignUser error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] assignUser error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 
@@ -198,8 +217,8 @@ class TaskController {
       await TaskService.removeAssignment(req.params.id, req.params.userId);
       res.json({ message: "Assignment removed" });
     } catch (err) {
-      console.error('🔥 YENİ SÜRÜM v1.0 - TaskController.removeAssignment error:', err);
-      res.status(400).json({ error: '🔥 YENİ SÜRÜM v1.0 - ' + err.message });
+      console.error('[TaskController] removeAssignment error:', err.message);
+      res.status(400).json({ error: err.message });
     }
   }
 }

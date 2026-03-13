@@ -2,6 +2,7 @@ const http = require('http');
 const { Server: SocketIO } = require('socket.io');
 require('dotenv').config();
 const app = require('./app');
+const { authenticate, authorizeRoles } = require('./middleware/authMiddleware');
 
 const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);
@@ -32,6 +33,17 @@ io.on('connection', (socket) => {
 
 // io'yu route'lara iletilebilir hale getir
 app.set('io', io);
+
+// ─── Admin restart endpoint (auth required) ─────────────────────────────────────
+// Kullanım: POST /admin/restart (JWT token gerekli + boss role)
+app.post('/admin/restart', authenticate, authorizeRoles('boss'), (req, res) => {
+  console.log(`[RESTART] Admin restart triggered by user ${req.user.id} (${req.user.email})`);
+  res.json({ message: 'Sunucu yeniden başlatılacak...' });
+  setTimeout(() => {
+    console.log('[RESTART] Process exiting - PM2 will auto-restart');
+    process.exit(0);
+  }, 1000);
+});
 
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {

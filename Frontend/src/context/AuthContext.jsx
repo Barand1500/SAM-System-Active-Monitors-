@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       
       return user;
     } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message || 'Giriş başarısız!';
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Giriş başarısız!';
       throw { message: errorMsg };
     }
   };
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }) => {
 
       return { user, company: backendCompany };
     } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
       throw { message: errorMsg };
     }
   };
@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }) => {
 
       return { user, company: backendCompany };
     } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
       throw { message: errorMsg };
     }
   };
@@ -126,6 +126,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setCurrentCompany(null);
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('currentCompany');
   };

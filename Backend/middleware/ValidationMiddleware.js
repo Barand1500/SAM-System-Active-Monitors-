@@ -16,10 +16,28 @@ const rules = {
   ],
 
   createTask: [
-    body("title").notEmpty().withMessage("Başlık zorunludur"),
+    body("title").trim().notEmpty().withMessage("Başlık zorunludur"),
     body("taskListId").isInt({ min: 1 }).withMessage("Geçerli bir liste ID giriniz"),
     body("statusId").isInt({ min: 1 }).withMessage("Geçerli bir durum ID giriniz"),
     body("priorityId").isInt({ min: 1 }).withMessage("Geçerli bir öncelik ID giriniz")
+  ],
+
+  updateTask: [
+    body("title").optional().trim().notEmpty().withMessage("Başlık boş olamaz"),
+    body("statusId").optional().isInt({ min: 1 }).withMessage("Geçerli bir durum ID giriniz"),
+    body("priorityId").optional().isInt({ min: 1 }).withMessage("Geçerli bir öncelik ID giriniz")
+  ],
+
+  assignUser: [
+    body("user_id").isInt({ min: 1 }).withMessage("Geçerli bir kullanıcı ID giriniz")
+  ],
+
+  createUser: [
+    body("firstName").trim().notEmpty().withMessage("Ad zorunludur"),
+    body("lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
+    body("email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
+    body("password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır"),
+    body("role").isIn(["boss", "manager", "employee", "customer"]).withMessage("Geçerli bir rol giriniz")
   ],
 
   login: [
@@ -28,11 +46,26 @@ const rules = {
   ],
 
   registerCompany: [
-    body("company.name").notEmpty().withMessage("Şirket adı zorunludur"),
-    body("admin.firstName").notEmpty().withMessage("Ad zorunludur"),
-    body("admin.lastName").notEmpty().withMessage("Soyad zorunludur"),
+    body("company.name").trim().notEmpty().withMessage("Şirket adı zorunludur"),
+    body("admin.firstName").trim().notEmpty().withMessage("Ad zorunludur"),
+    body("admin.lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
     body("admin.email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
     body("admin.password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır")
+  ],
+
+  registerEmployee: [
+    body("firstName").trim().notEmpty().withMessage("Ad zorunludur"),
+    body("lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
+    body("email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
+    body("password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır")
+  ],
+
+  joinCompany: [
+    body("company_code").trim().notEmpty().withMessage("Şirket kodu zorunludur"),
+    body("firstName").trim().notEmpty().withMessage("Ad zorunludur"),
+    body("lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
+    body("email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
+    body("password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır")
   ]
 };
 
