@@ -18,7 +18,7 @@ const getImageUrl = (path) => {
 };
 
 const UserProfile = ({ isDark }) => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { addToast } = useNotification();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -120,7 +120,8 @@ const UserProfile = ({ isDark }) => {
       // PhotoPreview'u backend URL'si ile güncelle
       setPhotoPreview(getImageUrl(newAvatarUrl));
 
-      // Dashboard sidebar'daki avatarı da güncelle
+      // AuthContext + Dashboard sidebar'daki avatarı da güncelle
+      updateProfile({ avatarUrl: newAvatarUrl });
       window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { avatarUrl: newAvatarUrl } }));
 
       addToast({
@@ -211,6 +212,16 @@ const UserProfile = ({ isDark }) => {
 
       await userAPI.update(user.id, updateData);
       await userAPI.updateSkills(user.id, profile.skills);
+      
+      // AuthContext'teki user bilgisini güncelle (sidebar, header vs.)
+      updateProfile({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        phone: profile.phone,
+        position: profile.position,
+        departmentId: profile.departmentId
+      });
+      
       setIsEditing(false);
       addToast({
         type: 'success',

@@ -44,13 +44,26 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
+// Multer error handling wrapper
+const handleUpload = (req, res, next) => {
+  upload.single("avatar")(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: `Yükleme hatası: ${err.message}` });
+    }
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+};
+
 // User CRUD
 router.get("/", authenticate, companyIsolation, UserController.list);
 router.get("/:id", authenticate, companyIsolation, UserController.get);
 router.post("/", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.create);
 router.put("/:id", authenticate, companyIsolation, UserController.update);
 router.put("/:id/skills", authenticate, companyIsolation, UserController.updateSkills);
-router.post("/:id/avatar", authenticate, companyIsolation, upload.single("avatar"), UserController.uploadAvatar);
+router.post("/:id/avatar", authenticate, companyIsolation, handleUpload, UserController.uploadAvatar);
 router.delete("/:id", authenticate, companyIsolation, authorizeRoles("boss", "manager"), UserController.delete);
 
 module.exports = router;

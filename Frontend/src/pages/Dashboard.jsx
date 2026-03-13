@@ -474,7 +474,7 @@ const Dashboard = () => {
   const menuItems = [
     { id: 'overview', label: 'Genel Bakış', icon: LayoutDashboard },
     { id: 'tasks', label: canManage ? 'Tüm Görevler' : 'Görevlerim', icon: ClipboardList },
-    ...(!canManage ? [{ id: 'pool', label: 'Havuz', icon: Layers }] : []),
+    ...(!isBoss ? [{ id: 'pool', label: 'Havuz', icon: Layers }] : []),
     { id: 'kanban', label: 'Kanban', icon: Kanban },
     { id: 'calendar', label: 'Takvim', icon: CalendarDays },
     ...(!isBoss ? [{ id: 'timetracker', label: 'Mesai', icon: Timer }] : []),

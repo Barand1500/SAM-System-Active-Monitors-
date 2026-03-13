@@ -8,6 +8,10 @@ class UserService {
     const skills = data.skills;
     delete data.skills;
     data.password = await bcrypt.hash(data.password, 10);
+    // roles array'den role ENUM'u senkronize et
+    if (Array.isArray(data.roles) && data.roles.length > 0) {
+      data.role = data.roles[0];
+    }
     const user = await UserRepo.create(data);
     if (skills && skills.length > 0) {
       await UserSkill.bulkCreate(skills.map(s => ({
@@ -25,6 +29,10 @@ class UserService {
     delete data.skills;
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
+    }
+    // roles array'den role ENUM'u senkronize et
+    if (Array.isArray(data.roles) && data.roles.length > 0) {
+      data.role = data.roles[0];
     }
     const user = await UserRepo.update(id, data, companyId);
     if (skills !== undefined) {

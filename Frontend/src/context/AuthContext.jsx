@@ -207,6 +207,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Profil bilgilerini güncelle (ad, soyad, avatar vs.)
+  const updateProfile = (updates) => {
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  };
+
   const value = {
     user,
     company: currentCompany,
@@ -217,6 +224,7 @@ export const AuthProvider = ({ children }) => {
     isEmployee: userRoles.includes('employee'),
     userRoles,
     updateUserRoles,
+    updateProfile,
     login,
     logout,
     updateCompany,
