@@ -46,9 +46,11 @@ class AuthController {
   async login(req, res) {
     try {
       const { email, password, companyCode } = req.body;
+      console.log('[AuthController] Login request:', { email, hasPassword: !!password, companyCode });
       const result = await AuthService.login(email, password, companyCode);
       res.status(200).json(result);
     } catch (err) {
+      console.error('[AuthController] Login error:', err.message);
       res.status(401).json({ error: err.message });
     }
   }

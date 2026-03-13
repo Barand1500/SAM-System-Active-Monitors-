@@ -167,19 +167,32 @@ class AuthService {
 
   // Login
   async login(email, password, companyCode = null) {
+    console.log('[AuthService] Login attempt:', { email, companyCode: companyCode || 'none' });
+    
     const user = await userRepo.findByEmail(email);
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      console.log('[AuthService] User not found:', email);
+      throw new Error("Bu e-posta ile kayıtlı kullanıcı bulunamadı");
+    }
 
     // Eğer companyCode gönderildiyse, user'ın şirketi ile eşleş
     if (companyCode) {
       const company = await Company.findOne({ where: { company_code: companyCode } });
-      if (!company || company.id !== user.companyId) {
-        throw new Error("Invalid company code");
+      if (!company) {
+        console.log('[AuthService] Company not found for code:', companyCode);
+        throw new Error("Şirket kodu geçersiz");
+      }
+      if (company.id !== user.companyId) {
+        console.log('[AuthService] Company mismatch:', { userCompanyId: user.companyId, codeCompanyId: company.id });
+        throw new Error("Bu kullanıcı bu şirkete ait değil");
       }
     }
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) throw new Error("Invalid password");
+    if (!valid) {
+      console.log('[AuthService] Invalid password for:', email);
+      throw new Error("Şifre hatalı");
+    }
 
     // Eğer kullanıcının şirketi yoksa, ilk şirkete ata (production fix)
     if (!user.companyId) {
