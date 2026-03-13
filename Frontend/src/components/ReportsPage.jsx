@@ -23,6 +23,8 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [weeklyTrend, setWeeklyTrend] = useState([]);
   const [taskTrends, setTaskTrends] = useState({ totalTrend: '0%', completedTrend: '0%' });
+  const [personAttendance, setPersonAttendance] = useState(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
 
   const employees = users.filter(u => u.role !== 'boss');
 
@@ -41,6 +43,27 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
     };
     loadReportData();
   }, []);
+
+  useEffect(() => {
+    const loadPersonAttendance = async () =>{
+      if (!selectedPerson) {
+        setPersonAttendance(null);
+        return;
+      }
+      
+      try {
+        setAttendanceLoading(true);
+        const res = await reportAPI.userAttendance(selectedPerson);
+        setPersonAttendance(res.data);
+      } catch (e) {
+        console.error('Mesai verileri yüklenemedi:', e);
+        setPersonAttendance(null);
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+    loadPersonAttendance();
+  }, [selectedPerson]);
 
   // ===== GENEL RAPOR =====
   const renderGeneralReport = () => {
@@ -314,7 +337,7 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
           ))}
         </div>
 
-        <div className={`rounded-2xl p-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border`}>
+        <div className={`rounded-2xl p-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border- slate-200'} border`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Tamamlanma Oranı</h3>
             <span className={`text-2xl font-bold ${rate >= 80 ? 'text-emerald-500' : rate >= 50 ? 'text-amber-500' : 'text-red-500'}`}>%{rate}</span>
@@ -323,6 +346,117 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
             <div className={`h-full rounded-full transition-all duration-700 ${rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
               style={{ width: `${rate}%` }} />
           </div>
+        </div>
+
+        {/* Mesai Bilgileri */}
+        <div className={`rounded-2xl p-6 ${isDark ? 'bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-indigo-500/10 border-indigo-500/30' : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-indigo-50 border-indigo-200'} border`}>
+          <div className="flex items-center gap-2 mb-6">
+            <Clock size={20} className="text-indigo-500" />
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Mesai Çalışma Bilgileri (Son 30 Gün)</h3>
+          </div>
+          
+          {attendanceLoading ? (
+            <div className="text-center py-8">
+              <div className="inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className={`mt-2 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Yü
+
+kleniyor...</p>
+            </div>
+          ) : personAttendance && personAttendance.stats ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {[
+                  { label: 'Toplam Gün', value: personAttendance.stats.totalDays, icon: Calendar, color: 'text-indigo-500' },
+                  { label: 'Zamanında', value: personAttendance.stats.onTimeDays, icon: CheckCircle2, color: 'text-emerald-500' },
+                  { label: 'Geç Kalan', value: personAttendance.stats.lateDays, icon: Clock, color: 'text-amber-500' },
+                  { label: 'Geç Kalma', value: `%${personAttendance.stats.latePercent}`, icon: BarChart3, color: 'text-red-500' },
+                ].map((stat, i) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div key={i} className={`rounded-xl p-4 text-center ${isDark ? 'bg-slate-800/80' : 'bg-white/80'}`}>
+                      <Icon size={20} className={`mx-auto mb-2 ${stat.color}`} />
+                      <p className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{stat.value}</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stat.label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-800/80' : 'bg-white/80'}`}>
+                  <h4 className={`text-sm font-medium mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Çalışma Süreleri</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Toplam Çalışma:</span>
+                      <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{personAttendance.stats.totalWorkTime.text}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ortalama/Gün:</span>
+                      <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{personAttendance.stats.averageWorkTime.text}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-800/80' : 'bg-white/80'}`}>
+                  <h4 className={`text-sm font-medium mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Mola Süreleri</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Toplam Mola:</span>
+                      <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{personAttendance.stats.totalBreakTime.text}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ortalama/Gün:</span>
+                      <span className={`font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{personAttendance.stats.averageBreakTime.text}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-slate-800/80' : 'bg-white/80'}`}>
+                <h4 className={`text-sm font-medium mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Son Mesai Kayıtları</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {personAttendance.attendances.slice(0, 10).map((att, idx) => (
+                    <div key={att.id} className={`p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50/80'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium px-2 py-1 rounded-md ${att.isLate ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {att.isLate ? 'GEÇ' : 'ZAMANINDA'}
+                          </span>
+                          <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {new Date(att.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                          {att.workDuration ? att.workDuration.text : 'Devam ediyor'}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-4 text-xs">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+                          Giriş: {new Date(att.checkIn).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {att.checkOut && (
+                          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+                            Çıkış: {new Date(att.checkOut).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                        {att.breakCount > 0 && (
+                          <span className={`px-2 py-0.5 rounded-md ${isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-50 text-blue-600'}`}>
+                            {att.breakCount} mola
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <Clock size={48} className={`mx-auto mb-4 ${isDark ? 'text-slate-600' : 'text-slate-300'}`} />
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Mesai bilgisi bulunamadı
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1,5 +1,5 @@
 const TaskService = require("../services/TaskService");
-const { TaskStatus, TaskPriority, Workspace, Project, TaskList } = require("../models");
+const { TaskStatus, TaskPriority, Workspace, Project, TaskList, Task, sequelize } = require("../models");
 const logger = require("../utils/logger");
 
 class TaskController {
@@ -76,30 +76,138 @@ class TaskController {
   }
 
   async createTask(req, res) {
+    const t = await sequelize.transaction();
+    
     try {
-      logger.info('TASK-CREATE', 'Yeni görev oluşturuluyor', { title: req.body.title });
+      logger.info('TASK-CREATE', 'Yeni görev oluşturuluyor', { 
+        title: req.body.title, 
+        hasTaskListId: !!req.body.taskListId,
+        hasStatusId: !!req.body.statusId,
+        hasPriorityId: !!req.body.priorityId
+      });
       
-      const { title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId } = req.body;
+      let { title, description, taskListId, statusId, priorityId, type, departmentId, categoryId, dueDate, startDate, estimatedHours, parentTaskId } = req.body;
       
-      // Validation
+      // Validation - sadece title zorunlu
       if (!title || title.trim() === '') {
+        await t.rollback();
         logger.warning('TASK-CREATE', 'Görev başlığı eksik');
         return res.status(422).json({ error: 'Görev başlığı gereklidir' });
       }
+      
+      const companyId = req.user.company_id;
+      logger.info('TASK-CREATE', `CompanyId: ${companyId}`);
+      
+      // TaskListId yoksa, ilk mevcut liste bul veya oluştur
       if (!taskListId) {
-        logger.warning('TASK-CREATE', 'Task list ID eksik');
-        return res.status(422).json({ error: 'Task list ID gereklidir' });
-      }
-      if (!statusId) {
-        logger.warning('TASK-CREATE', 'Status ID eksik');
-        return res.status(422).json({ error: 'Status ID gereklidir' });
-      }
-      if (!priorityId) {
-        logger.warning('TASK-CREATE', 'Priority ID eksik');
-        return res.status(422).json({ error: 'Priority ID gereklidir' });
+        logger.info('TASK-CREATE', 'TaskListId eksik, varsayılan aranıyor');
+        let workspace = await Workspace.findOne({ where: { companyId }, transaction: t });
+        
+        // Workspace yoksa oluştur
+        if (!workspace) {
+          logger.warning('TASK-CREATE', 'Workspace bulunamadı, oluşturuluyor', { companyId });
+          workspace = await Workspace.create({
+            name: 'Ana Çalışma Alanı',
+            companyId: companyId,
+            description: 'Otomatik oluşturuldu'
+          }, { transaction: t });
+          logger.success('TASK-CREATE', `Workspace oluşturuldu: ${workspace.id}`);
+        }
+        logger.info('TASK-CREATE', `Workspace bulundu: ${workspace.id}`);
+        
+        let project = await Project.findOne({ where: { workspaceId: workspace.id }, transaction: t });
+        
+        // Project yoksa oluştur
+        if (!project) {
+          logger.warning('TASK-CREATE', 'Project bulunamadı, oluşturuluyor', { workspaceId: workspace.id });
+          project = await Project.create({
+            name: 'Genel Proje',
+            workspaceId: workspace.id,
+            description: 'Otomatik oluşturuldu',
+            companyId: companyId
+          }, { transaction: t });
+          logger.success('TASK-CREATE', `Project oluşturuldu: ${project.id}`);
+        }
+        logger.info('TASK-CREATE', `Project bulundu: ${project.id}`);
+        
+        let taskList = await TaskList.findOne({ 
+          where: { projectId: project.id }, 
+          order: [['order_no', 'ASC']],
+          transaction: t
+        });
+        
+        // TaskList yoksa oluştur
+        if (!taskList) {
+          logger.warning('TASK-CREATE', 'TaskList bulunamadı, oluşturuluyor', { projectId: project.id });
+          taskList = await TaskList.create({
+            name: 'Yapılacaklar',
+            projectId: project.id,
+            order_no: 1,
+            companyId: companyId
+          }, { transaction: t });
+          logger.success('TASK-CREATE', `TaskList oluşturuldu: ${taskList.id}`);
+        }
+        
+        taskListId = taskList.id;
+        logger.info('TASK-CREATE', `TaskList kullanılıyor: ${taskListId}`);
       }
       
-      const task = await TaskService.create({
+      // StatusId yoksa, ilk mevcut status bul veya oluştur
+      if (!statusId) {
+        logger.info('TASK-CREATE', 'StatusId eksik, varsayılan aranıyor');
+        let status = await TaskStatus.findOne({ 
+          where: { companyId }, 
+          order: [['order_no', 'ASC']],
+          transaction: t
+        });
+        
+        // Status yoksa varsayılanları oluştur
+        if (!status) {
+          logger.warning('TASK-CREATE', 'Status bulunamadı, varsayılanlar oluşturuluyor');
+          const defaultStatuses = [
+            { name: 'Beklemede', color: '#94a3b8', order_no: 1, companyId },
+            { name: 'Devam Ediyor', color: '#3b82f6', order_no: 2, companyId },
+            { name: 'İncelemede', color: '#f59e0b', order_no: 3, companyId },
+            { name: 'Tamamlandı', color: '#10b981', order_no: 4, companyId }
+          ];
+          await TaskStatus.bulkCreate(defaultStatuses, { transaction: t });
+          status = await TaskStatus.findOne({ where: { companyId }, order: [['order_no', 'ASC']], transaction: t });
+          logger.success('TASK-CREATE', `Varsayılan statuslar oluşturuldu`);
+        }
+        
+        statusId = status.id;
+        logger.info('TASK-CREATE', `Status kullanılıyor: ${statusId}`);
+      }
+      
+      // PriorityId yoksa, ilk mevcut priority bul veya oluştur
+      if (!priorityId) {
+        logger.info('TASK-CREATE', 'PriorityId eksik, varsayılan aranıyor');
+        let priority = await TaskPriority.findOne({ 
+          where: { companyId }, 
+          order: [['order_no', 'ASC']],
+          transaction: t
+        });
+        
+        // Priority yoksa varsayılanları oluştur
+        if (!priority) {
+          logger.warning('TASK-CREATE', 'Priority bulunamadı, varsayılanlar oluşturuluyor');
+          const defaultPriorities = [
+            { name: 'Düşük', color: '#94a3b8', order_no: 1, companyId },
+            { name: 'Normal', color: '#3b82f6', order_no: 2, companyId },
+            { name: 'Yüksek', color: '#f59e0b', order_no: 3, companyId },
+            { name: 'Acil', color: '#ef4444', order_no: 4, companyId }
+          ];
+          await TaskPriority.bulkCreate(defaultPriorities, { transaction: t });
+          priority = await TaskPriority.findOne({ where: { companyId }, order: [['order_no', 'ASC']], transaction: t });
+          logger.success('TASK-CREATE', `Varsayılan priorityler oluşturuldu`);
+        }
+        
+        priorityId = priority.id;
+        logger.info('TASK-CREATE', `Priority kullanılıyor: ${priorityId}`);
+      }
+      
+      // Görevi oluştur
+      const taskData = {
         title, 
         description: description || '', 
         taskListId, 
@@ -112,14 +220,26 @@ class TaskController {
         startDate: startDate || null, 
         estimatedHours: estimatedHours || 0, 
         parentTaskId: parentTaskId || null,
-        companyId: req.user.company_id,
+        companyId: companyId,
         creatorId: req.user.id
-      });
+      };
       
-      logger.success('TASK-CREATE', `Görev oluşturuldu: #${task.id}`, { title: task.title });
+      logger.info('TASK-CREATE', 'Görev verisi hazır', taskData);
+      const task = await Task.create(taskData, { transaction: t });
+      logger.info('TASK-CREATE', 'Task.create tamamlandı', { taskId: task.id });
+      
+      // Transaction'ı commit et
+      await t.commit();
+      logger.success('TASK-CREATE', `✅ Görev DB'ye kaydedildi: #${task.id}`, { title: task.title });
+      
       res.status(201).json(task);
     } catch (err) {
-      logger.error('TASK-CREATE', 'Görev oluşturulurken hata', err);
+      // Hata durumunda transaction'ı geri al
+      await t.rollback();
+      logger.error('TASK-CREATE', '❌ Görev oluşturulurken hata (transaction rollback)', { 
+        error: err.message,
+        stack: err.stack 
+      });
       res.status(400).json({ error: err.message });
     }
   }

@@ -510,8 +510,15 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
 
   // Time helpers
   const formatElapsed = (isoDate) => {
-    const diff = currentTime - new Date(isoDate).getTime();
+    if (!isoDate) return '–';
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return '–';
+    
+    const diff = currentTime - date.getTime();
+    if (diff < 0) return 'Az önce';
+    
     const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Az önce';
     if (mins < 60) return `${mins} dk`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours} sa ${mins % 60} dk`;
@@ -520,7 +527,12 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   };
 
   const getUrgencyColor = (isoDate) => {
-    const hours = (currentTime - new Date(isoDate).getTime()) / 3600000;
+    if (!isoDate) return isDark ? 'border-gray-500/40' : 'border-gray-300';
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return isDark ? 'border-gray-500/40' : 'border-gray-300';
+    
+    const hours = (currentTime - date.getTime()) / 3600000;
+    if (hours < 0) return isDark ? 'border-gray-500/40' : 'border-gray-300';
     if (hours < 1) return isDark ? 'border-emerald-500/40' : 'border-emerald-300';
     if (hours < 4) return isDark ? 'border-amber-500/40' : 'border-amber-300';
     return isDark ? 'border-red-500/40' : 'border-red-300';
@@ -918,10 +930,18 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                 {t.history.map((h, i, arr) => {
                   const hi = historyIcons[h.type] || historyIcons.created;
                   const HIcon = hi.icon;
-                  const prevTime = i > 0 ? new Date(arr[i - 1].at) : null;
-                  const curTime = new Date(h.at);
-                  const elapsedFromPrev = prevTime ? curTime - prevTime : 0;
+                  
+                  const prevDate = i > 0 ? arr[i - 1]?.at : null;
+                  const curDate = h?.at;
+                  const prevTime = prevDate ? new Date(prevDate) : null;
+                  const curTime = curDate ? new Date(curDate) : null;
+                  
+                  const elapsedFromPrev = (prevTime && curTime && !isNaN(prevTime.getTime()) && !isNaN(curTime.getTime()) && curTime >= prevTime) 
+                    ? curTime - prevTime 
+                    : 0;
+                  
                   const fmtElapsed = (ms) => {
+                    if (!ms || ms < 0) return null;
                     const mins = Math.floor(ms / 60000);
                     if (mins < 1) return 'anında';
                     if (mins < 60) return `${mins} dk sonra`;
@@ -944,7 +964,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                         </p>
                         <div className="flex items-center gap-2">
                           <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            {curTime.toLocaleString('tr-TR')}
+                            {curTime && !isNaN(curTime.getTime()) ? curTime.toLocaleString('tr-TR') : '–'}
                           </p>
                           {i > 0 && elapsedFromPrev > 0 && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${isDark ? 'bg-indigo-500/15 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
@@ -962,7 +982,13 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                   <Clock size={15} className={isDark ? 'text-purple-400' : 'text-purple-600'} />
                   <span className={`text-sm font-medium ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                     Toplam çözüm süresi: {(() => {
-                      const diff = new Date(t.resolvedAt) - new Date(t.createdAt);
+                      const resolvedDate = new Date(t.resolvedAt);
+                      const createdDate = new Date(t.createdAt);
+                      if (isNaN(resolvedDate.getTime()) || isNaN(createdDate.getTime())) return '–';
+                      
+                      const diff = resolvedDate - createdDate;
+                      if (diff < 0) return '–';
+                      
                       const mins = Math.floor(diff / 60000);
                       if (mins < 60) return `${mins} dakika`;
                       const hrs = Math.floor(mins / 60);

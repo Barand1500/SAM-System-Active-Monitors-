@@ -8,5 +8,6 @@ router.get("/attendance", authenticate, authorizeRoles("boss", "manager"), Repor
 router.get("/leaves", authenticate, authorizeRoles("boss", "manager"), ReportController.leaveReport);
 router.get("/weekly-trend", authenticate, authorizeRoles("boss", "manager"), ReportController.weeklyTrend);
 router.get("/task-trends", authenticate, authorizeRoles("boss", "manager"), ReportController.taskTrends);
+router.get("/user-attendance/:userId", authenticate, authorizeRoles("boss", "manager"), ReportController.userAttendanceReport);
 
 module.exports = router;

@@ -36,7 +36,8 @@ async function authenticate(req, res, next) {
     next();
   } catch (err) {
     console.error("[AUTH] Token verification error:", err.message);
-    return res.status(403).json({ error: "Invalid token" });
+    // Token geçersizse 401 dön (authentication hatası)
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
 

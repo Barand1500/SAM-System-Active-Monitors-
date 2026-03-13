@@ -23,8 +23,8 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 401 Unauthorized ise token'ı sil ve sayfayı yenile (sonsuz döngü önlenir)
-    if (error.response?.status === 401) {
+    // 401 veya 403 alırsa token'ı sil ve login sayfasına yönlendir
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('currentUser');
       localStorage.removeItem('currentCompany');
@@ -263,6 +263,7 @@ export const reportAPI = {
   leaveReport: () => apiClient.get('/reports/leaves'),
   weeklyTrend: () => apiClient.get('/reports/weekly-trend'),
   taskTrends: () => apiClient.get('/reports/task-trends'),
+  userAttendance: (userId, params) => apiClient.get(`/reports/user-attendance/${userId}`, { params }),
 };
 
 // ============== ROLES ENDPOINTS ==============

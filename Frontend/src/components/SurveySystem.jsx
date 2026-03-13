@@ -93,10 +93,22 @@ const SurveySystem = ({ user, isBoss, canManage, isDark }) => {
 
   const submitResponse = async (surveyId, answers) => {
     try {
+      // ✅ İlk kontrol: Kullanıcı daha önce katıldı mı?
+      const survey = surveys.find(s => s.id === surveyId);
+      if (survey && hasResponded(survey)) {
+        alert('❌ Bu ankete zaten katıldınız. Bir ankete sadece bir kez cevap verebilirsiniz.');
+        setVoteFormSurveyId(null); // Form'u kapat
+        return;
+      }
+
       await surveyAPI.submit(surveyId, answers);
       await fetchSurveys();
+      alert('✅ Cevaplarınız başarıyla kaydedildi!');
+      setVoteFormSurveyId(null); // Form'u kapat
     } catch (err) {
       console.error('Oy gönderilemedi:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Bir hata oluştu';
+      alert('❌ ' + errorMsg);
     }
   };
 

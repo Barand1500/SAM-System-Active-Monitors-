@@ -583,6 +583,7 @@ const Dashboard = () => {
     let currentStatusIdMap = statusIdMap;
     let currentPriorityIdMap = priorityIdMap;
 
+    // Config yoksa yüklemeyi dene, ama başarısız olsa bile devam et (backend varsayılanları seçecek)
     if (!currentTaskListId || !Object.keys(currentStatusIdMap).length || !Object.keys(currentPriorityIdMap).length) {
       console.warn('Task config henüz yüklenmedi, yeniden yükleniyor...');
       try {
@@ -605,40 +606,34 @@ const Dashboard = () => {
           setDefaultTaskListId(config.defaultTaskListId);
         }
       } catch (err) {
-        console.error('Config yüklenemedi:', err);
-        alert('Görev ayarları yüklenemedi. Lütfen sayfayı yenileyin.');
-        return;
+        console.warn('Config yüklenemedi, varsayılanlarla devam ediliyor:', err);
+        // Config yüklenemese bile devam et, backend varsayılanları seçecek
       }
     }
 
-    // Son kontrol - hala boşsa hata ver
-    if (!currentTaskListId) {
-      alert('Task list bulunamadı. Lütfen sayfayı yenileyin.');
-      return;
-    }
-    if (!Object.keys(currentStatusIdMap).length) {
-      alert('Task status bilgileri bulunamadı. Lütfen sayfayı yenileyin.');
-      return;
-    }
-    if (!Object.keys(currentPriorityIdMap).length) {
-      alert('Task priority bilgileri bulunamadı. Lütfen sayfayı yenileyin.');
-      return;
-    }
-
     try {
+      // Minimal payload - sadece zorunlu alanlar, backend varsayılanları bulacak
       const payload = {
         title: taskData.title,
         description: taskData.description || '',
-        taskListId: currentTaskListId,
-        statusId: currentStatusIdMap[taskData.status] || currentStatusIdMap['pending'] || Object.values(currentStatusIdMap)[0],
-        priorityId: currentPriorityIdMap[taskData.priority] || currentPriorityIdMap['medium'] || Object.values(currentPriorityIdMap)[0],
         dueDate: taskData.dueDate || null,
         startDate: taskData.startDate || null,
         estimatedHours: taskData.estimatedHours || null,
         type: taskData.taskType === 'group' ? 'task' : 'task',
       };
 
-      console.log('📤 Görev payload:', payload);
+      // Eğer config yüklendiyse ID'leri ekle (opsiyonel)
+      if (currentTaskListId) {
+        payload.taskListId = currentTaskListId;
+      }
+      if (Object.keys(currentStatusIdMap).length) {
+        payload.statusId = currentStatusIdMap[taskData.status] || currentStatusIdMap['pending'] || Object.values(currentStatusIdMap)[0];
+      }
+      if (Object.keys(currentPriorityIdMap).length) {
+        payload.priorityId = currentPriorityIdMap[taskData.priority] || currentPriorityIdMap['medium'] || Object.values(currentPriorityIdMap)[0];
+      }
+
+      console.log('📤 Görev payload:', payload, '(Config yüklü:', !!currentTaskListId, ')');
       const res = await taskAPI.create(payload);
       const created = res.data?.data || res.data;
       // Atama varsa (assignedTo dizi veya tekil obje olabilir)
@@ -671,10 +666,13 @@ const Dashboard = () => {
         status: err.response?.status,
         statusText: err.response?.statusText,
         error: errorMsg,
-        payload: err.config?.data
+        payload: err.config?.data,
+        response: err.response?.data
       });
-      alert(`Görev eklenemedi: ${errorMsg}`);
-      return; // Fallback yapma, hata göster
+      
+      // Kullanıcıya backend'den gelen açıklayıcı mesajı göster
+      alert(`❌ ${errorMsg}\n\n💡 Lütfen sistem yöneticisine bildirin.`);
+      return;
     }
   };
 
