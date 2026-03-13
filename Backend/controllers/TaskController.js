@@ -119,24 +119,32 @@ class TaskController {
       logger.success('TASK-CREATE', `Görev oluşturuldu: #${task.id}`, { title: task.title });
       res.status(201).json(task);
     } catch (err) {
-
-      console.error('[TaskController] createTask error:', err.message);
+      logger.error('TASK-CREATE', 'Görev oluşturulurken hata', err);
       res.status(400).json({ error: err.message });
     }
   }
 
   async getTasks(req, res) {
+    const startTime = Date.now();
     try {
+      logger.info('TASK-LIST', 'Görevler yükleniyor', { companyId: req.user.company_id });
+      
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
+        logger.warning('TASK-LIST', 'Company ID eksik');
         return res.status(400).json({ error: "Company ID not found" });
       }
+      
       const tasks = await TaskService.getByCompany(companyId);
+      
+      const duration = Date.now() - startTime;
+      logger.success('TASK-LIST', `${tasks.length} görev yüklendi`);
+      logger.perf('TASK-LIST', 'getTasks', duration);
+      
       res.json(tasks || []);
     } catch (err) {
-      console.error('[TaskController] getTasks error:', err.message);
+      logger.error('TASK-LIST', 'Görevler yüklenirken hata', err);
       res.status(500).json({ error: "Failed to fetch tasks" });
-
     }
   }
 
