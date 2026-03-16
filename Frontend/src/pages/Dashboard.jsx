@@ -454,6 +454,8 @@ const Dashboard = () => {
   // Otomatik yenilenme için polling (her 30 saniyede bir)
   useEffect(() => {
     const refreshTasks = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return; // Token yoksa istek yapma
       try {
         const tasksRes = await taskAPI.list();
         const taskData = tasksRes.data?.data || tasksRes.data;
@@ -1084,7 +1086,7 @@ const Dashboard = () => {
         {/* İçerik */}
         {activeTab === 'overview' && <OverviewTab tasks={tasks} employees={employees} departments={departments} canManage={canManage} isDark={isDark} user={user} onAddTask={() => openTaskModal()} dashboardLayouts={dashboardLayouts} activeLayoutId={activeLayoutId} onCreateLayout={createNewLayout} onDeleteLayout={deleteLayout} onSwitchLayout={switchLayout} onRenameLayout={renameLayout} onSettingsChange={saveDashboardToAPI} />}
         {activeTab === 'tasks' && <TasksTab tasks={tasks} employees={employees} canManage={canManage} isDark={isDark} onTaskClick={handleTaskClick} onUpdateTask={updateTask} onDeleteTask={deleteTask} onEditTask={openTaskModal} user={user} onLeaveTask={leaveTask} />}
-        {activeTab === 'pool' && !canManage && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
+        {activeTab === 'pool' && !isBoss && <PoolTab tasks={tasks} user={user} isDark={isDark} onClaimTask={claimTask} onTaskClick={handleTaskClick} />}
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
         {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={canManage ? (date) => openTaskModal(null, date) : undefined} onUpdateTaskDate={isBoss ? updateTaskDate : undefined} />}
         {activeTab === 'timetracker' && <TimeTracker user={user} isDark={isDark} />}

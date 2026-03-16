@@ -46,7 +46,7 @@ const ReportsPage = ({ tasks, users, isDark, departments = [] }) => {
 
   useEffect(() => {
     const loadPersonAttendance = async () =>{
-      if (!selectedPerson) {
+      if (!selectedPerson || selectedPerson === '') {
         setPersonAttendance(null);
         return;
       }
