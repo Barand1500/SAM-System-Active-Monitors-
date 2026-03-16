@@ -110,11 +110,18 @@ const TimeTracker = ({ user, isDark }) => {
   const handleCheckIn = async () => {
     const now = new Date();
     try {
-      await attendanceAPI.checkIn();
+      const res = await attendanceAPI.checkIn();
+      // Backend zaten check-in yapılmışsa mevcut kaydı döner
+      if (res.data?.checkIn) {
+        const existingCheckIn = new Date(res.data.checkIn);
+        setCheckInTime(existingCheckIn);
+      } else {
+        setCheckInTime(now);
+      }
     } catch (err) {
       console.error('Check-in API hatası:', err);
+      setCheckInTime(now);
     }
-    setCheckInTime(now);
     setIsWorking(true);
     setTotalBreakTime(0);
     setBreakLogs([]);

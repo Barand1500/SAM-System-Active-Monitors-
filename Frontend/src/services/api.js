@@ -23,15 +23,16 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 401 veya 403 alırsa token'ı sil ve login sayfasına yönlendir
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('currentCompany');
-      
-      // Sadece login sayfasında değilsek yönlendir
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
+    if (error.response?.status === 401) {
+      const msg = error.response?.data?.error || '';
+      // Sadece token gerçekten geçersizse oturumu kapat
+      // "Invalid token" veya "Token missing" → token süresi dolmuş/bozuk
+      const tokenInvalid = msg === 'Invalid token' || msg === 'Token missing' || msg === 'User not found';
+      if (tokenInvalid) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentCompany');
+        window.dispatchEvent(new Event('auth:logout'));
       }
     }
     return Promise.reject(error);

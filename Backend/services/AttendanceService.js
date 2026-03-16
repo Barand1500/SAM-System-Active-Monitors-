@@ -8,7 +8,8 @@ class AttendanceService {
     let attendance = await attendanceRepo.findByUserAndDate(user_id, date);
 
     if (attendance && attendance.checkIn) {
-      throw new Error("Already checked in");
+      // Zaten check-in yapılmış, mevcut kaydı dön
+      return attendance;
     }
 
     if (!attendance) {

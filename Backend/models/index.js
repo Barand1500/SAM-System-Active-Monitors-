@@ -160,6 +160,7 @@ CommentFile.belongsTo(File, { foreignKey: "file_id" });
 Attendance.belongsTo(User, { foreignKey: "user_id" });
 User.hasMany(Attendance, { foreignKey: "user_id" });
 
+Attendance.hasMany(Break, { foreignKey: "attendance_id", as: "breaks" });
 Break.belongsTo(Attendance, { foreignKey: "attendance_id" });
 Break.belongsTo(BreakType, { foreignKey: "break_type_id" });
 

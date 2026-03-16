@@ -46,7 +46,16 @@ app.post('/admin/restart', authenticate, authorizeRoles('boss'), (req, res) => {
 });
 
 // ─── Sunucuyu başlat ──────────────────────────────────────────────────────────
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
+  // Eksik kolonları otomatik ekle (alter: true sadece yeni kolon ekler, veri silmez)
+  try {
+    const sequelize = require('./config/database');
+    await sequelize.sync({ alter: true });
+    console.log('[DB] Tablo senkronizasyonu tamamlandı');
+  } catch (err) {
+    console.error('[DB] Sync hatası:', err.message);
+  }
+
   // Start recurring task scheduler (every 60s)
   const { startScheduler } = require('./utils/scheduler');
   startScheduler(60000);

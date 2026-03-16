@@ -131,6 +131,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('currentCompany');
   };
 
+  // API interceptor'dan gelen 401 olayını dinle
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      setCurrentCompany(null);
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, []);
+
   // Şirket bilgilerini güncelle
   const updateCompany = async (updates) => {
     const oldCode = currentCompany?.companyCode;

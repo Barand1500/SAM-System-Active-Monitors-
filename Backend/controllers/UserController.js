@@ -100,6 +100,10 @@ class UserController {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
+      // Dosya okuma izni ver (nginx sunabilsin)
+      const fs = require('fs');
+      try { fs.chmodSync(req.file.path, 0o644); } catch (_) {}
+
       // Dosya yolu oluştur (avatars klasörüne kaydedilen dosyalar)
       const avatarUrl = "/uploads/avatars/" + req.file.filename;
       
