@@ -173,6 +173,14 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
     })
   );
 
+  // Helper: Local timezone'da YYYY-MM-DD formatı (timezone hatası önleme)
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const loadNotes = async () => {
       try {
@@ -230,7 +238,7 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
   };
 
   const getTasksForDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatLocalDate(date);
     return tasks.filter(t => t.dueDate === dateStr);
   };
 
@@ -322,7 +330,7 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
   };
 
   const handleDateClick = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatLocalDate(date);
     const dayTasks = getTasksForDate(date);
     
     if (onAddTask) {
@@ -475,7 +483,7 @@ const CalendarView = ({ tasks, isDark, onTaskClick, onAddTask, onUpdateTaskDate 
         {days.map((day, index) => {
           const dayTasks = getTasksForDate(day.date);
           const today = isToday(day.date);
-          const dateStr = day.date.toISOString().split('T')[0];
+          const dateStr = formatLocalDate(day.date);
           const noteList = personalNotes[dateStr] || [];
           const hasNote = noteList.length > 0;
           

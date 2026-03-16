@@ -291,6 +291,21 @@ class TaskController {
 
   async updateTask(req, res) {
     try {
+      // Eğer dueDate güncelleniyorsa, sadece Boss yapabilir
+      if (req.body.dueDate !== undefined) {
+        const userRole = req.user.role;
+        const userRoles = req.user.roles || (userRole ? [userRole] : []);
+        
+        if (!userRoles.includes('boss')) {
+          logger.warning('TASK-UPDATE', 'Yetkisiz dueDate güncelleme denemesi', { 
+            userId: req.user.id, 
+            role: userRole, 
+            roles: userRoles 
+          });
+          return res.status(403).json({ error: 'Sadece patron görev tarihini değiştirebilir' });
+        }
+      }
+      
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
       res.json(task);
     } catch (err) {
