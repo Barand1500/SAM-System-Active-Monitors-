@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { fn, col, where } = require("sequelize");
 const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList } = require("../models");
 const userRepo = require("../repositories/UserRepository");
 
@@ -61,6 +62,27 @@ class AuthService {
 
   // Şirket kaydı + ilk admin
   async registerCompany(companyData, adminData) {
+    const normalizedCompanyName = (companyData?.name || "").trim();
+    if (!normalizedCompanyName) {
+      throw new Error("Şirket adı zorunludur");
+    }
+
+    const existingCompany = await Company.findOne({
+      where: where(fn("LOWER", col("name")), normalizedCompanyName.toLowerCase())
+    });
+
+    if (existingCompany) {
+      throw new Error("Bu şirket adı zaten kullanımda");
+    }
+
+    companyData.name = normalizedCompanyName;
+
+    // Global unique email çakışmasını Sequelize seviyesine bırakmadan yakala
+    const existingUser = await userRepo.findByEmail(adminData.email);
+    if (existingUser) {
+      throw new Error("Bu e-posta zaten kayıtlı");
+    }
+
     // Şirket kodu üret
     companyData.companyCode = await this.generateCompanyCode();
 

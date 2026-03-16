@@ -1,6 +1,23 @@
 const AuthService = require("../services/AuthService");
 const EmailService = require("../services/EmailService");
 
+function normalizeAuthError(err) {
+  if (!err) return "Bilinmeyen hata";
+
+  if (err.name === "SequelizeUniqueConstraintError") {
+    const field = err.errors?.[0]?.path;
+    if (field === "email") return "Bu e-posta zaten kayıtlı";
+    return "Aynı bilgilerle kayıt zaten mevcut";
+  }
+
+  if (err.name === "SequelizeValidationError") {
+    const firstMessage = err.errors?.[0]?.message;
+    return firstMessage || "Girilen bilgiler doğrulama kontrolünden geçemedi";
+  }
+
+  return err.message || "İşlem sırasında hata oluştu";
+}
+
 class AuthController {
   async registerCompany(req, res) {
     try {
@@ -8,7 +25,7 @@ class AuthController {
       const result = await AuthService.registerCompany(company, admin);
       res.status(201).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -21,7 +38,7 @@ class AuthController {
       const result = await AuthService.registerEmployee(employeeData);
       res.status(201).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -39,7 +56,7 @@ class AuthController {
       });
       res.status(201).json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -51,7 +68,7 @@ class AuthController {
       res.status(200).json(result);
     } catch (err) {
       console.error('[AuthController] Login error:', err.message);
-      res.status(401).json({ error: err.message });
+      res.status(401).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -62,7 +79,7 @@ class AuthController {
       const available = await AuthService.checkCompanyCodeAvailability(code, currentCompanyId);
       res.json(available);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -71,7 +88,7 @@ class AuthController {
       const result = await AuthService.updateCompanyCode(req.user.company_id, req.body.companyCode);
       res.json(result);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: normalizeAuthError(err) });
     }
   }
 
@@ -83,7 +100,7 @@ class AuthController {
       res.json({ message: "Doğrulama kodu gönderildi" });
     } catch (err) {
       console.error("[AuthController] Email error:", err.message);
-      res.status(500).json({ error: "E-posta gönderilemedi: " + err.message });
+      res.status(500).json({ error: "E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin." });
     }
   }
 
@@ -95,7 +112,7 @@ class AuthController {
       if (!result.valid) return res.status(400).json({ error: result.message });
       res.json({ verified: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: normalizeAuthError(err) });
     }
   }
 }

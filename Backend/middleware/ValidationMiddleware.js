@@ -1,10 +1,44 @@
 const { validationResult, body, param, query } = require("express-validator");
 
+const fieldLabels = {
+  "company.name": "Şirket adı",
+  "admin.firstName": "Ad",
+  "admin.lastName": "Soyad",
+  "admin.email": "E-posta",
+  "admin.password": "Şifre",
+  firstName: "Ad",
+  lastName: "Soyad",
+  email: "E-posta",
+  password: "Şifre",
+  company_code: "Şirket kodu",
+  role: "Rol",
+  title: "Başlık",
+  statusId: "Durum",
+  priorityId: "Öncelik",
+  taskListId: "Görev listesi"
+};
+
+function normalizeValidationErrors(rawErrors) {
+  return rawErrors.map((err) => {
+    const path = err.path || err.param || "field";
+    const label = fieldLabels[path] || path;
+    return {
+      field: path,
+      message: `${label}: ${err.msg}`
+    };
+  });
+}
+
 // Validation sonuçlarını kontrol eden middleware
 function validate(req, res, next) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(422).json({ errors: errors.array() });
+    const details = normalizeValidationErrors(errors.array());
+    return res.status(422).json({
+      error: details[0]?.message || "Girilen bilgiler geçersiz",
+      details,
+      errors: details
+    });
   }
   next();
 }

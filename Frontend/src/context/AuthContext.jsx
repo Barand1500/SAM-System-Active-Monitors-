@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { getApiErrorMessage } from '../services/api';
 import { userAPI } from '../services/api';
 import { connectRealtime, disconnectRealtime } from '../services/realtime';
 
@@ -52,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       
       return user;
     } catch (error) {
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Giriş başarısız!';
+      const errorMsg = getApiErrorMessage(error, 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
       throw { message: errorMsg };
     }
   };
@@ -86,7 +87,7 @@ export const AuthProvider = ({ children }) => {
 
       return { user, company: backendCompany };
     } catch (error) {
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      const errorMsg = getApiErrorMessage(error, 'Şirket kaydı tamamlanamadı. Lütfen bilgileri kontrol edin.');
       throw { message: errorMsg };
     }
   };
@@ -118,7 +119,7 @@ export const AuthProvider = ({ children }) => {
 
       return { user, company: backendCompany };
     } catch (error) {
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Şirket kaydı başarısız!';
+      const errorMsg = getApiErrorMessage(error, 'Şirkete katılım tamamlanamadı. Lütfen bilgileri kontrol edin.');
       throw { message: errorMsg };
     }
   };

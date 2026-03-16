@@ -5,6 +5,54 @@ import { History, User, Calendar, Search, Filter, Download, Trash2, Clock, Edit,
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
+const TYPE_LABELS = {
+  profile: 'Profil',
+  department: 'Departman',
+  role: 'Rol',
+  status: 'Durum',
+  priority: 'Öncelik',
+  task: 'Görev',
+  tasklist: 'Görev Listesi',
+  taskcomment: 'Görev Yorumu',
+  tasklog: 'Görev Logu',
+  taskpriority: 'Görev Önceliği',
+  taskstatus: 'Görev Durumu',
+  company: 'Şirket',
+  survey: 'Anket',
+  contact: 'Kişi',
+  tag: 'Etiket',
+  setting: 'Ayar',
+  dashboard: 'Panel',
+  automation: 'Otomasyon',
+  automationrule: 'Otomasyon Kuralı',
+  notification: 'Bildirim',
+  personalnote: 'Kişisel Not',
+  recurringtask: 'Tekrarlayan Görev',
+  file: 'Dosya',
+  report: 'Rapor',
+  sms: 'SMS',
+  ticket: 'Destek Talebi',
+  customer: 'Müşteri',
+  project: 'Proje',
+  workspace: 'Çalışma Alanı',
+  user: 'Kullanıcı',
+  attendance: 'Mesai',
+  leave: 'İzin',
+  auth: 'Kimlik Doğrulama',
+  system: 'Sistem'
+};
+
+const CORE_FILTER_TYPES = ['task', 'leave', 'survey', 'ticket', 'department', 'attendance'];
+
+const HIDDEN_AUDIT_KEYS = new Set([
+  'companyId', 'company_id',
+  'createdAt', 'created_at',
+  'updatedAt', 'updated_at',
+  'deletedAt', 'deleted_at',
+  'ipAddress', 'ip_address',
+  '__v'
+]);
+
 const ChangeHistory = ({ isDark }) => {
   const { user } = useAuth();
   const [history, setHistory] = useState([]);
@@ -21,6 +69,26 @@ const ChangeHistory = ({ isDark }) => {
   useEffect(() => {
     applyFilters();
   }, [searchTerm, filterType, filterUser, history]);
+
+  const normalizeType = (type) => {
+    const rawType = String(type || '').toLowerCase();
+    if (!rawType) return '';
+
+    const base = rawType.split('_')[0].replace(/-/g, '');
+
+    if (['task', 'tasklist', 'taskcomment', 'tasklog', 'taskpriority', 'taskstatus', 'recurringtask'].includes(base)) {
+      return 'task';
+    }
+
+    if (['ticket', 'supportticket'].includes(base)) return 'ticket';
+    if (['leave'].includes(base)) return 'leave';
+    if (['survey', 'surveyquestion', 'surveyresponse'].includes(base)) return 'survey';
+    if (['department'].includes(base)) return 'department';
+    if (['attendance'].includes(base)) return 'attendance';
+
+    if (TYPE_LABELS[base]) return base;
+    return base || rawType;
+  };
 
   const loadHistory = async () => {
     try {
@@ -53,12 +121,12 @@ const ChangeHistory = ({ isDark }) => {
 
     // Tip filtresi
     if (filterType !== 'all') {
-      filtered = filtered.filter(item => item.type === filterType);
+      filtered = filtered.filter(item => normalizeType(item.type) === filterType);
     }
 
     // Kullanıcı filtresi
     if (filterUser !== 'all') {
-      filtered = filtered.filter(item => item.userId === filterUser);
+      filtered = filtered.filter(item => String(item.userId) === String(filterUser));
     }
 
     setFilteredHistory(filtered);
@@ -82,10 +150,10 @@ const ChangeHistory = ({ isDark }) => {
       ...filteredHistory.map(item => [
         format(new Date(item.timestamp), 'dd/MM/yyyy HH:mm:ss'),
         item.userName,
-        item.action,
+        getActionLabel(item.action),
         item.description,
-        item.oldValue || '-',
-        item.newValue || '-'
+        formatAuditValue(item.oldValue),
+        formatAuditValue(item.newValue)
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -97,7 +165,8 @@ const ChangeHistory = ({ isDark }) => {
   };
 
   const getActionIcon = (action) => {
-    switch (action) {
+    const normalized = String(action || '').toLowerCase();
+    switch (normalized) {
       case 'create': return <Plus size={14} className="text-emerald-500" />;
       case 'update': return <Edit size={14} className="text-blue-500" />;
       case 'delete': return <Trash2 size={14} className="text-red-500" />;
@@ -106,7 +175,8 @@ const ChangeHistory = ({ isDark }) => {
   };
 
   const getActionLabel = (action) => {
-    switch (action) {
+    const normalized = String(action || '').toLowerCase();
+    switch (normalized) {
       case 'create': return 'Oluşturma';
       case 'update': return 'Güncelleme';
       case 'delete': return 'Silme';
@@ -114,20 +184,395 @@ const ChangeHistory = ({ isDark }) => {
     }
   };
 
+  const getCriticalCategory = (item) => {
+    const type = normalizeType(item?.type);
+    const text = `${item?.description || ''} ${item?.entity || ''} ${item?.type || ''}`.toLowerCase();
+
+    if (
+      text.includes('auth') ||
+      text.includes('login') ||
+      text.includes('giriş') ||
+      text.includes('şifre') ||
+      text.includes('password') ||
+      text.includes('token') ||
+      text.includes('oturum')
+    ) {
+      return 'Güvenlik';
+    }
+
+    if (
+      type === 'role' ||
+      text.includes('yetki') ||
+      text.includes('permission') ||
+      text.includes('authorize') ||
+      text.includes('rol')
+    ) {
+      return 'Yetki';
+    }
+
+    const contentTypes = new Set([
+      'task', 'tasklist', 'taskcomment', 'tasklog', 'taskpriority', 'taskstatus',
+      'survey', 'announcement', 'project', 'customer', 'ticket', 'file',
+      'personalnote', 'contact', 'tag', 'dashboard', 'setting', 'report',
+      'notification', 'recurringtask', 'sms', 'leave', 'attendance', 'department'
+    ]);
+    if (contentTypes.has(type)) {
+      return 'İçerik';
+    }
+
+    return 'Sistem';
+  };
+
+  const getCategoryBadgeClasses = (category) => {
+    if (category === 'Güvenlik') {
+      return 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300';
+    }
+    if (category === 'Yetki') {
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300';
+    }
+    if (category === 'İçerik') {
+      return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300';
+    }
+    return 'bg-slate-200 text-slate-700 dark:bg-slate-600 dark:text-slate-200';
+  };
+
   const getTypeLabel = (type) => {
-    switch (type) {
-      case 'profile': return 'Profil';
-      case 'department': return 'Departman';
-      case 'role': return 'Rol';
-      case 'status': return 'Durum';
-      case 'priority': return 'Öncelik';
-      case 'task': return 'Görev';
-      case 'company': return 'Şirket';
-      default: return 'Diğer';
+    const normalized = normalizeType(type);
+    if (TYPE_LABELS[normalized]) return TYPE_LABELS[normalized];
+
+    if (!normalized) return 'Diğer';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
+  const getFieldLabel = (fieldKey) => {
+    const labels = {
+      id: 'ID',
+      Id: 'ID',
+      answers: 'Yanıtlar',
+      answer: 'Yanıt',
+      title: 'Başlık',
+      name: 'Ad',
+      Name: 'Ad',
+      description: 'Açıklama',
+      Description: 'Açıklama',
+      content: 'İçerik',
+      subject: 'Konu',
+      note: 'Not',
+      email: 'E-posta',
+      phone: 'Telefon',
+      mobile: 'Cep Telefonu',
+      address: 'Adres',
+      city: 'Şehir',
+      country: 'Ülke',
+      role: 'Rol',
+      firstName: 'Ad',
+      lastName: 'Soyad',
+      fullName: 'Ad Soyad',
+      userName: 'Kullanıcı',
+      status: 'Durum',
+      isActive: 'Aktif Mi',
+      isRead: 'Okundu Mu',
+      isDefault: 'Varsayılan Mı',
+      IsDefault: 'Varsayılan Mı',
+      color: 'Renk',
+      orderNo: 'Sıra',
+      dueDate: 'Son Teslim Tarihi',
+      DueDate: 'Son Teslim Tarihi',
+      startDate: 'Başlangıç Tarihi',
+      StartDate: 'Başlangıç Tarihi',
+      endDate: 'Bitiş Tarihi',
+      EndDate: 'Bitiş Tarihi',
+      createdAt: 'Oluşturulma Tarihi',
+      updatedAt: 'Güncellenme Tarihi',
+      CreatedAt: 'Oluşturulma Tarihi',
+      UpdatedAt: 'Güncellenme Tarihi',
+      estimatedHours: 'Tahmini Süre (Saat)',
+      actualHours: 'Harcanan Süre (Saat)',
+      progressPercent: 'İlerleme (%)',
+      statusId: 'Durum',
+      priorityId: 'Öncelik',
+      roleId: 'Rol',
+      userId: 'Kullanıcı',
+      creatorId: 'Oluşturan',
+      companyId: 'Şirket',
+      workspaceId: 'Çalışma Alanı',
+      projectId: 'Proje',
+      departmentId: 'Departman',
+      taskListId: 'Görev Listesi',
+      type: 'Tür',
+      activeLayoutId: 'Aktif Düzen',
+      activeLayoutName: 'Aktif Düzen Adı',
+      layoutCount: 'Düzen Sayısı',
+      taskTemplateCount: 'Görev Şablonu Sayısı',
+      widgetSizeGroups: 'Widget Boyut Grubu',
+      widgetOrderGroups: 'Widget Sıralama Grubu',
+      'Dashboard layouts': 'Panel Düzenleri',
+      'Active layout': 'Aktif Düzen',
+      'Task templates': 'Görev Şablonları',
+      'Dashboard widget sizes': 'Panel Widget Boyutları',
+      'Dashboard widget order': 'Panel Widget Sıralaması',
+      Company: 'Şirket',
+      'Company id': 'Şirket',
+      'User id': 'Kullanıcı',
+      Status: 'Durum'
+    };
+
+    if (/^\d+$/.test(String(fieldKey || ''))) {
+      return `Soru ${fieldKey}`;
+    }
+
+    if (labels[fieldKey]) return labels[fieldKey];
+
+    if (String(fieldKey || '').endsWith('Id') && String(fieldKey || '').length > 2) {
+      const withoutId = String(fieldKey).slice(0, -2);
+      return getFieldLabel(withoutId);
+    }
+
+    if (String(fieldKey || '').endsWith('_id') && String(fieldKey || '').length > 3) {
+      const withoutId = String(fieldKey).slice(0, -3);
+      return getFieldLabel(withoutId);
+    }
+
+    // CamelCase/snake_case anahtarları daha okunur hale getir
+    const normalized = String(fieldKey || '')
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .trim();
+
+    if (!normalized) return String(fieldKey || '');
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
+  const formatEnumValue = (value) => {
+    const map = {
+      pending: 'Beklemede',
+      approved: 'Onaylandı',
+      rejected: 'Reddedildi',
+      canceled: 'İptal Edildi',
+      cancelled: 'İptal Edildi',
+      active: 'Aktif',
+      inactive: 'Pasif',
+      open: 'Açık',
+      closed: 'Kapalı',
+      done: 'Tamamlandı',
+      completed: 'Tamamlandı',
+      in_progress: 'Devam Ediyor',
+      inprogress: 'Devam Ediyor',
+      high: 'Yüksek',
+      medium: 'Orta',
+      low: 'Düşük',
+      urgent: 'Acil',
+      yes: 'Evet',
+      no: 'Hayır',
+      true: 'Evet',
+      false: 'Hayır',
+      boss: 'Patron',
+      manager: 'Yönetici',
+      employee: 'Çalışan',
+      task: 'Görev',
+      leave: 'İzin',
+      ticket: 'Destek Talebi',
+      announcement: 'Duyuru',
+      project: 'Proje',
+      department: 'Departman'
+    };
+
+    const normalized = String(value).toLowerCase();
+    return map[normalized] || null;
+  };
+
+  const formatFieldValue = (fieldKey, value) => {
+    if (value === null || value === undefined || value === '') return '-';
+
+    const key = String(fieldKey || '').toLowerCase();
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '-';
+
+      if (value.every(item => item && typeof item === 'object' && !Array.isArray(item))) {
+        const labels = value
+          .map((item) => item.name || item.title || item.text || item.subject || item.id)
+          .filter(Boolean)
+          .slice(0, 3)
+          .map((item) => String(item));
+
+        const head = labels.join(', ');
+        const suffix = value.length > 3 ? ` +${value.length - 3} kayıt` : '';
+        return head ? `${head}${suffix}` : `${value.length} kayıt`;
+      }
+
+      return value
+        .map((item) => formatFieldValue(fieldKey, item))
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    if (typeof value === 'object') {
+      const entries = Object.entries(value)
+        .filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+      if (entries.length === 0) return '-';
+
+      return entries
+        .map(([k, v]) => `${getFieldLabel(k)}: ${formatFieldValue(k, v)}`)
+        .join(', ');
+    }
+
+    if (key === 'companyid' || key === 'company_id') {
+      const currentCompanyId = user?.company_id || user?.companyId;
+      if (currentCompanyId && String(value) === String(currentCompanyId)) {
+        return 'Kendi şirketiniz';
+      }
+      return `Şirket #${value}`;
+    }
+
+    if (key === 'userid' || key === 'user_id' || key === 'creatorid' || key === 'createdby') {
+      const foundUser = history.find((h) => String(h.userId) === String(value));
+      if (foundUser?.userName) {
+        return `${foundUser.userName} (#${value})`;
+      }
+      return `Kullanıcı #${value}`;
+    }
+
+    if (key.endsWith('id')) {
+      return `#${value}`;
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'Evet' : 'Hayır';
+    }
+
+    if (typeof value === 'number') {
+      if (key.includes('count') || key.includes('group')) return `${value} adet`;
+      if (fieldKey.toLowerCase().includes('percent')) return `${value}%`;
+      if (fieldKey.toLowerCase().includes('hour')) return `${value} saat`;
+      return String(value);
+    }
+
+    const enumValue = formatEnumValue(value);
+    if (enumValue) return enumValue;
+
+    if (key.includes('date') || key.includes('at')) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) {
+        const hasTime = /t\d{2}:\d{2}:\d{2}/i.test(String(value));
+        return format(date, hasTime ? 'dd.MM.yyyy HH:mm' : 'dd.MM.yyyy', { locale: tr });
+      }
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return formatFieldValue(fieldKey, parsed);
+        } catch {
+          // JSON değilse normal string olarak devam et
+        }
+      }
+      return value.replace(/_/g, ' ');
+    }
+
+    return String(value);
+  };
+
+  const parseLegacyKeyValueString = (rawValue) => {
+    const text = String(rawValue || '').trim();
+    if (!text || !text.includes(':')) return null;
+
+    const segments = text.split(',').map(part => part.trim()).filter(Boolean);
+    if (segments.length === 0) return null;
+
+    const obj = {};
+    for (const segment of segments) {
+      const separatorIndex = segment.indexOf(':');
+      if (separatorIndex < 1) return null;
+
+      const key = segment.slice(0, separatorIndex).trim();
+      const value = segment.slice(separatorIndex + 1).trim();
+      if (!key) return null;
+      obj[key] = value;
+    }
+
+    return Object.keys(obj).length > 0 ? obj : null;
+  };
+
+  const formatAuditValue = (rawValue) => {
+    if (!rawValue) return '-';
+
+    try {
+      const parsed = JSON.parse(rawValue);
+
+      const isDashboardSummary =
+        parsed && typeof parsed === 'object' &&
+        ('layoutCount' in parsed || 'activeLayoutId' in parsed || 'widgetSizeGroups' in parsed || 'widgetOrderGroups' in parsed);
+
+      if (isDashboardSummary) {
+        const parts = [];
+        const layoutCount = parsed.layoutCount ?? 0;
+        const templateCount = parsed.taskTemplateCount ?? 0;
+        const widgetSizeGroups = parsed.widgetSizeGroups ?? 0;
+        const widgetOrderGroups = parsed.widgetOrderGroups ?? 0;
+
+        parts.push(`Toplam ${layoutCount} düzen var`);
+
+        if (parsed.activeLayoutName) {
+          parts.push(`aktif düzen: ${parsed.activeLayoutName}`);
+        } else if (parsed.activeLayoutId) {
+          parts.push(`aktif düzen ID: #${parsed.activeLayoutId}`);
+        }
+
+        parts.push(`${templateCount} görev şablonu tanımlı`);
+        parts.push(`${widgetSizeGroups} widget boyut ayarı grubu`);
+        parts.push(`${widgetOrderGroups} widget sıralama ayarı grubu`);
+
+        return parts.join(' • ');
+      }
+
+      return Object.entries(parsed)
+        .filter(([k, v]) => !HIDDEN_AUDIT_KEYS.has(k) && v !== null && v !== undefined && v !== '')
+        .map(([k, v]) => `${getFieldLabel(k)}: ${formatFieldValue(k, v)}`)
+        .join(' • ') || '-';
+    } catch {
+      const legacyParsed = parseLegacyKeyValueString(rawValue);
+      if (legacyParsed) {
+        const legacyKeys = Object.keys(legacyParsed).map((k) => String(k).toLowerCase());
+        const isLegacyDashboardPayload = legacyKeys.some((k) =>
+          k.includes('dashboard layouts') ||
+          k.includes('active layout') ||
+          k.includes('dashboard widget sizes') ||
+          k.includes('dashboard widget order')
+        );
+
+        if (isLegacyDashboardPayload) {
+          const layoutRaw = legacyParsed['Dashboard layouts'];
+          const activeLayout = legacyParsed['Active layout'];
+          const templateRaw = legacyParsed['Task templates'];
+
+          let layoutCount = 0;
+          if (typeof layoutRaw === 'string' && layoutRaw.trim()) {
+            layoutCount = layoutRaw.split('ID:').length - 1;
+          }
+
+          const templateCount = templateRaw && templateRaw !== '-' ? 1 : 0;
+          const safeActive = activeLayout && activeLayout !== '-' ? activeLayout : 'belirtilmemiş';
+
+          return `Panel ayarları güncellendi • Toplam ${layoutCount} düzen var • Aktif düzen: ${safeActive} • ${templateCount} şablon bilgisi var`;
+        }
+
+        return Object.entries(legacyParsed)
+          .filter(([k, v]) => !HIDDEN_AUDIT_KEYS.has(k) && v !== null && v !== undefined && v !== '')
+          .map(([k, v]) => `${getFieldLabel(k)}: ${formatFieldValue(k, v)}`)
+          .join(' • ') || '-';
+      }
+
+      const raw = String(rawValue);
+      return raw === '[object Object]' ? 'Detay okunamıyor' : raw;
     }
   };
 
   const uniqueUsers = [...new Set(history.map(h => h.userId))];
+  const availableTypes = CORE_FILTER_TYPES;
 
   return (
     <div className="space-y-6">
@@ -204,13 +649,9 @@ const ChangeHistory = ({ isDark }) => {
               }`}
             >
               <option value="all">Tüm İşlemler</option>
-              <option value="profile">Profil</option>
-              <option value="department">Departman</option>
-              <option value="role">Rol</option>
-              <option value="status">Durum</option>
-              <option value="priority">Öncelik</option>
-              <option value="task">Görev</option>
-              <option value="company">Şirket</option>
+              {availableTypes.map(typeKey => (
+                <option key={typeKey} value={typeKey}>{getTypeLabel(typeKey)}</option>
+              ))}
             </select>
           </div>
 
@@ -259,6 +700,10 @@ const ChangeHistory = ({ isDark }) => {
         ) : (
           <div className="space-y-3">
             {filteredHistory.map((item, idx) => (
+              (() => {
+                const normalizedAction = String(item.action || '').toLowerCase();
+                const criticalCategory = getCriticalCategory(item);
+                return (
               <div
                 key={idx}
                 className={`flex gap-4 p-4 rounded-xl transition-colors ${
@@ -270,9 +715,9 @@ const ChangeHistory = ({ isDark }) => {
                 {/* Icon */}
                 <div className="flex-shrink-0">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    item.action === 'create'
+                    normalizedAction === 'create'
                       ? isDark ? 'bg-emerald-500/20' : 'bg-emerald-100'
-                      : item.action === 'update'
+                      : normalizedAction === 'update'
                         ? isDark ? 'bg-blue-500/20' : 'bg-blue-100'
                         : isDark ? 'bg-red-500/20' : 'bg-red-100'
                   }`}>
@@ -294,13 +739,16 @@ const ChangeHistory = ({ isDark }) => {
                           {getTypeLabel(item.type)}
                         </span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          item.action === 'create'
+                          normalizedAction === 'create'
                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
-                            : item.action === 'update'
+                            : normalizedAction === 'update'
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
                               : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
                         }`}>
                           {getActionLabel(item.action)}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getCategoryBadgeClasses(criticalCategory)}`}>
+                          {criticalCategory}
                         </span>
                       </div>
                       <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
@@ -324,15 +772,7 @@ const ChangeHistory = ({ isDark }) => {
                             Eski: 
                           </span>
                           <span className={`ml-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(item.oldValue);
-                                return Object.entries(parsed)
-                                  .filter(([, v]) => v !== null && v !== undefined && v !== '')
-                                  .map(([k, v]) => `${k}: ${v}`)
-                                  .join(', ');
-                              } catch { return item.oldValue; }
-                            })()}
+                            {formatAuditValue(item.oldValue)}
                           </span>
                         </div>
                       )}
@@ -342,15 +782,7 @@ const ChangeHistory = ({ isDark }) => {
                             Yeni: 
                           </span>
                           <span className={`ml-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(item.newValue);
-                                return Object.entries(parsed)
-                                  .filter(([, v]) => v !== null && v !== undefined && v !== '')
-                                  .map(([k, v]) => `${k}: ${v}`)
-                                  .join(', ');
-                              } catch { return item.newValue; }
-                            })()}
+                            {formatAuditValue(item.newValue)}
                           </span>
                         </div>
                       )}
@@ -358,6 +790,8 @@ const ChangeHistory = ({ isDark }) => {
                   )}
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         )}

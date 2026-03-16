@@ -47,12 +47,7 @@ const NotificationCenter = ({ isDark }) => {
             : 'bg-white/30 hover:bg-white/50 text-slate-600'
         } backdrop-blur-sm`}
       >
-        <Bell size={20} className={unreadCount > 0 ? 'animate-bounce' : ''} />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
+        <Bell size={20} />
       </button>
 
       {/* Notification Panel */}

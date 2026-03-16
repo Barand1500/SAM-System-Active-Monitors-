@@ -1,6 +1,7 @@
 // Backend/controllers/AnnouncementController.js
 const AnnouncementService = require("../services/AnnouncementService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForCompany } = require("../utils/notificationDispatcher");
 
 const logAudit = async (req, type, action, description, recordId) => {
   try {
@@ -38,6 +39,14 @@ class AnnouncementController {
       safeData.company_id = req.user.company_id;
       safeData.user_id = req.user.id;
       const announcement = await AnnouncementService.create(safeData);
+      await createForCompany(req, {
+        title: 'Yeni duyuru yayınlandı',
+        message: safeData.title ? `Duyuru: ${safeData.title}` : 'Şirket genelinde yeni bir duyuru yayınlandı.',
+        type: 'announcement',
+        referenceType: 'announcement',
+        referenceId: announcement.id,
+        excludeUserId: req.user.id,
+      });
       await logAudit(req, 'announcement_created', 'CREATE', `Duyuru oluşturuldu: ${safeData.title || ''}`, announcement.id);
       emitCompanyDataChanged(req, { entity: 'announcement', action: 'create', id: announcement.id });
       res.status(201).json(announcement);

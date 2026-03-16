@@ -1,5 +1,6 @@
 const TaskService = require("../services/TaskService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForUsers } = require("../utils/notificationDispatcher");
 const { TaskStatus, TaskPriority, Workspace, Project, TaskList, Task, sequelize } = require("../models");
 const logger = require("../utils/logger");
 
@@ -417,6 +418,14 @@ class TaskController {
   async assignUser(req, res) {
     try {
       const assignment = await TaskService.assignUser(req.params.id, req.body.user_id);
+      const task = await TaskService.getById(req.params.id, req.user.company_id);
+      await createForUsers(req, [req.body.user_id], {
+        title: 'Yeni görev atandı',
+        message: `"${task?.title || `#${req.params.id}`}" görevi size atandı.`,
+        type: 'task',
+        referenceType: 'task',
+        referenceId: Number(req.params.id)
+      });
       await logAudit(req, 'task_assigned', 'UPDATE', `Göreve kullanıcı atandı (Task: ${req.params.id}, User: ${req.body.user_id})`, 'TaskAssignment', 'task_assignments', req.params.id, null, { userId: req.body.user_id });
       emitCompanyDataChanged(req, { entity: 'task_assignment', action: 'create', id: Number(req.params.id) });
       res.status(201).json(assignment);

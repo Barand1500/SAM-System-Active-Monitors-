@@ -5,13 +5,23 @@ async function authenticate(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1]; // Bearer token
 
-  if (!token) return res.status(401).json({ error: "Token missing" });
+  if (!token) {
+    return res.status(401).json({
+      code: "AUTH_TOKEN_MISSING",
+      error: "Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın."
+    });
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
-    if (!user) return res.status(401).json({ error: "User not found" });
+    if (!user) {
+      return res.status(401).json({
+        code: "AUTH_USER_NOT_FOUND",
+        error: "Kullanıcı bulunamadı. Lütfen tekrar giriş yapın."
+      });
+    }
 
     // Convert to plain object and standardize all fields
     const userData = user.toJSON();
@@ -28,7 +38,10 @@ async function authenticate(req, res, next) {
         decodedCompanyId: decoded.company_id,
         tokenData: decoded
       });
-      return res.status(401).json({ error: "User company assignment error" });
+      return res.status(401).json({
+        code: "AUTH_COMPANY_MISSING",
+        error: "Kullanıcı şirket bilgisi eksik. Yönetici ile iletişime geçin."
+      });
     }
     
     delete userData.password;
@@ -37,15 +50,26 @@ async function authenticate(req, res, next) {
   } catch (err) {
     console.error("[AUTH] Token verification error:", err.message);
     // Token geçersizse 401 dön (authentication hatası)
-    return res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({
+      code: "AUTH_TOKEN_INVALID",
+      error: "Oturum süresi dolmuş veya geçersiz. Lütfen yeniden giriş yapın."
+    });
   }
 }
 
 function authorizeRoles(...roles) {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    if (!req.user) {
+      return res.status(401).json({
+        code: "AUTH_UNAUTHORIZED",
+        error: "Bu işlem için giriş yapmanız gerekiyor."
+      });
+    }
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: "Forbidden: insufficient role" });
+      return res.status(403).json({
+        code: "AUTH_FORBIDDEN",
+        error: "Bu işlemi yapma yetkiniz bulunmuyor."
+      });
     }
     next();
   };

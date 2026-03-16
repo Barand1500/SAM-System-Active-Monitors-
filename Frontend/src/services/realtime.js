@@ -20,6 +20,10 @@ export const connectRealtime = ({ companyId, userId, token }) => {
     socket.on('company:data-changed', (payload) => {
       window.dispatchEvent(new CustomEvent('company:data-changed', { detail: payload || {} }));
     });
+
+    socket.on('user:notification', (payload) => {
+      window.dispatchEvent(new CustomEvent('user:notification', { detail: payload || {} }));
+    });
   }
 
   socket.emit('join_company', companyId);

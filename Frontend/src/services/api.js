@@ -10,6 +10,36 @@ const apiClient = axios.create({
   }
 });
 
+export const getApiErrorMessage = (error, fallback = 'İşlem tamamlanamadı. Lütfen tekrar deneyin.') => {
+  const data = error?.response?.data;
+
+  if (typeof data?.error === 'string' && data.error.trim()) {
+    if (data.error.trim().toLowerCase() === 'validation error') {
+      return 'Girilen bilgiler doğrulama kontrolünden geçemedi.';
+    }
+    return data.error;
+  }
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+
+  if (Array.isArray(data?.details) && data.details.length > 0) {
+    return data.details[0]?.message || fallback;
+  }
+
+  if (Array.isArray(data?.errors) && data.errors.length > 0) {
+    const first = data.errors[0];
+    return first?.message || first?.msg || fallback;
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 // JWT token ekleyici (her istek öncesi)
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token');
@@ -25,9 +55,20 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const msg = error.response?.data?.error || '';
+      const code = error.response?.data?.code || '';
       // Sadece token gerçekten geçersizse oturumu kapat
-      // "Invalid token" veya "Token missing" → token süresi dolmuş/bozuk
-      const tokenInvalid = msg === 'Invalid token' || msg === 'Token missing' || msg === 'User not found';
+      const tokenInvalidByCode = [
+        'AUTH_TOKEN_MISSING',
+        'AUTH_TOKEN_INVALID',
+        'AUTH_USER_NOT_FOUND',
+        'AUTH_COMPANY_MISSING'
+      ].includes(code);
+      const tokenInvalidByLegacyMessage = [
+        'Invalid token',
+        'Token missing',
+        'User not found'
+      ].includes(msg);
+      const tokenInvalid = tokenInvalidByCode || tokenInvalidByLegacyMessage;
       if (tokenInvalid) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('currentUser');
@@ -35,6 +76,7 @@ apiClient.interceptors.response.use(
         window.dispatchEvent(new Event('auth:logout'));
       }
     }
+    error.userMessage = getApiErrorMessage(error);
     return Promise.reject(error);
   }
 );

@@ -104,6 +104,42 @@ export const NotificationProvider = ({ children }) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  useEffect(() => {
+    const handleRealtimeNotification = (event) => {
+      const payload = event?.detail || {};
+      if (!payload?.id) return;
+
+      const mapped = {
+        id: payload.id,
+        title: payload.title,
+        content: payload.content || payload.message,
+        type: payload.type || 'info',
+        isRead: payload.isRead || false,
+        createdAt: payload.createdAt || new Date().toISOString(),
+        referenceType: payload.referenceType,
+        referenceId: payload.referenceId,
+      };
+
+      setNotifications(prev => {
+        if (prev.some(n => String(n.id) === String(mapped.id))) return prev;
+        return [mapped, ...prev];
+      });
+
+      addToast({
+        title: mapped.title,
+        message: mapped.content,
+        type: mapped.type
+      });
+
+      if (mapped.type !== 'silent') {
+        sendPushNotification(mapped.title, { body: mapped.content, tag: String(mapped.id) });
+      }
+    };
+
+    window.addEventListener('user:notification', handleRealtimeNotification);
+    return () => window.removeEventListener('user:notification', handleRealtimeNotification);
+  }, [addToast, sendPushNotification]);
+
   // Uygulama içi bildirim ekle
   const addNotification = useCallback((notification) => {
     const newNotification = {

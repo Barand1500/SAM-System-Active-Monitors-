@@ -1,4 +1,5 @@
 const SurveyService = require("../services/SurveyService");
+const { createForCompany } = require("../utils/notificationDispatcher");
 
 class SurveyController {
   async create(req, res) {
@@ -7,6 +8,14 @@ class SurveyController {
         ...req.body,
         companyId: req.user.company_id,
         createdBy: req.user.id
+      });
+      await createForCompany(req, {
+        title: 'Yeni anket oluşturuldu',
+        message: survey?.title ? `Anket: ${survey.title}` : 'Katılımınız beklenen yeni bir anket yayınlandı.',
+        type: 'survey',
+        referenceType: 'survey',
+        referenceId: survey?.id,
+        excludeUserId: req.user.id,
       });
       res.status(201).json(survey);
     } catch (err) {

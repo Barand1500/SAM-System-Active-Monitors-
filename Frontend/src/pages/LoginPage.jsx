@@ -240,17 +240,6 @@ const LoginPage = ({ onSwitchToRegister }) => {
               </button>
             </p>
           </div>
-
-          {/* Demo Bilgiler */}
-          <div className="mt-8 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-            <p className="text-indigo-800 font-medium text-sm mb-2">Demo Giriş Bilgileri:</p>
-            <div className="text-xs text-indigo-600 space-y-1">
-              <p><span className="font-semibold">Şirket Kodu:</span> GZL2026X</p>
-              <p><span className="font-semibold">Patron:</span> patron@demo.com</p>
-              <p><span className="font-semibold">Çalışan:</span> calisan@demo.com</p>
-              <p><span className="font-semibold">Şifre (tümü):</span> 123456</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

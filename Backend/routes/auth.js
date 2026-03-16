@@ -8,7 +8,7 @@ const { validate, rules } = require("../middleware/ValidationMiddleware");
 router.post("/register-company", rules.registerCompany, validate, AuthController.registerCompany);
 
 // POST /api/auth/register-employee (only boss/manager can add employees)
-router.post("/register-employee", authenticate, authorizeRoles("boss", "manager"), AuthController.registerEmployee);
+router.post("/register-employee", authenticate, authorizeRoles("boss", "manager"), rules.registerEmployee, validate, AuthController.registerEmployee);
 
 // POST /api/auth/join-company (public - herkes şirket koduna katılabilir)
 router.post("/join-company", AuthController.joinCompany);

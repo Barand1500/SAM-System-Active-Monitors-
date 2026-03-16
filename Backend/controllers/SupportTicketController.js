@@ -1,5 +1,6 @@
 const SupportTicketService = require("../services/SupportTicketService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForCompany } = require("../utils/notificationDispatcher");
 
 const logAudit = async (req, type, action, description, recordId) => {
   try {
@@ -20,6 +21,14 @@ class SupportTicketController {
         ...req.body,
         companyId: req.user.company_id,
         createdBy: req.user.id
+      });
+      await createForCompany(req, {
+        title: 'Yeni destek talebi açıldı',
+        message: ticket?.title ? `Destek: ${ticket.title}` : 'Yeni bir destek talebi oluşturuldu.',
+        type: 'ticket',
+        referenceType: 'support_ticket',
+        referenceId: ticket?.id,
+        excludeUserId: req.user.id,
       });
       await logAudit(req, 'ticket_created', 'CREATE', `Destek talebi oluşturuldu: ${req.body.subject || ''}`, ticket.id);
       res.status(201).json(ticket);
