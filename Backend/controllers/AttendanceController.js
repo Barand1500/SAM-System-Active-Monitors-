@@ -1,5 +1,18 @@
 // Backend/controllers/AttendanceController.js
 const AttendanceService = require("../services/AttendanceService");
+const AuditLogService = require("../services/AuditLogService");
+
+const logAudit = async (req, type, action, description, recordId) => {
+  try {
+    await AuditLogService.create({
+      companyId: req.user?.company_id || req.user?.companyId,
+      userId: req.user?.id,
+      userName: `${req.user?.firstName || req.user?.first_name || ''} ${req.user?.lastName || req.user?.last_name || ''}`.trim(),
+      type, action, description, entity: 'Attendance', tableName: 'attendance', recordId,
+      ipAddress: req.ip
+    });
+  } catch (e) { /* audit hatası ana işlemi engellemesin */ }
+};
 
 class AttendanceController {
   async checkIn(req, res) {
@@ -8,6 +21,7 @@ class AttendanceController {
         ip_address: req.ip,
         device: req.headers["user-agent"] || null,
       });
+      await logAudit(req, 'attendance_checkin', 'CREATE', 'Mesaiye giriş yapıldı', attendance.id);
       res.json(attendance);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -17,6 +31,7 @@ class AttendanceController {
   async checkOut(req, res) {
     try {
       const attendance = await AttendanceService.checkOut(req.user.id);
+      await logAudit(req, 'attendance_checkout', 'UPDATE', 'Mesaiden çıkış yapıldı', attendance.id);
       res.json(attendance);
     } catch (err) {
       res.status(400).json({ error: err.message });

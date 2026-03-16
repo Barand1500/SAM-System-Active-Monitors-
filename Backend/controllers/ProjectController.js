@@ -1,4 +1,19 @@
 const ProjectService = require("../services/ProjectService");
+const AuditLogService = require("../services/AuditLogService");
+
+const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
+  try {
+    await AuditLogService.create({
+      companyId: req.user?.company_id || req.user?.companyId,
+      userId: req.user?.id,
+      userName: `${req.user?.firstName || req.user?.first_name || ''} ${req.user?.lastName || req.user?.last_name || ''}`.trim(),
+      type, action, description, entity: 'Project', tableName: 'projects', recordId,
+      oldValue: oldValue ? JSON.stringify(oldValue) : null,
+      newValue: newValue ? JSON.stringify(newValue) : null,
+      ipAddress: req.ip
+    });
+  } catch (e) { /* audit hatası ana işlemi engellemesin */ }
+};
 
 class ProjectController {
   async list(req, res) {
@@ -46,6 +61,7 @@ class ProjectController {
         createdBy: req.user.id,
         companyId: companyId
       });
+      await logAudit(req, 'project_created', 'CREATE', `Proje oluşturuldu: ${name}`, project.id, null, project);
       res.status(201).json(project);
     } catch (err) {
       console.error('[ProjectController] create error:', err.message);
@@ -55,7 +71,9 @@ class ProjectController {
 
   async update(req, res) {
     try {
+      const oldProject = await ProjectService.getById(req.params.id);
       const project = await ProjectService.update(req.params.id, req.body);
+      await logAudit(req, 'project_updated', 'UPDATE', `Proje güncellendi: ${project.name || ''}`, req.params.id, oldProject, req.body);
       res.json(project);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -64,7 +82,9 @@ class ProjectController {
 
   async delete(req, res) {
     try {
+      const oldProject = await ProjectService.getById(req.params.id);
       await ProjectService.delete(req.params.id);
+      await logAudit(req, 'project_deleted', 'DELETE', `Proje silindi: ${oldProject?.name || req.params.id}`, req.params.id, oldProject, null);
       res.json({ message: "Deleted" });
     } catch (err) {
       res.status(400).json({ error: err.message });

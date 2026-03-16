@@ -1,4 +1,17 @@
 const SupportTicketService = require("../services/SupportTicketService");
+const AuditLogService = require("../services/AuditLogService");
+
+const logAudit = async (req, type, action, description, recordId) => {
+  try {
+    await AuditLogService.create({
+      companyId: req.user?.company_id || req.user?.companyId,
+      userId: req.user?.id,
+      userName: `${req.user?.firstName || req.user?.first_name || ''} ${req.user?.lastName || req.user?.last_name || ''}`.trim(),
+      type, action, description, entity: 'SupportTicket', tableName: 'support_tickets', recordId,
+      ipAddress: req.ip
+    });
+  } catch (e) { /* audit hatası ana işlemi engellemesin */ }
+};
 
 class SupportTicketController {
   async create(req, res) {
@@ -8,6 +21,7 @@ class SupportTicketController {
         companyId: req.user.company_id,
         createdBy: req.user.id
       });
+      await logAudit(req, 'ticket_created', 'CREATE', `Destek talebi oluşturuldu: ${req.body.subject || ''}`, ticket.id);
       res.status(201).json(ticket);
     } catch (err) {
       res.status(400).json({ error: err.message });
