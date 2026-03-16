@@ -451,9 +451,12 @@ const Dashboard = () => {
     loadData();
   }, []); // Sadece component mount olduğunda çalış
 
-  // Otomatik yenilenme için polling (her 30 saniyede bir)
+  // Otomatik yenilenme için polling (her 5 dakikada bir, sadece tab görünürken)
   useEffect(() => {
     const refreshTasks = async () => {
+      // Tab görünür değilse yenileme
+      if (document.hidden) return;
+      
       const token = localStorage.getItem('auth_token');
       if (!token) return; // Token yoksa istek yapma
       try {
@@ -467,7 +470,7 @@ const Dashboard = () => {
       }
     };
 
-    const interval = setInterval(refreshTasks, 30000); // 30 saniye
+    const interval = setInterval(refreshTasks, 300000); // 5 dakika (300000 ms)
     return () => clearInterval(interval);
   }, []);
 
