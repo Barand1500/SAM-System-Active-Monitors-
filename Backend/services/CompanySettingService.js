@@ -24,7 +24,7 @@ class CompanySettingService {
       let settings = await companySettingRepo.getByCompany(company_id);
       if (!settings) {
         console.log('[CompanySettingService.upsert] No existing settings, creating new');
-        settings = await CompanySetting.create({ ...data, company_id });
+        settings = await CompanySetting.create({ ...data, companyId: company_id });
       } else {
         console.log('[CompanySettingService.upsert] Updating existing settings');
         await settings.update(data);

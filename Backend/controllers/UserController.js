@@ -16,6 +16,14 @@ const logAudit = async (req, type, action, description, recordId, oldValue, newV
   } catch (e) { /* audit hatası ana işlemi engellemesin */ }
 };
 
+const emitCompanyDataChanged = (req, payload) => {
+  const io = req.app.get('io');
+  const companyId = req.user?.company_id || req.user?.companyId;
+  if (io && companyId) {
+    io.to(`company_${companyId}`).emit('company:data-changed', payload);
+  }
+};
+
 class UserController {
   async list(req, res) {
     try {
@@ -41,6 +49,7 @@ class UserController {
       const userData = { ...req.body, companyId };
       const user = await UserService.createUser(userData);
       await logAudit(req, 'user_created', 'CREATE', `Kullanıcı oluşturuldu: ${userData.firstName || ''} ${userData.lastName || ''}`, user.id, null, userData);
+      emitCompanyDataChanged(req, { entity: 'user', action: 'create', id: user.id });
       res.status(201).json(user);
     } catch (err) {
       console.error('[UserController] create error:', err.message);
@@ -57,6 +66,7 @@ class UserController {
       const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       const user = await UserService.updateUser(req.params.id, req.body, companyId);
       await logAudit(req, 'user_updated', 'UPDATE', `Kullanıcı güncellendi: ${user.firstName || user.first_name || ''}`, req.params.id, oldUser, req.body);
+      emitCompanyDataChanged(req, { entity: 'user', action: 'update', id: Number(req.params.id) });
       res.json(user);
     } catch (err) {
       console.error('[UserController] update error:', err.message);
@@ -88,6 +98,7 @@ class UserController {
       const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       await UserService.deleteUser(req.params.id, companyId);
       await logAudit(req, 'user_deleted', 'DELETE', `Kullanıcı silindi: ${oldUser?.firstName || oldUser?.first_name || req.params.id}`, req.params.id, oldUser, null);
+      emitCompanyDataChanged(req, { entity: 'user', action: 'delete', id: Number(req.params.id) });
       res.json({ message: "User deleted successfully" });
     } catch (err) {
       console.error('[UserController] delete error:', err.message);

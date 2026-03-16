@@ -15,7 +15,7 @@ class CompanySettingRepository extends BaseRepository {
         throw new Error('company_id is required');
       }
       
-      const result = await this.model.findOne({ where: { company_id } });
+      const result = await this.model.findOne({ where: { companyId: company_id } });
       console.log('[CompanySettingRepository.getByCompany] Found:', result ? 'YES' : 'NO');
       return result;
     } catch (err) {

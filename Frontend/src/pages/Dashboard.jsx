@@ -471,6 +471,56 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Realtime: Aynı şirkette veri değişince listeleri yenile
+  useEffect(() => {
+    let refreshTimer = null;
+
+    const refreshCompanyData = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const [tasksRes, usersRes, announcementsRes] = await Promise.allSettled([
+        taskAPI.list(),
+        userAPI.list(),
+        announcementAPI.list(),
+      ]);
+
+      if (tasksRes.status === 'fulfilled') {
+        const taskData = tasksRes.value.data?.data || tasksRes.value.data;
+        if (Array.isArray(taskData)) setTasks(taskData.map(backendToFrontendTask));
+      }
+
+      if (usersRes.status === 'fulfilled') {
+        const userData = usersRes.value.data?.data || usersRes.value.data;
+        if (Array.isArray(userData)) {
+          const mapped = userData.map(u => ({
+            ...u,
+            skills: u.UserSkills || u.skills || [],
+            roles: u.roles || (u.role ? [u.role] : ['employee'])
+          }));
+          setEmployees(mapped);
+        }
+      }
+
+      if (announcementsRes.status === 'fulfilled') {
+        const announcementData = announcementsRes.value.data?.data || announcementsRes.value.data;
+        if (Array.isArray(announcementData)) setAnnouncementsList(announcementData);
+      }
+    };
+
+    const handleCompanyDataChanged = () => {
+      // Aynı anda çok event gelirse tek bir refresh çalıştır
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshCompanyData, 300);
+    };
+
+    window.addEventListener('company:data-changed', handleCompanyDataChanged);
+    return () => {
+      clearTimeout(refreshTimer);
+      window.removeEventListener('company:data-changed', handleCompanyDataChanged);
+    };
+  }, []);
+
   const canManage = isBoss || isManager;
 
   const menuItems = [

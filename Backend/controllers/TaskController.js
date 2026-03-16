@@ -18,6 +18,31 @@ const logAudit = async (req, type, action, description, entity, tableName, recor
   } catch (e) { /* audit log hatası ana işlemi engellemesin */ }
 };
 
+// Task objesinden sadece anlamlı alanları çıkar (audit log için)
+const pickTaskFields = (task) => {
+  if (!task) return null;
+  return {
+    title: task.title,
+    description: task.description,
+    dueDate: task.dueDate || task.due_date,
+    startDate: task.startDate || task.start_date,
+    estimatedHours: task.estimatedHours || task.estimated_hours,
+    progressPercent: task.progressPercent || task.progress_percent,
+    statusId: task.statusId || task.status_id,
+    priorityId: task.priorityId || task.priority_id,
+    departmentId: task.departmentId || task.department_id,
+    type: task.type,
+  };
+};
+
+const emitCompanyDataChanged = (req, payload) => {
+  const io = req.app.get('io');
+  const companyId = req.user?.company_id || req.user?.companyId;
+  if (io && companyId) {
+    io.to(`company_${companyId}`).emit('company:data-changed', payload);
+  }
+};
+
 class TaskController {
   async getConfig(req, res) {
     const startTime = Date.now();
@@ -249,6 +274,7 @@ class TaskController {
       logger.success('TASK-CREATE', `✅ Görev DB'ye kaydedildi: #${task.id}`, { title: task.title });
       
       await logAudit(req, 'task_created', 'CREATE', `Görev oluşturuldu: ${task.title}`, 'Task', 'tasks', task.id, null, task);
+      emitCompanyDataChanged(req, { entity: 'task', action: 'create', id: task.id });
       
       res.status(201).json(task);
     } catch (err) {
@@ -327,7 +353,8 @@ class TaskController {
       }
       
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
-      await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, oldTask, req.body);
+      await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, pickTaskFields(oldTask), pickTaskFields(req.body));
+      emitCompanyDataChanged(req, { entity: 'task', action: 'update', id: task.id });
       res.json(task);
     } catch (err) {
       console.error('[TaskController] updateTask error:', err.message);
@@ -339,7 +366,8 @@ class TaskController {
     try {
       const oldTask = await TaskService.getById(req.params.id, req.user.company_id);
       await TaskService.delete(req.params.id, req.user.company_id);
-      await logAudit(req, 'task_deleted', 'DELETE', `Görev silindi: ${oldTask?.title || req.params.id}`, 'Task', 'tasks', req.params.id, oldTask, null);
+      await logAudit(req, 'task_deleted', 'DELETE', `Görev silindi: ${oldTask?.title || req.params.id}`, 'Task', 'tasks', req.params.id, pickTaskFields(oldTask), null);
+      emitCompanyDataChanged(req, { entity: 'task', action: 'delete', id: Number(req.params.id) });
       res.json({ message: "Task deleted successfully" });
     } catch (err) {
       console.error('[TaskController] deleteTask error:', err.message);
@@ -351,6 +379,7 @@ class TaskController {
     try {
       const assignment = await TaskService.assignUser(req.params.id, req.body.user_id);
       await logAudit(req, 'task_assigned', 'UPDATE', `Göreve kullanıcı atandı (Task: ${req.params.id}, User: ${req.body.user_id})`, 'TaskAssignment', 'task_assignments', req.params.id, null, { userId: req.body.user_id });
+      emitCompanyDataChanged(req, { entity: 'task_assignment', action: 'create', id: Number(req.params.id) });
       res.status(201).json(assignment);
     } catch (err) {
       console.error('[TaskController] assignUser error:', err.message);
@@ -361,6 +390,7 @@ class TaskController {
   async removeAssignment(req, res) {
     try {
       await TaskService.removeAssignment(req.params.id, req.params.userId);
+      emitCompanyDataChanged(req, { entity: 'task_assignment', action: 'delete', id: Number(req.params.id) });
       res.json({ message: "Assignment removed" });
     } catch (err) {
       console.error('[TaskController] removeAssignment error:', err.message);

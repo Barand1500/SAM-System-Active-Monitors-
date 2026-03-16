@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
 import { userAPI } from '../services/api';
+import { connectRealtime, disconnectRealtime } from '../services/realtime';
 
 const AuthContext = createContext(null);
 
@@ -124,6 +125,7 @@ export const AuthProvider = ({ children }) => {
 
   // Çıkış yap
   const logout = () => {
+    disconnectRealtime();
     setUser(null);
     setCurrentCompany(null);
     localStorage.removeItem('auth_token');
@@ -134,12 +136,24 @@ export const AuthProvider = ({ children }) => {
   // API interceptor'dan gelen 401 olayını dinle
   useEffect(() => {
     const handleForceLogout = () => {
+      disconnectRealtime();
       setUser(null);
       setCurrentCompany(null);
     };
     window.addEventListener('auth:logout', handleForceLogout);
     return () => window.removeEventListener('auth:logout', handleForceLogout);
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (token && user?.id && currentCompany?.id) {
+      connectRealtime({ companyId: currentCompany.id, userId: user.id, token });
+    }
+
+    return () => {
+      disconnectRealtime();
+    };
+  }, [user?.id, currentCompany?.id]);
 
   // Şirket bilgilerini güncelle
   const updateCompany = async (updates) => {

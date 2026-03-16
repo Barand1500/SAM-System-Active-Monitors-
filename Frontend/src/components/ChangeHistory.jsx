@@ -324,7 +324,15 @@ const ChangeHistory = ({ isDark }) => {
                             Eski: 
                           </span>
                           <span className={`ml-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            {item.oldValue}
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(item.oldValue);
+                                return Object.entries(parsed)
+                                  .filter(([, v]) => v !== null && v !== undefined && v !== '')
+                                  .map(([k, v]) => `${k}: ${v}`)
+                                  .join(', ');
+                              } catch { return item.oldValue; }
+                            })()}
                           </span>
                         </div>
                       )}
@@ -334,7 +342,15 @@ const ChangeHistory = ({ isDark }) => {
                             Yeni: 
                           </span>
                           <span className={`ml-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            {item.newValue}
+                            {(() => {
+                              try {
+                                const parsed = JSON.parse(item.newValue);
+                                return Object.entries(parsed)
+                                  .filter(([, v]) => v !== null && v !== undefined && v !== '')
+                                  .map(([k, v]) => `${k}: ${v}`)
+                                  .join(', ');
+                              } catch { return item.newValue; }
+                            })()}
                           </span>
                         </div>
                       )}

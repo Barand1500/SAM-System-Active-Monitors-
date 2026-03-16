@@ -704,10 +704,11 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
       setTimeout(() => setProfileSaved(false), 2500);
     } catch (err) {
       console.error('Şirket profili kaydedilemedi:', err);
+      const apiMessage = err?.response?.data?.error;
       addToast({
         type: 'error',
         title: 'Hata',
-        message: 'Şirket profili kaydedilemedi',
+        message: apiMessage || 'Şirket profili kaydedilemedi',
         duration: 5000
       });
     }

@@ -14,6 +14,14 @@ const logAudit = async (req, type, action, description, recordId) => {
   } catch (e) { /* audit hatası ana işlemi engellemesin */ }
 };
 
+const emitCompanyDataChanged = (req, payload) => {
+  const io = req.app.get('io');
+  const companyId = req.user?.company_id || req.user?.companyId;
+  if (io && companyId) {
+    io.to(`company_${companyId}`).emit('company:data-changed', payload);
+  }
+};
+
 class AnnouncementController {
   async list(req, res) {
     try {
@@ -31,6 +39,7 @@ class AnnouncementController {
       safeData.user_id = req.user.id;
       const announcement = await AnnouncementService.create(safeData);
       await logAudit(req, 'announcement_created', 'CREATE', `Duyuru oluşturuldu: ${safeData.title || ''}`, announcement.id);
+      emitCompanyDataChanged(req, { entity: 'announcement', action: 'create', id: announcement.id });
       res.status(201).json(announcement);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -42,6 +51,7 @@ class AnnouncementController {
       const { company_id, user_id, id, ...safeData } = req.body;
       const updated = await AnnouncementService.update(req.params.id, safeData);
       await logAudit(req, 'announcement_updated', 'UPDATE', `Duyuru güncellendi #${req.params.id}`, req.params.id);
+      emitCompanyDataChanged(req, { entity: 'announcement', action: 'update', id: Number(req.params.id) });
       res.json(updated);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -52,6 +62,7 @@ class AnnouncementController {
     try {
       await AnnouncementService.delete(req.params.id);
       await logAudit(req, 'announcement_deleted', 'DELETE', `Duyuru silindi #${req.params.id}`, req.params.id);
+      emitCompanyDataChanged(req, { entity: 'announcement', action: 'delete', id: Number(req.params.id) });
       res.json({ message: "Deleted" });
     } catch (err) {
       res.status(400).json({ error: err.message });
