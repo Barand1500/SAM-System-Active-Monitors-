@@ -1,5 +1,20 @@
 // Backend/controllers/UserController.js
 const UserService = require("../services/UserService");
+const AuditLogService = require("../services/AuditLogService");
+
+const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
+  try {
+    await AuditLogService.create({
+      companyId: req.user?.company_id || req.user?.companyId,
+      userId: req.user?.id,
+      userName: `${req.user?.firstName || req.user?.first_name || ''} ${req.user?.lastName || req.user?.last_name || ''}`.trim(),
+      type, action, description, entity: 'User', tableName: 'users', recordId,
+      oldValue: oldValue ? JSON.stringify(oldValue) : null,
+      newValue: newValue ? JSON.stringify(newValue) : null,
+      ipAddress: req.ip
+    });
+  } catch (e) { /* audit hatası ana işlemi engellemesin */ }
+};
 
 class UserController {
   async list(req, res) {
@@ -25,6 +40,7 @@ class UserController {
       // Ensure companyId is in the request
       const userData = { ...req.body, companyId };
       const user = await UserService.createUser(userData);
+      await logAudit(req, 'user_created', 'CREATE', `Kullanıcı oluşturuldu: ${userData.firstName || ''} ${userData.lastName || ''}`, user.id, null, userData);
       res.status(201).json(user);
     } catch (err) {
       console.error('[UserController] create error:', err.message);
@@ -38,7 +54,9 @@ class UserController {
       if (!companyId) {
         return res.status(400).json({ error: "Company ID not found" });
       }
+      const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       const user = await UserService.updateUser(req.params.id, req.body, companyId);
+      await logAudit(req, 'user_updated', 'UPDATE', `Kullanıcı güncellendi: ${user.firstName || user.first_name || ''}`, req.params.id, oldUser, req.body);
       res.json(user);
     } catch (err) {
       console.error('[UserController] update error:', err.message);
@@ -67,7 +85,9 @@ class UserController {
       if (!companyId) {
         return res.status(400).json({ error: "Company ID not found" });
       }
+      const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       await UserService.deleteUser(req.params.id, companyId);
+      await logAudit(req, 'user_deleted', 'DELETE', `Kullanıcı silindi: ${oldUser?.firstName || oldUser?.first_name || req.params.id}`, req.params.id, oldUser, null);
       res.json({ message: "User deleted successfully" });
     } catch (err) {
       console.error('[UserController] delete error:', err.message);

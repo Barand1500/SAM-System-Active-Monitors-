@@ -1,6 +1,22 @@
 const TaskService = require("../services/TaskService");
+const AuditLogService = require("../services/AuditLogService");
 const { TaskStatus, TaskPriority, Workspace, Project, TaskList, Task, sequelize } = require("../models");
 const logger = require("../utils/logger");
+
+// Audit log yardımcı fonksiyonu
+const logAudit = async (req, type, action, description, entity, tableName, recordId, oldValue, newValue) => {
+  try {
+    await AuditLogService.create({
+      companyId: req.user?.company_id || req.user?.companyId,
+      userId: req.user?.id,
+      userName: `${req.user?.firstName || req.user?.first_name || ''} ${req.user?.lastName || req.user?.last_name || ''}`.trim(),
+      type, action, description, entity, tableName, recordId,
+      oldValue: oldValue ? JSON.stringify(oldValue) : null,
+      newValue: newValue ? JSON.stringify(newValue) : null,
+      ipAddress: req.ip
+    });
+  } catch (e) { /* audit log hatası ana işlemi engellemesin */ }
+};
 
 class TaskController {
   async getConfig(req, res) {
@@ -232,6 +248,8 @@ class TaskController {
       await t.commit();
       logger.success('TASK-CREATE', `✅ Görev DB'ye kaydedildi: #${task.id}`, { title: task.title });
       
+      await logAudit(req, 'task_created', 'CREATE', `Görev oluşturuldu: ${task.title}`, 'Task', 'tasks', task.id, null, task);
+      
       res.status(201).json(task);
     } catch (err) {
       // Hata durumunda transaction'ı geri al
@@ -291,6 +309,8 @@ class TaskController {
 
   async updateTask(req, res) {
     try {
+      const oldTask = await TaskService.getById(req.params.id, req.user.company_id);
+      
       // Eğer dueDate güncelleniyorsa, sadece Boss yapabilir
       if (req.body.dueDate !== undefined) {
         const userRole = req.user.role;
@@ -307,6 +327,7 @@ class TaskController {
       }
       
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
+      await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, oldTask, req.body);
       res.json(task);
     } catch (err) {
       console.error('[TaskController] updateTask error:', err.message);
@@ -316,7 +337,9 @@ class TaskController {
 
   async deleteTask(req, res) {
     try {
+      const oldTask = await TaskService.getById(req.params.id, req.user.company_id);
       await TaskService.delete(req.params.id, req.user.company_id);
+      await logAudit(req, 'task_deleted', 'DELETE', `Görev silindi: ${oldTask?.title || req.params.id}`, 'Task', 'tasks', req.params.id, oldTask, null);
       res.json({ message: "Task deleted successfully" });
     } catch (err) {
       console.error('[TaskController] deleteTask error:', err.message);
@@ -327,6 +350,7 @@ class TaskController {
   async assignUser(req, res) {
     try {
       const assignment = await TaskService.assignUser(req.params.id, req.body.user_id);
+      await logAudit(req, 'task_assigned', 'UPDATE', `Göreve kullanıcı atandı (Task: ${req.params.id}, User: ${req.body.user_id})`, 'TaskAssignment', 'task_assignments', req.params.id, null, { userId: req.body.user_id });
       res.status(201).json(assignment);
     } catch (err) {
       console.error('[TaskController] assignUser error:', err.message);
