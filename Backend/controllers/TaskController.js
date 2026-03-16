@@ -24,14 +24,52 @@ const pickTaskFields = (task) => {
   return {
     title: task.title,
     description: task.description,
-    dueDate: task.dueDate || task.due_date,
-    startDate: task.startDate || task.start_date,
-    estimatedHours: task.estimatedHours || task.estimated_hours,
-    progressPercent: task.progressPercent || task.progress_percent,
-    statusId: task.statusId || task.status_id,
-    priorityId: task.priorityId || task.priority_id,
-    departmentId: task.departmentId || task.department_id,
+    dueDate: task.dueDate ?? task.due_date,
+    startDate: task.startDate ?? task.start_date,
+    estimatedHours: task.estimatedHours ?? task.estimated_hours,
+    progressPercent: task.progressPercent ?? task.progress_percent,
+    statusId: task.statusId ?? task.status_id,
+    priorityId: task.priorityId ?? task.priority_id,
+    departmentId: task.departmentId ?? task.department_id,
     type: task.type,
+  };
+};
+
+const normalizeAuditValue = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+    if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(trimmed)) return trimmed.slice(0, 10);
+    return trimmed;
+  }
+
+  return value;
+};
+
+const getChangedTaskFields = (oldTask, updatedPayload) => {
+  const oldFields = pickTaskFields(oldTask) || {};
+  const incomingFields = pickTaskFields(updatedPayload) || {};
+  const changedOld = {};
+  const changedNew = {};
+
+  Object.entries(incomingFields).forEach(([key, rawNewValue]) => {
+    if (rawNewValue === undefined) return;
+
+    const oldValue = normalizeAuditValue(oldFields[key]);
+    const newValue = normalizeAuditValue(rawNewValue);
+
+    if (oldValue !== newValue) {
+      changedOld[key] = oldFields[key] ?? null;
+      changedNew[key] = rawNewValue;
+    }
+  });
+
+  return {
+    oldValue: Object.keys(changedOld).length > 0 ? changedOld : null,
+    newValue: Object.keys(changedNew).length > 0 ? changedNew : null,
   };
 };
 
@@ -273,7 +311,7 @@ class TaskController {
       await t.commit();
       logger.success('TASK-CREATE', `✅ Görev DB'ye kaydedildi: #${task.id}`, { title: task.title });
       
-      await logAudit(req, 'task_created', 'CREATE', `Görev oluşturuldu: ${task.title}`, 'Task', 'tasks', task.id, null, task);
+      await logAudit(req, 'task_created', 'CREATE', `Görev oluşturuldu: ${task.title}`, 'Task', 'tasks', task.id, null, pickTaskFields(task));
       emitCompanyDataChanged(req, { entity: 'task', action: 'create', id: task.id });
       
       res.status(201).json(task);
@@ -353,7 +391,8 @@ class TaskController {
       }
       
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
-      await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, pickTaskFields(oldTask), pickTaskFields(req.body));
+      const { oldValue, newValue } = getChangedTaskFields(oldTask, req.body);
+      await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, oldValue, newValue);
       emitCompanyDataChanged(req, { entity: 'task', action: 'update', id: task.id });
       res.json(task);
     } catch (err) {
