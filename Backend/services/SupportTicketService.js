@@ -13,7 +13,7 @@ class SupportTicketService {
   async getById(id, company_id) {
     const ticket = await ticketRepo.findWithMessages(id);
     if (!ticket || ticket.companyId != company_id) {
-      throw new Error("Ticket not found");
+      throw new Error("Destek talebi bulunamadı");
     }
     return ticket;
   }

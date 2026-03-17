@@ -51,10 +51,10 @@ const ChannelList = ({ workspace, currentUser }) => {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center
                         text-white font-bold shadow-lg shadow-indigo-500/25">
-            {workspace?.icon || 'W'}
+            {workspace?.icon || 'Ç'}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-slate-800 font-semibold truncate">{workspace?.name || 'Workspace'}</h2>
+            <h2 className="text-slate-800 font-semibold truncate">{workspace?.name || 'Çalışma Alanı'}</h2>
             <p className="text-xs text-slate-500">{workspace?.memberCount || 0} üye</p>
           </div>
           <ChevronDown size={18} className="text-slate-400" />
@@ -157,14 +157,14 @@ const ChannelList = ({ workspace, currentUser }) => {
 
           {/* User Info */}
           <div className="flex-1 min-w-0">
-            <p className="text-slate-800 text-sm font-semibold truncate">{currentUser?.displayName || 'User'}</p>
+            <p className="text-slate-800 text-sm font-semibold truncate">{currentUser?.displayName || 'Kullanıcı'}</p>
             <div className="flex items-center gap-1.5">
               <div className={`w-2 h-2 rounded-full ${
                 currentUser?.status === 'online' ? 'bg-emerald-500' : 
                 currentUser?.status === 'busy' ? 'bg-red-500' :
                 currentUser?.status === 'away' ? 'bg-amber-500' : 'bg-slate-400'
               }`} />
-              <p className="text-slate-500 text-xs capitalize">{currentUser?.status || 'offline'}</p>
+              <p className="text-slate-500 text-xs capitalize">{currentUser?.status || 'çevrimdışı'}</p>
             </div>
           </div>
 

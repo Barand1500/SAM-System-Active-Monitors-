@@ -17,14 +17,14 @@ class FileService {
 
   async download(id, companyId) {
     const file = await fileRepo.findById(id, companyId);
-    if (!file) throw new Error("File not found");
+    if (!file) throw new Error("Dosya bulunamadı");
     await fileRepo.incrementDownloads(id);
     return file;
   }
 
   async delete(id, companyId = null) {
     const file = await fileRepo.findById(id, companyId);
-    if (!file) throw new Error("File not found");
+    if (!file) throw new Error("Dosya bulunamadı");
 
     // Diskten dosyayı sil
     if (file.fileUrl) {

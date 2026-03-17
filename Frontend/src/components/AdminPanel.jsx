@@ -578,7 +578,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         if (site.value) {
           html += `
             <div class="list-item">
-              <div class="list-item-title">${site.label || 'Website'}</div>
+              <div class="list-item-title">${site.label || 'Web Sitesi'}</div>
               <div class="list-item-content">${site.value}</div>
             </div>
           `;

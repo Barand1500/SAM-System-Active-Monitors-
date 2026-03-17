@@ -20,13 +20,13 @@ class DepartmentController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const departments = await DepartmentService.getByCompany(companyId);
       res.json(departments || []);
     } catch (err) {
       console.error('[DepartmentController] list error:', err.message);
-      res.status(500).json({ error: "Failed to fetch departments" });
+      res.status(500).json({ error: "Departmanlar yüklenirken hata oluştu" });
     }
   }
 
@@ -34,10 +34,10 @@ class DepartmentController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const department = await DepartmentService.getById(req.params.id, companyId);
-      if (!department) return res.status(404).json({ error: "Department not found" });
+      if (!department) return res.status(404).json({ error: "Departman bulunamadı" });
       res.json(department);
     } catch (err) {
       console.error('[DepartmentController] get error:', err.message);
@@ -49,7 +49,7 @@ class DepartmentController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const department = await DepartmentService.create({
         ...req.body,
@@ -67,7 +67,7 @@ class DepartmentController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const department = await DepartmentService.update(req.params.id, req.body, companyId);
       await logAudit(req, 'department_updated', 'UPDATE', `Departman güncellendi: ${department.name || ''}`, req.params.id, null, req.body);
@@ -82,11 +82,11 @@ class DepartmentController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       await DepartmentService.delete(req.params.id, companyId);
       await logAudit(req, 'department_deleted', 'DELETE', `Departman silindi #${req.params.id}`, req.params.id, null, null);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       console.error('[DepartmentController] delete error:', err.message);
       res.status(400).json({ error: err.message });

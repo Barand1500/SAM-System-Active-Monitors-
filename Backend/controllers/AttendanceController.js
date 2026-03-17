@@ -42,7 +42,7 @@ class AttendanceController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const attendances = await AttendanceService.listByCompany(
         companyId,
@@ -51,7 +51,7 @@ class AttendanceController {
       res.json(attendances || []);
     } catch (err) {
       console.error('[AttendanceController] list error:', err.message);
-      res.status(500).json({ error: "Failed to fetch attendance records" });
+      res.status(500).json({ error: "Yoklama kayıtları yüklenirken hata oluştu" });
     }
   }
 

@@ -643,7 +643,7 @@ export const PriorityTasksWidget = ({ tasks, isDark, onTaskClick }) => {
               </div>
               <div className="flex items-center justify-between text-xs ml-5">
                 <span className={`px-2 py-0.5 rounded ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-white text-slate-700'}`}>
-                  {task.status === 'in_progress' ? 'Devam Ediyor' : task.status === 'pending' ? 'Bekliyor' : task.status}
+                  {task.status === 'in_progress' ? 'Devam Ediyor' : task.status === 'pending' ? 'Bekliyor' : task.status === 'completed' ? 'Tamamlandı' : task.status === 'cancelled' ? 'İptal Edildi' : task.status === 'on_hold' ? 'Beklemede' : task.status === 'review' ? 'İncelemede' : task.status}
                 </span>
                 {task.dueDate && (
                   <span className="text-slate-500">

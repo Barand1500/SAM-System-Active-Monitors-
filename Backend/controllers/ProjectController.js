@@ -30,20 +30,20 @@ class ProjectController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const projects = await ProjectService.getByCompany(companyId);
       res.json(projects || []);
     } catch (err) {
       console.error('[ProjectController] listByCompany error:', err.message);
-      res.status(500).json({ error: "Failed to fetch projects" });
+      res.status(500).json({ error: "Projeler yüklenirken hata oluştu" });
     }
   }
 
   async get(req, res) {
     try {
       const project = await ProjectService.getById(req.params.id);
-      if (!project) return res.status(404).json({ error: "Project not found" });
+      if (!project) return res.status(404).json({ error: "Proje bulunamadı" });
       res.json(project);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -54,7 +54,7 @@ class ProjectController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const { name, description, workspaceId, color, icon, startDate, endDate, members } = req.body;
       const project = await ProjectService.create({
@@ -73,7 +73,7 @@ class ProjectController {
         type: 'project',
         referenceType: 'project',
         referenceId: Number(project.id)
-      }).catch(() => {});
+      }).catch(err => console.error('[Bildirim] Proje bildirimi gönderilemedi:', err.message));
       
       res.status(201).json(project);
     } catch (err) {
@@ -98,7 +98,7 @@ class ProjectController {
       const oldProject = await ProjectService.getById(req.params.id);
       await ProjectService.delete(req.params.id);
       await logAudit(req, 'project_deleted', 'DELETE', `Proje silindi: ${oldProject?.name || req.params.id}`, req.params.id, oldProject, null);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -116,7 +116,7 @@ class ProjectController {
   async removeMember(req, res) {
     try {
       await ProjectService.removeMember(req.params.id, req.params.userId);
-      res.json({ message: "Member removed" });
+      res.json({ message: "Üye kaldırıldı" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

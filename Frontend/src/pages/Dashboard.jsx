@@ -893,7 +893,7 @@ const Dashboard = () => {
   const deleteLayout = (layoutId) => {
     const layout = dashboardLayouts.find(l => l.id === layoutId);
     if (layout?.isDefault) {
-      alert('Varsayılan layout silinemez!');
+      alert('Varsayılan düzen silinemez!');
       return;
     }
     setDashboardLayouts(prev => prev.filter(l => l.id !== layoutId));
@@ -2336,7 +2336,7 @@ const EmployeeFormModal = ({ employee, departments, availableRoles = [], onClose
                   type="text"
                   value={form.position}
                   onChange={(e) => setForm(prev => ({ ...prev, position: e.target.value }))}
-                  placeholder="Frontend Developer"
+                  placeholder="Yazılım Geliştirici"
                   className={`w-full ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} border rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
                 />
               </div>

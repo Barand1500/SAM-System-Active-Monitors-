@@ -37,7 +37,7 @@ class TaskCommentController {
   async deleteComment(req, res) {
     try {
       await TaskCommentService.delete(req.params.id);
-      res.json({ message: "Comment deleted successfully" });
+      res.json({ message: "Yorum başarıyla silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

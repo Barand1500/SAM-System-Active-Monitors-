@@ -15,19 +15,19 @@ class AutomationRuleService {
 
   async update(id, data) {
     const rule = await AutomationRule.findByPk(id);
-    if (!rule) throw new Error("Automation rule not found");
+    if (!rule) throw new Error("Otomasyon kuralı bulunamadı");
     return rule.update(data);
   }
 
   async delete(id) {
     const rule = await AutomationRule.findByPk(id);
-    if (!rule) throw new Error("Automation rule not found");
+    if (!rule) throw new Error("Otomasyon kuralı bulunamadı");
     return rule.destroy();
   }
 
   async toggleActive(id) {
     const rule = await AutomationRule.findByPk(id);
-    if (!rule) throw new Error("Automation rule not found");
+    if (!rule) throw new Error("Otomasyon kuralı bulunamadı");
     rule.isActive = !rule.isActive;
     await rule.save();
     return rule;

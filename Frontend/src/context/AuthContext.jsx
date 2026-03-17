@@ -9,7 +9,7 @@ const AuthContext = createContext(null);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth, AuthProvider içinde kullanılmalıdır');
   }
   return context;
 };
@@ -50,6 +50,9 @@ export const AuthProvider = ({ children }) => {
       // State'i güncelle
       setUser(user);
       setCurrentCompany(backendCompany);
+
+      // Bildirim sistemini tetikle
+      window.dispatchEvent(new Event('auth:login'));
       
       return user;
     } catch (error) {
@@ -89,6 +92,9 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       setCurrentCompany(backendCompany);
 
+      // Bildirim sistemini tetikle
+      window.dispatchEvent(new Event('auth:login'));
+
       return { user, company: backendCompany };
     } catch (error) {
       const errorMsg = getApiErrorMessage(error, 'Şirket kaydı tamamlanamadı. Lütfen bilgileri kontrol edin.');
@@ -120,6 +126,9 @@ export const AuthProvider = ({ children }) => {
       // State'i güncelle
       setUser(user);
       setCurrentCompany(backendCompany);
+
+      // Bildirim sistemini tetikle
+      window.dispatchEvent(new Event('auth:login'));
 
       return { user, company: backendCompany };
     } catch (error) {

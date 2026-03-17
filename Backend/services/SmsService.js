@@ -34,11 +34,11 @@ class SmsService {
     // Production'da Netgsm, Twilio, vb. entegrasyonu eklemelisiniz
     
     if (!data.recipients || data.recipients.length === 0) {
-      throw new Error("Recipients list is required");
+      throw new Error("Alıcı listesi gereklidir");
     }
     
     if (!data.message || data.message.trim() === "") {
-      throw new Error("Message content is required");
+      throw new Error("Mesaj içeriği gereklidir");
     }
     
     console.warn('[SmsService] SMS sending - INTEGRATION PENDING', {

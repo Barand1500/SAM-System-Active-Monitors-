@@ -33,11 +33,11 @@ class AuthService {
         userCompanyId: user.companyId,
         userCompanyIdSnake: user.company_id
       });
-      throw new Error("Cannot generate JWT: User has no company assigned");
+      throw new Error("JWT oluşturulamadı: Kullanıcının atanmış şirketi yok");
     }
     
     if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not configured in environment");
+      throw new Error("JWT_SECRET ortam değişkeninde yapılandırılmamış");
     }
     
     return jwt.sign(
@@ -183,7 +183,7 @@ class AuthService {
   async registerEmployee(employeeData) {
     // CRITICAL: companyId 必ず存在する必要がある
     if (!employeeData.companyId) {
-      throw new Error("Company ID is required to register an employee");
+      throw new Error("Çalışan kaydı için şirket kimliği gereklidir");
     }
 
     const allowedRoles = ["employee", "manager"];
@@ -205,11 +205,11 @@ class AuthService {
   async joinCompany(companyCode, employeeData) {
     // Şirket koduna göre şirketi bul
     const company = await Company.findOne({ where: { company_code: companyCode.toUpperCase() } });
-    if (!company) throw new Error("Invalid company code");
+    if (!company) throw new Error("Geçersiz şirket kodu");
 
     // Email unique olmalı (global olarak)
     const existingUser = await userRepo.findByEmail(employeeData.email);
-    if (existingUser) throw new Error("Email already exists");
+    if (existingUser) throw new Error("Bu e-posta adresi zaten kullanılıyor");
 
     const allowedRoles = ["employee", "manager"];
     const role = allowedRoles.includes(employeeData.role) ? employeeData.role : "employee";
@@ -228,7 +228,7 @@ class AuthService {
     
     // Verify user has company assigned
     if (!user.companyId) {
-      throw new Error("Failed to assign company to user");
+      throw new Error("Kullanıcıya şirket atanamadı");
     }
 
     const token = this.generateJWT(user);

@@ -10,7 +10,7 @@ const NotificationCenter = ({ isDark }) => {
     markAllAsRead, 
     removeNotification, 
     clearAll,
-    notificationPermission,
+    permission: notificationPermission,
     requestPermission 
   } = useNotification();
   
@@ -51,6 +51,11 @@ const NotificationCenter = ({ isDark }) => {
         } backdrop-blur-sm`}
       >
         <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Notification Panel */}
@@ -115,7 +120,7 @@ const NotificationCenter = ({ isDark }) => {
                         <BellOff size={18} className="text-slate-400" />
                       )}
                       <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        Push Bildirimleri
+                        Anlık Bildirimler
                       </span>
                     </div>
                     {notificationPermission !== 'granted' && (

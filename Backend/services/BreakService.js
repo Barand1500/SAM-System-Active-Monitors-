@@ -7,7 +7,7 @@ class BreakService {
   async startBreak(user_id, break_type_id) {
     const attendance = await attendanceRepo.findByUserAndDate(user_id, today());
     if (!attendance || attendance.checkOut) {
-      throw new Error("No active attendance found");
+      throw new Error("Aktif yoklama kaydı bulunamadı");
     }
 
     return breakRepo.create({
@@ -20,13 +20,13 @@ class BreakService {
   async endBreak(user_id, breakId) {
     const attendance = await attendanceRepo.findByUserAndDate(user_id, today());
     if (!attendance) {
-      throw new Error("No active attendance found");
+      throw new Error("Aktif yoklama kaydı bulunamadı");
     }
 
     const br = await breakRepo.model.findOne({
       where: { id: breakId, attendanceId: attendance.id },
     });
-    if (!br) throw new Error("Break not found");
+    if (!br) throw new Error("Mola kaydı bulunamadı");
 
     br.endTime = new Date();
 

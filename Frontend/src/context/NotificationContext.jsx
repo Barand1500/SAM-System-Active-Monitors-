@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { notificationAPI } from '../services/api';
 
 const NotificationContext = createContext();
@@ -6,7 +6,7 @@ const NotificationContext = createContext();
 export const useNotification = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotification must be used within a NotificationProvider');
+    throw new Error('useNotification, NotificationProvider içinde kullanılmalıdır');
   }
   return context;
 };
@@ -15,34 +15,49 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [permission, setPermission] = useState('default');
-  const loadedRef = useRef(false);
 
-  // Backend'den bildirimlerı yükle
-  useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
-    const loadNotifications = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
-        const res = await notificationAPI.list();
-        const data = res.data?.data || res.data;
-        if (Array.isArray(data)) {
-          setNotifications(data.map(n => ({
-            id: n.id,
-            title: n.title,
-            content: n.content || n.message,
-            type: n.type || 'info',
-            isRead: n.isRead || n.is_read || false,
-            createdAt: n.createdAt || n.created_at
-          })));
-        }
-      } catch (e) {
-        console.error('Bildirimler yüklenemedi:', e);
+  // Backend'den bildirimleri yükle
+  const loadNotifications = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      const res = await notificationAPI.list();
+      const data = res.data?.data || res.data;
+      if (Array.isArray(data)) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          title: n.title,
+          content: n.content || n.message,
+          type: n.type || 'info',
+          isRead: n.isRead || n.is_read || false,
+          createdAt: n.createdAt || n.created_at
+        })));
       }
-    };
-    loadNotifications();
+    } catch (e) {
+      console.error('Bildirimler yüklenemedi:', e);
+    }
   }, []);
+
+  // İlk yükleme
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  // Auth değişikliklerinde bildirimleri yeniden yükle
+  useEffect(() => {
+    const handleAuthLogin = () => {
+      loadNotifications();
+    };
+    const handleAuthLogout = () => {
+      setNotifications([]);
+    };
+    window.addEventListener('auth:login', handleAuthLogin);
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => {
+      window.removeEventListener('auth:login', handleAuthLogin);
+      window.removeEventListener('auth:logout', handleAuthLogout);
+    };
+  }, [loadNotifications]);
 
   // Tarayıcı bildirim izni iste
   useEffect(() => {
@@ -249,6 +264,7 @@ export const NotificationProvider = ({ children }) => {
       markAllAsRead,
       removeNotification,
       clearAll,
+      reloadNotifications: loadNotifications,
       sendPushNotification,
       notifyTaskAssigned,
       notifyTaskUpdated,

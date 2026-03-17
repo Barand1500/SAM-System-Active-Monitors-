@@ -71,11 +71,11 @@ const SmsHistory = require("./SmsHistory")(sequelize, DataTypes);
 // ============================
 
 // COMPANY
-Company.hasMany(User, { foreignKey: "company_id" });
-User.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(User, { foreignKey: "company_id", onDelete: "CASCADE" });
+User.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
-Company.hasMany(Department, { foreignKey: "company_id" });
-Department.belongsTo(Company, { foreignKey: "company_id" });
+Company.hasMany(Department, { foreignKey: "company_id", onDelete: "CASCADE" });
+Department.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 // USER → DEPARTMENT
 User.belongsTo(Department, { foreignKey: "department_id" });
@@ -83,13 +83,13 @@ Department.hasMany(User, { foreignKey: "department_id" });
 
 
 // TASK
-Task.belongsTo(TaskList, { foreignKey: "task_list_id" });
-TaskList.hasMany(Task, { foreignKey: "task_list_id" });
+Task.belongsTo(TaskList, { foreignKey: "task_list_id", onDelete: "CASCADE" });
+TaskList.hasMany(Task, { foreignKey: "task_list_id", onDelete: "CASCADE" });
 
 Task.belongsTo(User, { foreignKey: "creator_id", as: "creator" });
 
-Task.belongsTo(TaskStatus, { foreignKey: "status_id" });
-Task.belongsTo(TaskPriority, { foreignKey: "priority_id" });
+Task.belongsTo(TaskStatus, { foreignKey: "status_id", onDelete: "RESTRICT" });
+Task.belongsTo(TaskPriority, { foreignKey: "priority_id", onDelete: "RESTRICT" });
 
 Task.belongsTo(Category, { foreignKey: "category_id" });
 
@@ -99,15 +99,15 @@ Task.hasMany(Task, { as: "subtasks", foreignKey: "parent_task_id" });
 
 
 // TASK ASSIGNMENTS
-TaskAssignment.belongsTo(Task, { foreignKey: "task_id" });
-Task.hasMany(TaskAssignment, { foreignKey: "task_id" });
+TaskAssignment.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+Task.hasMany(TaskAssignment, { foreignKey: "task_id", onDelete: "CASCADE" });
 
-TaskAssignment.belongsTo(User, { foreignKey: "user_id" });
+TaskAssignment.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
 
 
 // TASK TAGS
-TaskTag.belongsTo(Task, { foreignKey: "task_id" });
-TaskTag.belongsTo(Tag, { foreignKey: "tag_id" });
+TaskTag.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+TaskTag.belongsTo(Tag, { foreignKey: "tag_id", onDelete: "CASCADE" });
 
 Task.belongsToMany(Tag, {
     through: TaskTag,
@@ -121,8 +121,8 @@ Tag.belongsToMany(Task, {
 
 
 // COMMENTS
-TaskComment.belongsTo(Task, { foreignKey: "task_id" });
-Task.hasMany(TaskComment, { foreignKey: "task_id" });
+TaskComment.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+Task.hasMany(TaskComment, { foreignKey: "task_id", onDelete: "CASCADE" });
 
 TaskComment.belongsTo(User, { foreignKey: "user_id" });
 
@@ -132,15 +132,15 @@ TaskComment.hasMany(TaskComment, { as: "replies", foreignKey: "parent_comment_id
 
 
 // TASK LOG
-TaskLog.belongsTo(Task, { foreignKey: "task_id" });
-Task.hasMany(TaskLog, { foreignKey: "task_id" });
+TaskLog.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+Task.hasMany(TaskLog, { foreignKey: "task_id", onDelete: "CASCADE" });
 
 TaskLog.belongsTo(User, { foreignKey: "user_id" });
 
 
 // TASK HISTORY
-TaskHistory.belongsTo(Task, { foreignKey: "task_id" });
-Task.hasMany(TaskHistory, { foreignKey: "task_id" });
+TaskHistory.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+Task.hasMany(TaskHistory, { foreignKey: "task_id", onDelete: "CASCADE" });
 
 TaskHistory.belongsTo(User, { foreignKey: "user_id", as: "changedBy" });
 
@@ -149,29 +149,29 @@ TaskHistory.belongsTo(User, { foreignKey: "user_id", as: "changedBy" });
 File.belongsTo(User, { as: "uploader", foreignKey: "uploaded_by", onDelete: "SET NULL" });
 File.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
-TaskFile.belongsTo(Task, { foreignKey: "task_id" });
-TaskFile.belongsTo(File, { foreignKey: "file_id" });
+TaskFile.belongsTo(Task, { foreignKey: "task_id", onDelete: "CASCADE" });
+TaskFile.belongsTo(File, { foreignKey: "file_id", onDelete: "CASCADE" });
 
-CommentFile.belongsTo(TaskComment, { foreignKey: "comment_id" });
-CommentFile.belongsTo(File, { foreignKey: "file_id" });
+CommentFile.belongsTo(TaskComment, { foreignKey: "comment_id", onDelete: "CASCADE" });
+CommentFile.belongsTo(File, { foreignKey: "file_id", onDelete: "CASCADE" });
 
 
 // ATTENDANCE
-Attendance.belongsTo(User, { foreignKey: "user_id" });
-User.hasMany(Attendance, { foreignKey: "user_id" });
+Attendance.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
+User.hasMany(Attendance, { foreignKey: "user_id", onDelete: "CASCADE" });
 
-Attendance.hasMany(Break, { foreignKey: "attendance_id", as: "breaks" });
-Break.belongsTo(Attendance, { foreignKey: "attendance_id" });
+Attendance.hasMany(Break, { foreignKey: "attendance_id", as: "breaks", onDelete: "CASCADE" });
+Break.belongsTo(Attendance, { foreignKey: "attendance_id", onDelete: "CASCADE" });
 Break.belongsTo(BreakType, { foreignKey: "break_type_id" });
 
 
 // LEAVE
-LeaveRequest.belongsTo(User, { foreignKey: "user_id" });
+LeaveRequest.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
 LeaveRequest.belongsTo(User, { as: "approver", foreignKey: "approved_by" });
 
 
 // NOTIFICATIONS
-Notification.belongsTo(User, { foreignKey: "user_id" });
+Notification.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
 
 
 // ANNOUNCEMENTS
@@ -180,37 +180,37 @@ Announcement.belongsTo(Company, { foreignKey: "company_id" });
 
 
 // SETTINGS
-CompanySetting.belongsTo(Company, { foreignKey: "company_id" });
+CompanySetting.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 
 // WORKSPACE
-Workspace.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(Workspace, { foreignKey: "company_id" });
+Workspace.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(Workspace, { foreignKey: "company_id", onDelete: "CASCADE" });
 
-Workspace.belongsTo(User, { foreignKey: "created_by", as: "workspaceCreator" });
+Workspace.belongsTo(User, { foreignKey: "created_by", as: "workspaceCreator", onDelete: "CASCADE" });
 
-WorkspaceMember.belongsTo(Workspace, { foreignKey: "workspace_id" });
-Workspace.hasMany(WorkspaceMember, { foreignKey: "workspace_id" });
+WorkspaceMember.belongsTo(Workspace, { foreignKey: "workspace_id", onDelete: "CASCADE" });
+Workspace.hasMany(WorkspaceMember, { foreignKey: "workspace_id", onDelete: "CASCADE" });
 
-WorkspaceMember.belongsTo(User, { foreignKey: "user_id" });
-User.hasMany(WorkspaceMember, { foreignKey: "user_id" });
+WorkspaceMember.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
+User.hasMany(WorkspaceMember, { foreignKey: "user_id", onDelete: "CASCADE" });
 
 
 // PROJECT
-Project.belongsTo(Workspace, { foreignKey: "workspace_id" });
-Workspace.hasMany(Project, { foreignKey: "workspace_id" });
+Project.belongsTo(Workspace, { foreignKey: "workspace_id", onDelete: "CASCADE" });
+Workspace.hasMany(Project, { foreignKey: "workspace_id", onDelete: "CASCADE" });
 
 Project.belongsTo(User, { foreignKey: "created_by", as: "projectCreator" });
 
-ProjectMember.belongsTo(Project, { foreignKey: "project_id" });
-Project.hasMany(ProjectMember, { foreignKey: "project_id" });
+ProjectMember.belongsTo(Project, { foreignKey: "project_id", onDelete: "CASCADE" });
+Project.hasMany(ProjectMember, { foreignKey: "project_id", onDelete: "CASCADE" });
 
-ProjectMember.belongsTo(User, { foreignKey: "user_id" });
+ProjectMember.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
 
 
 // TASK LIST
-TaskList.belongsTo(Project, { foreignKey: "project_id" });
-Project.hasMany(TaskList, { foreignKey: "project_id" });
+TaskList.belongsTo(Project, { foreignKey: "project_id", onDelete: "CASCADE" });
+Project.hasMany(TaskList, { foreignKey: "project_id", onDelete: "CASCADE" });
 
 
 // AUTOMATION
@@ -218,8 +218,8 @@ AutomationRule.belongsTo(Company, { foreignKey: "company_id" });
 
 
 // USER SKILLS
-UserSkill.belongsTo(User, { foreignKey: "user_id" });
-User.hasMany(UserSkill, { foreignKey: "user_id" });
+UserSkill.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
+User.hasMany(UserSkill, { foreignKey: "user_id", onDelete: "CASCADE" });
 
 
 // RECURRING TASK
@@ -237,23 +237,23 @@ UserDashboardSetting.belongsTo(User, { foreignKey: "user_id" });
 AuditLog.belongsTo(User, { foreignKey: "user_id" });
 
 // PERSONAL NOTES
-PersonalNote.belongsTo(User, { foreignKey: "user_id" });
-PersonalNote.belongsTo(Company, { foreignKey: "company_id" });
+PersonalNote.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
+PersonalNote.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 // CONTACTS (Rehber)
-Contact.belongsTo(Company, { foreignKey: "company_id" });
+Contact.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 // ROLES
-Role.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(Role, { foreignKey: "company_id" });
+Role.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(Role, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 // SMS
-SmsGroup.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(SmsGroup, { foreignKey: "company_id" });
+SmsGroup.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(SmsGroup, { foreignKey: "company_id", onDelete: "CASCADE" });
 SmsGroup.belongsTo(User, { foreignKey: "created_by", as: "creator" });
 
-SmsHistory.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(SmsHistory, { foreignKey: "company_id" });
+SmsHistory.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(SmsHistory, { foreignKey: "company_id", onDelete: "CASCADE" });
 SmsHistory.belongsTo(User, { foreignKey: "sent_by", as: "sender" });
 
 
@@ -268,58 +268,58 @@ Customer.belongsTo(User, { as: "creator", foreignKey: "created_by", onDelete: "S
 
 
 // SURVEY
-Survey.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(Survey, { foreignKey: "company_id" });
+Survey.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(Survey, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 Survey.belongsTo(User, { foreignKey: "created_by", as: "creator" });
 
-SurveyQuestion.belongsTo(Survey, { foreignKey: "survey_id" });
-Survey.hasMany(SurveyQuestion, { foreignKey: "survey_id" });
+SurveyQuestion.belongsTo(Survey, { foreignKey: "survey_id", onDelete: "CASCADE" });
+Survey.hasMany(SurveyQuestion, { foreignKey: "survey_id", onDelete: "CASCADE" });
 
 SurveyQuestion.belongsTo(SurveyQuestion, { as: "parentQuestion", foreignKey: "conditional_parent_id" });
 SurveyQuestion.hasMany(SurveyQuestion, { as: "childQuestions", foreignKey: "conditional_parent_id" });
 
-SurveyQuestionOption.belongsTo(SurveyQuestion, { foreignKey: "question_id" });
-SurveyQuestion.hasMany(SurveyQuestionOption, { foreignKey: "question_id" });
+SurveyQuestionOption.belongsTo(SurveyQuestion, { foreignKey: "question_id", onDelete: "CASCADE" });
+SurveyQuestion.hasMany(SurveyQuestionOption, { foreignKey: "question_id", onDelete: "CASCADE" });
 
-SurveyResponse.belongsTo(Survey, { foreignKey: "survey_id" });
-Survey.hasMany(SurveyResponse, { foreignKey: "survey_id" });
+SurveyResponse.belongsTo(Survey, { foreignKey: "survey_id", onDelete: "CASCADE" });
+Survey.hasMany(SurveyResponse, { foreignKey: "survey_id", onDelete: "CASCADE" });
 
 SurveyResponse.belongsTo(User, { foreignKey: "user_id" });
 User.hasMany(SurveyResponse, { foreignKey: "user_id" });
 
-SurveyAnswer.belongsTo(SurveyResponse, { foreignKey: "response_id" });
-SurveyResponse.hasMany(SurveyAnswer, { foreignKey: "response_id" });
+SurveyAnswer.belongsTo(SurveyResponse, { foreignKey: "response_id", onDelete: "CASCADE" });
+SurveyResponse.hasMany(SurveyAnswer, { foreignKey: "response_id", onDelete: "CASCADE" });
 
-SurveyAnswer.belongsTo(SurveyQuestion, { foreignKey: "question_id" });
-SurveyQuestion.hasMany(SurveyAnswer, { foreignKey: "question_id" });
+SurveyAnswer.belongsTo(SurveyQuestion, { foreignKey: "question_id", onDelete: "CASCADE" });
+SurveyQuestion.hasMany(SurveyAnswer, { foreignKey: "question_id", onDelete: "CASCADE" });
 
 
 // SUPPORT TICKET
-SupportTicket.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(SupportTicket, { foreignKey: "company_id" });
+SupportTicket.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(SupportTicket, { foreignKey: "company_id", onDelete: "CASCADE" });
 
-SupportTicket.belongsTo(User, { foreignKey: "created_by", as: "creator" });
+SupportTicket.belongsTo(User, { foreignKey: "created_by", as: "creator", onDelete: "CASCADE" });
 SupportTicket.belongsTo(User, { foreignKey: "assigned_to", as: "assignee" });
 
 SupportTicket.belongsTo(Task, { foreignKey: "related_task_id" });
 
-TicketMessage.belongsTo(SupportTicket, { foreignKey: "ticket_id" });
-SupportTicket.hasMany(TicketMessage, { foreignKey: "ticket_id" });
+TicketMessage.belongsTo(SupportTicket, { foreignKey: "ticket_id", onDelete: "CASCADE" });
+SupportTicket.hasMany(TicketMessage, { foreignKey: "ticket_id", onDelete: "CASCADE" });
 
-TicketMessage.belongsTo(User, { foreignKey: "user_id" });
-User.hasMany(TicketMessage, { foreignKey: "user_id" });
+TicketMessage.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
+User.hasMany(TicketMessage, { foreignKey: "user_id", onDelete: "CASCADE" });
 
-TicketFile.belongsTo(SupportTicket, { foreignKey: "ticket_id" });
-SupportTicket.hasMany(TicketFile, { foreignKey: "ticket_id" });
+TicketFile.belongsTo(SupportTicket, { foreignKey: "ticket_id", onDelete: "CASCADE" });
+SupportTicket.hasMany(TicketFile, { foreignKey: "ticket_id", onDelete: "CASCADE" });
 
 TicketFile.belongsTo(TicketMessage, { foreignKey: "message_id" });
 TicketMessage.hasMany(TicketFile, { foreignKey: "message_id" });
 
 TicketFile.belongsTo(User, { foreignKey: "uploaded_by" });
 
-TicketCategory.belongsTo(Company, { foreignKey: "company_id" });
-Company.hasMany(TicketCategory, { foreignKey: "company_id" });
+TicketCategory.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+Company.hasMany(TicketCategory, { foreignKey: "company_id", onDelete: "CASCADE" });
 
 
 // EXPORT

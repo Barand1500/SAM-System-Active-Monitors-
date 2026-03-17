@@ -72,7 +72,7 @@ class SupportTicketController {
   async delete(req, res) {
     try {
       await SupportTicketService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Ticket deleted successfully" });
+      res.json({ message: "Destek talebi başarıyla silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

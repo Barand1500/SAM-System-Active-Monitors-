@@ -6,7 +6,7 @@ class ProjectService {
     // workspaceId yoksa company'nin ilk workspace'ini kullan
     if (!data.workspaceId && data.companyId) {
       const ws = await Workspace.findOne({ where: { company_id: data.companyId } });
-      if (!ws) throw new Error("No workspace found for this company");
+      if (!ws) throw new Error("Bu şirket için çalışma alanı bulunamadı");
       data.workspaceId = ws.id;
     }
     const project = await projectRepo.create(data);
@@ -46,7 +46,7 @@ class ProjectService {
 
   async removeMember(projectId, userId) {
     const member = await ProjectMember.findOne({ where: { projectId, userId } });
-    if (!member) throw new Error("Member not found");
+    if (!member) throw new Error("Üye bulunamadı");
     return member.destroy();
   }
 }

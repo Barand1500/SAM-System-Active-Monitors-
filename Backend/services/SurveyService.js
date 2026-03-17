@@ -78,7 +78,7 @@ class SurveyService {
   async getById(id, company_id) {
     const survey = await surveyRepo.findWithDetails(id);
     if (!survey || survey.company_id !== company_id) {
-      throw new Error("Survey not found");
+      throw new Error("Anket bulunamadı");
     }
     return survey;
   }
@@ -100,13 +100,13 @@ class SurveyService {
 
   async updateQuestion(question_id, data) {
     const question = await SurveyQuestion.findByPk(question_id);
-    if (!question) throw new Error("Question not found");
+    if (!question) throw new Error("Soru bulunamadı");
     return question.update(data);
   }
 
   async deleteQuestion(question_id) {
     const question = await SurveyQuestion.findByPk(question_id);
-    if (!question) throw new Error("Question not found");
+    if (!question) throw new Error("Soru bulunamadı");
     return question.destroy();
   }
 
@@ -173,7 +173,7 @@ class SurveyService {
   async getResponses(survey_id, company_id) {
     const survey = await Survey.findByPk(survey_id);
     if (!survey || survey.company_id !== company_id) {
-      throw new Error("Survey not found");
+      throw new Error("Anket bulunamadı");
     }
     return surveyRepo.findResponses(survey_id);
   }
@@ -181,7 +181,7 @@ class SurveyService {
   async getStats(survey_id, company_id) {
     const survey = await Survey.findByPk(survey_id);
     if (!survey || survey.company_id !== company_id) {
-      throw new Error("Survey not found");
+      throw new Error("Anket bulunamadı");
     }
     return surveyRepo.getStats(survey_id);
   }

@@ -72,7 +72,7 @@ class AnnouncementController {
       await AnnouncementService.delete(req.params.id);
       await logAudit(req, 'announcement_deleted', 'DELETE', `Duyuru silindi #${req.params.id}`, req.params.id);
       emitCompanyDataChanged(req, { entity: 'announcement', action: 'delete', id: Number(req.params.id) });
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

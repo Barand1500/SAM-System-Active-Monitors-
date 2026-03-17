@@ -32,7 +32,7 @@ class AttendanceService {
     const attendance = await attendanceRepo.findByUserAndDate(user_id, date);
 
     if (!attendance || !attendance.checkIn) {
-      throw new Error("Check-in not found");
+      throw new Error("Giriş kaydı bulunamadı");
     }
 
     attendance.checkOut = new Date();

@@ -34,7 +34,7 @@ class TaskLogController {
   async delete(req, res) {
     try {
       await TaskLogService.delete(req.params.id);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

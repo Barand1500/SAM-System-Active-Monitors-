@@ -13,9 +13,9 @@ class RecurringTaskController {
   async get(req, res) {
     try {
       const task = await RecurringTaskService.getById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Recurring task not found" });
+      if (!task) return res.status(404).json({ error: "Tekrarlayan görev bulunamadı" });
       if (String(task.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       res.json(task);
     } catch (err) {
@@ -38,9 +38,9 @@ class RecurringTaskController {
   async update(req, res) {
     try {
       const task = await RecurringTaskService.getById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Recurring task not found" });
+      if (!task) return res.status(404).json({ error: "Tekrarlayan görev bulunamadı" });
       if (String(task.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       const { company_id, id, created_by, ...safeData } = req.body;
       const updated = await RecurringTaskService.update(req.params.id, safeData);
@@ -53,12 +53,12 @@ class RecurringTaskController {
   async delete(req, res) {
     try {
       const task = await RecurringTaskService.getById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Recurring task not found" });
+      if (!task) return res.status(404).json({ error: "Tekrarlayan görev bulunamadı" });
       if (String(task.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       await RecurringTaskService.delete(req.params.id);
-      res.json({ message: "Recurring task deleted" });
+      res.json({ message: "Tekrarlayan görev silindi" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -67,9 +67,9 @@ class RecurringTaskController {
   async toggleActive(req, res) {
     try {
       const task = await RecurringTaskService.getById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Recurring task not found" });
+      if (!task) return res.status(404).json({ error: "Tekrarlayan görev bulunamadı" });
       if (String(task.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       const updated = await RecurringTaskService.toggleActive(req.params.id);
       res.json(updated);

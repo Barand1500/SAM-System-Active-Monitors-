@@ -11,7 +11,7 @@ class CustomerService {
 
   async getById(id, companyId) {
     const customer = await customerRepo.findOneByCompany(id, companyId);
-    if (!customer) throw new Error("Customer not found");
+    if (!customer) throw new Error("Müşteri bulunamadı");
     return customer;
   }
 

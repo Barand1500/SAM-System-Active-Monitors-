@@ -36,7 +36,7 @@ class WorkspaceService {
 
   async removeMember(workspace_id, user_id) {
     const member = await WorkspaceMember.findOne({ where: { workspace_id, user_id } });
-    if (!member) throw new Error("Member not found");
+    if (!member) throw new Error("Üye bulunamadı");
     return member.destroy();
   }
 }

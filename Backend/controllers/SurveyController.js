@@ -53,7 +53,7 @@ class SurveyController {
   async delete(req, res) {
     try {
       await SurveyService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Survey deleted successfully" });
+      res.json({ message: "Anket başarıyla silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -80,7 +80,7 @@ class SurveyController {
   async deleteQuestion(req, res) {
     try {
       await SurveyService.deleteQuestion(req.params.questionId);
-      res.json({ message: "Question deleted successfully" });
+      res.json({ message: "Soru başarıyla silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

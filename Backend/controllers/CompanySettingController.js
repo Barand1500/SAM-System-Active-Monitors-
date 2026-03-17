@@ -6,7 +6,7 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const settings = await CompanySettingService.getByCompany(companyId);
       res.json(settings || {});
@@ -20,7 +20,7 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const { company_id, id, profileData, foldersData, ...safeData } = req.body;
       const settings = await CompanySettingService.upsert(companyId, safeData);
@@ -35,7 +35,7 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const settings = await CompanySettingService.getByCompany(companyId);
       res.json(settings?.profileData || {});
@@ -49,7 +49,7 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const profileData = req.body;
       const settings = await CompanySettingService.upsert(companyId, { profileData });
@@ -71,7 +71,7 @@ class CompanySettingController {
           userKeys: Object.keys(req.user || {})
         });
         return res.status(400).json({ 
-          error: "Company ID not found in user context"
+          error: "Şirket kimliği kullanıcı bağlamında bulunamadı"
         });
       }
 
@@ -83,7 +83,7 @@ class CompanySettingController {
         stack: err.stack
       });
       res.status(500).json({ 
-        error: "Failed to load folder settings"
+        error: "Klasör ayarları yüklenirken hata oluştu"
       });
     }
   }
@@ -92,7 +92,7 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const foldersData = req.body;
       const settings = await CompanySettingService.upsert(companyId, { foldersData });
@@ -107,11 +107,11 @@ class CompanySettingController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
 
       if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+        return res.status(400).json({ error: "Dosya yüklenmedi" });
       }
 
       // Dosya yolu oluştur (logos klasörüne kaydedilen dosyalar)
@@ -123,7 +123,7 @@ class CompanySettingController {
       });
 
       res.json({
-        message: "Logo uploaded successfully",
+        message: "Logo başarıyla yüklendi",
         logoUrl,
         data: settings.profileData
       });

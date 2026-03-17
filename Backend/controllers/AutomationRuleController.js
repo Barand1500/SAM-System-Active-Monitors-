@@ -13,9 +13,9 @@ class AutomationRuleController {
   async get(req, res) {
     try {
       const rule = await AutomationRuleService.getById(req.params.id);
-      if (!rule) return res.status(404).json({ error: "Automation rule not found" });
+      if (!rule) return res.status(404).json({ error: "Otomasyon kuralı bulunamadı" });
       if (String(rule.companyId) !== String(req.body.company_id || req.query.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       res.json(rule);
     } catch (err) {
@@ -37,9 +37,9 @@ class AutomationRuleController {
   async update(req, res) {
     try {
       const rule = await AutomationRuleService.getById(req.params.id);
-      if (!rule) return res.status(404).json({ error: "Automation rule not found" });
+      if (!rule) return res.status(404).json({ error: "Otomasyon kuralı bulunamadı" });
       if (String(rule.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       const { company_id, id, ...safeData } = req.body;
       const updated = await AutomationRuleService.update(req.params.id, safeData);
@@ -52,12 +52,12 @@ class AutomationRuleController {
   async delete(req, res) {
     try {
       const rule = await AutomationRuleService.getById(req.params.id);
-      if (!rule) return res.status(404).json({ error: "Automation rule not found" });
+      if (!rule) return res.status(404).json({ error: "Otomasyon kuralı bulunamadı" });
       if (String(rule.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       await AutomationRuleService.delete(req.params.id);
-      res.json({ message: "Automation rule deleted" });
+      res.json({ message: "Otomasyon kuralı silindi" });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -66,9 +66,9 @@ class AutomationRuleController {
   async toggleActive(req, res) {
     try {
       const rule = await AutomationRuleService.getById(req.params.id);
-      if (!rule) return res.status(404).json({ error: "Automation rule not found" });
+      if (!rule) return res.status(404).json({ error: "Otomasyon kuralı bulunamadı" });
       if (String(rule.companyId) !== String(req.user.company_id)) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Erişim reddedildi" });
       }
       const updated = await AutomationRuleService.toggleActive(req.params.id);
       res.json(updated);

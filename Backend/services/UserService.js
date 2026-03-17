@@ -64,7 +64,7 @@ class UserService {
   async updateSkills(userId, companyId, skills) {
     // skills = ["React", "JavaScript", ...]
     const user = await UserRepo.getWithSkills(userId, companyId);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new Error("Kullanıcı bulunamadı");
     // Mevcut skill'leri sil
     await UserSkill.destroy({ where: { userId } });
     // Yenilerini ekle

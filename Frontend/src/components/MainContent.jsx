@@ -48,7 +48,7 @@ const MainContent = ({ workspace, tasks, taskLogs, onToggleMemberList, showMembe
       <div className="px-6 py-4 bg-white/70 backdrop-blur-xl border-b border-slate-200/60">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">{workspace?.name || 'Workspace'}</h1>
+            <h1 className="text-2xl font-bold text-slate-800">{workspace?.name || 'Çalışma Alanı'}</h1>
             <p className="text-slate-500 text-sm mt-0.5">{workspace?.description || 'Ekip çalışma alanı'}</p>
           </div>
 

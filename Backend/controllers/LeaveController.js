@@ -71,13 +71,13 @@ class LeaveController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const leaves = await LeaveService.getPendingByCompany(companyId);
       res.json(leaves || []);
     } catch (err) {
       console.error('[LeaveController] getPendingLeaves error:', err.message);
-      res.status(500).json({ error: "Failed to fetch pending leaves" });
+      res.status(500).json({ error: "Bekleyen izin talepleri yüklenirken hata oluştu" });
     }
   }
 
@@ -85,13 +85,13 @@ class LeaveController {
     try {
       const companyId = req.user?.company_id || req.user?.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const leaves = await LeaveService.getAllByCompany(companyId);
       res.json(leaves || []);
     } catch (err) {
       console.error('[LeaveController] getAllLeaves error:', err.message);
-      res.status(500).json({ error: "Failed to fetch leaves" });
+      res.status(500).json({ error: "İzin talepleri yüklenirken hata oluştu" });
     }
   }
 
@@ -108,7 +108,7 @@ class LeaveController {
           type: 'leave',
           referenceType: 'leave',
           referenceId: Number(req.params.id)
-        }).catch(() => {});
+        }).catch(err => console.error('[Bildirim] İzin onay bildirimi gönderilemedi:', err.message));
       }
       
       res.json(leave);
@@ -130,7 +130,7 @@ class LeaveController {
           type: 'leave',
           referenceType: 'leave',
           referenceId: Number(req.params.id)
-        }).catch(() => {});
+        }).catch(err => console.error('[Bildirim] İzin red bildirimi gönderilemedi:', err.message));
       }
       
       res.json(leave);

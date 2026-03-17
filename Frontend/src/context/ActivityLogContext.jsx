@@ -156,7 +156,7 @@ export const ActivityLogProvider = ({ children }) => {
 export const useActivityLog = () => {
   const context = useContext(ActivityLogContext);
   if (!context) {
-    throw new Error('useActivityLog must be used within an ActivityLogProvider');
+    throw new Error('useActivityLog, ActivityLogProvider içinde kullanılmalıdır');
   }
   return context;
 };

@@ -41,7 +41,7 @@ class TaskService {
 
   async removeAssignment(taskId, userId) {
     const assignment = await TaskAssignment.findOne({ where: { taskId, userId } });
-    if (!assignment) throw new Error("Assignment not found");
+    if (!assignment) throw new Error("Atama bulunamadı");
     return assignment.destroy();
   }
 }

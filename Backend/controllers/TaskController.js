@@ -335,7 +335,7 @@ class TaskController {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
         logger.warning('TASK-LIST', 'Company ID eksik');
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       
       const tasks = await TaskService.getByCompany(companyId);
@@ -347,7 +347,7 @@ class TaskController {
       res.json(tasks || []);
     } catch (err) {
       logger.error('TASK-LIST', 'Görevler yüklenirken hata', err);
-      res.status(500).json({ error: "Failed to fetch tasks" });
+      res.status(500).json({ error: "Görevler yüklenirken hata oluştu" });
     }
   }
 
@@ -364,7 +364,7 @@ class TaskController {
   async getTask(req, res) {
     try {
       const task = await TaskService.getById(req.params.id, req.user.company_id);
-      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!task) return res.status(404).json({ error: "Görev bulunamadı" });
       res.json(task);
     } catch (err) {
       console.error('[TaskController] getTask error:', err.message);
@@ -407,7 +407,7 @@ class TaskController {
             type: 'task',
             referenceType: 'task',
             referenceId: Number(task.id)
-          }).catch(() => {});
+          }).catch(err => console.error('[Bildirim] Görev güncelleme bildirimi gönderilemedi:', err.message));
         }
       }
       
@@ -437,12 +437,12 @@ class TaskController {
             type: 'task',
             referenceType: 'task',
             referenceId: Number(req.params.id)
-          }).catch(() => {});
+          }).catch(err => console.error('[Bildirim] Görev silme bildirimi gönderilemedi:', err.message));
         }
       }
       
       emitCompanyDataChanged(req, { entity: 'task', action: 'delete', id: Number(req.params.id) });
-      res.json({ message: "Task deleted successfully" });
+      res.json({ message: "Görev başarıyla silindi" });
     } catch (err) {
       console.error('[TaskController] deleteTask error:', err.message);
       res.status(400).json({ error: err.message });
@@ -473,7 +473,7 @@ class TaskController {
     try {
       await TaskService.removeAssignment(req.params.id, req.params.userId);
       emitCompanyDataChanged(req, { entity: 'task_assignment', action: 'delete', id: Number(req.params.id) });
-      res.json({ message: "Assignment removed" });
+      res.json({ message: "Atama kaldırıldı" });
     } catch (err) {
       console.error('[TaskController] removeAssignment error:', err.message);
       res.status(400).json({ error: err.message });

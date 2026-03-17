@@ -13,7 +13,7 @@ class TaskPriorityController {
   async get(req, res) {
     try {
       const priority = await TaskPriorityService.getById(req.params.id, req.user.company_id);
-      if (!priority) return res.status(404).json({ error: "Priority not found" });
+      if (!priority) return res.status(404).json({ error: "Öncelik bulunamadı" });
       res.json(priority);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -44,7 +44,7 @@ class TaskPriorityController {
   async delete(req, res) {
     try {
       await TaskPriorityService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -53,7 +53,7 @@ class TaskPriorityController {
   async reorder(req, res) {
     try {
       await TaskPriorityService.reorder(req.body.items, req.user.company_id);
-      res.json({ message: "Reordered" });
+      res.json({ message: "Sıralama güncellendi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

@@ -30,13 +30,13 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const users = await UserService.listByCompany(companyId);
       res.json(users || []);
     } catch (err) {
       console.error('[UserController] list error:', err.message);
-      res.status(500).json({ error: "Failed to fetch users" });
+      res.status(500).json({ error: "Kullanıcılar yüklenirken hata oluştu" });
     }
   }
 
@@ -44,7 +44,7 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       // Ensure companyId is in the request
       const userData = { ...req.body, companyId };
@@ -60,7 +60,7 @@ class UserController {
         type: 'user',
         referenceType: 'user',
         referenceId: Number(user.id)
-      }).catch(() => {});
+      }).catch(err => console.error('[Bildirim] Kullanıcı bildirimi gönderilemedi:', err.message));
       
       emitCompanyDataChanged(req, { entity: 'user', action: 'create', id: user.id });
       res.status(201).json(user);
@@ -74,7 +74,7 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       const user = await UserService.updateUser(req.params.id, req.body, companyId);
@@ -91,10 +91,10 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const user = await UserService.getUserWithSkills(req.params.id, companyId);
-      if (!user) return res.status(404).json({ error: "User not found" });
+      if (!user) return res.status(404).json({ error: "Kullanıcı bulunamadı" });
       res.json(user);
     } catch (err) {
       console.error('[UserController] get error:', err.message);
@@ -106,13 +106,13 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const oldUser = await UserService.getUserWithSkills(req.params.id, companyId);
       await UserService.deleteUser(req.params.id, companyId);
       await logAudit(req, 'user_deleted', 'DELETE', `Kullanıcı silindi: ${oldUser?.firstName || oldUser?.first_name || req.params.id}`, req.params.id, oldUser, null);
       emitCompanyDataChanged(req, { entity: 'user', action: 'delete', id: Number(req.params.id) });
-      res.json({ message: "User deleted successfully" });
+      res.json({ message: "Kullanıcı başarıyla silindi" });
     } catch (err) {
       console.error('[UserController] delete error:', err.message);
       res.status(400).json({ error: err.message });
@@ -123,7 +123,7 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       const user = await UserService.updateSkills(req.params.id, companyId, req.body.skills);
       res.json(user);
@@ -137,11 +137,11 @@ class UserController {
     try {
       const companyId = req.user.company_id || req.user.companyId;
       if (!companyId) {
-        return res.status(400).json({ error: "Company ID not found" });
+        return res.status(400).json({ error: "Şirket kimliği bulunamadı" });
       }
       
       if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+        return res.status(400).json({ error: "Dosya yüklenmedi" });
       }
 
       // Dosya okuma izni ver (nginx sunabilsin)
@@ -155,7 +155,7 @@ class UserController {
       const user = await UserService.updateUser(req.params.id, { avatarUrl }, companyId);
       
       res.json({
-        message: "Avatar uploaded successfully",
+        message: "Avatar başarıyla yüklendi",
         avatarUrl,
         user
       });

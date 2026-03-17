@@ -13,7 +13,7 @@ class TaskStatusController {
   async get(req, res) {
     try {
       const status = await TaskStatusService.getById(req.params.id, req.user.company_id);
-      if (!status) return res.status(404).json({ error: "Status not found" });
+      if (!status) return res.status(404).json({ error: "Durum bulunamadı" });
       res.json(status);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -44,7 +44,7 @@ class TaskStatusController {
   async delete(req, res) {
     try {
       await TaskStatusService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -53,7 +53,7 @@ class TaskStatusController {
   async reorder(req, res) {
     try {
       await TaskStatusService.reorder(req.body.items, req.user.company_id);
-      res.json({ message: "Reordered" });
+      res.json({ message: "Sıralama güncellendi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

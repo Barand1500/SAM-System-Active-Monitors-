@@ -7,8 +7,8 @@ class NotificationRepository extends BaseRepository {
     super(Notification);
   }
 
-  async getUnreadByUser(user_id) {
-    return this.model.findAll({ where: { user_id, is_read: false }, order: [['created_at','DESC']] });
+  async getUnreadByUser(userId) {
+    return this.model.findAll({ where: { userId, isRead: false }, order: [['created_at','DESC']] });
   }
 }
 

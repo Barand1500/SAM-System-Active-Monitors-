@@ -23,7 +23,7 @@ class LeaveService {
 
   async approve(id, approvedBy) {
     const leave = await leaveRepo.findById(id);
-    if (!leave) throw new Error("Leave request not found");
+    if (!leave) throw new Error("İzin talebi bulunamadı");
     leave.approvalStatus = "approved";
     leave.approvedBy = approvedBy;
     leave.approvedAt = new Date();
@@ -33,7 +33,7 @@ class LeaveService {
 
   async reject(id, approvedBy, rejectionReason) {
     const leave = await leaveRepo.findById(id);
-    if (!leave) throw new Error("Leave request not found");
+    if (!leave) throw new Error("İzin talebi bulunamadı");
     leave.approvalStatus = "rejected";
     leave.approvedBy = approvedBy;
     leave.approvedAt = new Date();

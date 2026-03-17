@@ -424,7 +424,7 @@ const UserProfile = ({ isDark }) => {
                 type="text"
                 value={profile.position}
                 onChange={(e) => setProfile(prev => ({ ...prev, position: e.target.value }))}
-                placeholder="Ör: Frontend Developer"
+                placeholder="Ör: Yazılım Geliştirici"
                 className={`w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
               />
             ) : (
@@ -450,7 +450,7 @@ const UserProfile = ({ isDark }) => {
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
-              placeholder="Yetenek ekle (Ör: React, JavaScript)"
+              placeholder="Yetenek ekle (Ör: Proje Yönetimi, Grafik Tasarım)"
               className={`flex-1 px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
             />
             <button

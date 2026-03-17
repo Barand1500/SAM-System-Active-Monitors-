@@ -5,7 +5,7 @@ class FileController {
   async uploadFile(req, res) {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+        return res.status(400).json({ error: "Dosya yüklenmedi" });
       }
       let tags = [];
       if (req.body.tags) {
@@ -50,7 +50,7 @@ class FileController {
   async deleteFile(req, res) {
     try {
       await FileService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

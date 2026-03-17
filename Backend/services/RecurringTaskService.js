@@ -15,19 +15,19 @@ class RecurringTaskService {
 
   async update(id, data) {
     const task = await RecurringTask.findByPk(id);
-    if (!task) throw new Error("Recurring task not found");
+    if (!task) throw new Error("Tekrarlayan görev bulunamadı");
     return task.update(data);
   }
 
   async delete(id) {
     const task = await RecurringTask.findByPk(id);
-    if (!task) throw new Error("Recurring task not found");
+    if (!task) throw new Error("Tekrarlayan görev bulunamadı");
     return task.destroy();
   }
 
   async toggleActive(id) {
     const task = await RecurringTask.findByPk(id);
-    if (!task) throw new Error("Recurring task not found");
+    if (!task) throw new Error("Tekrarlayan görev bulunamadı");
     task.isActive = !task.isActive;
     await task.save();
     return task;

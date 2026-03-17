@@ -13,7 +13,7 @@ class WorkspaceController {
   async get(req, res) {
     try {
       const workspace = await WorkspaceService.getById(req.params.id, req.user.company_id);
-      if (!workspace) return res.status(404).json({ error: "Workspace not found" });
+      if (!workspace) return res.status(404).json({ error: "Çalışma alanı bulunamadı" });
       res.json(workspace);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -45,7 +45,7 @@ class WorkspaceController {
   async delete(req, res) {
     try {
       await WorkspaceService.delete(req.params.id, req.user.company_id);
-      res.json({ message: "Deleted" });
+      res.json({ message: "Silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -63,7 +63,7 @@ class WorkspaceController {
   async removeMember(req, res) {
     try {
       await WorkspaceService.removeMember(req.params.id, req.params.userId);
-      res.json({ message: "Member removed" });
+      res.json({ message: "Üye kaldırıldı" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

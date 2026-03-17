@@ -66,7 +66,7 @@ class CustomerController {
     try {
       await CustomerService.delete(req.params.id, req.user.company_id);
       await logAudit(req, 'customer_deleted', 'DELETE', `Müşteri silindi #${req.params.id}`, req.params.id, null, null);
-      res.json({ message: "Customer deleted successfully" });
+      res.json({ message: "Müşteri başarıyla silindi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

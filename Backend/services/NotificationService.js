@@ -5,22 +5,22 @@ class NotificationService {
     return notificationRepo.create(data);
   }
 
-  async getByUser(user_id) {
-    return notificationRepo.findAll({ where: { user_id }, order: [["created_at", "DESC"]] });
+  async getByUser(userId) {
+    return notificationRepo.findAll({ where: { userId }, order: [["created_at", "DESC"]] });
   }
 
-  async getUnreadByUser(user_id) {
-    return notificationRepo.getUnreadByUser(user_id);
+  async getUnreadByUser(userId) {
+    return notificationRepo.getUnreadByUser(userId);
   }
 
   async markAsRead(id) {
-    return notificationRepo.update(id, { is_read: true });
+    return notificationRepo.update(id, { isRead: true });
   }
 
-  async markAllAsRead(user_id) {
+  async markAllAsRead(userId) {
     return notificationRepo.model.update(
-      { is_read: true },
-      { where: { user_id, is_read: false } }
+      { isRead: true },
+      { where: { userId, isRead: false } }
     );
   }
 }
