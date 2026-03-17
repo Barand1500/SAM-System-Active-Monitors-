@@ -25,8 +25,31 @@ export const AuthProvider = ({ children }) => {
     const savedCompany = localStorage.getItem('currentCompany');
     
     if (savedUser && savedCompany) {
-      setUser(JSON.parse(savedUser));
-      setCurrentCompany(JSON.parse(savedCompany));
+      const parsedUser = JSON.parse(savedUser);
+      const parsedCompany = JSON.parse(savedCompany);
+      setUser(parsedUser);
+      setCurrentCompany(parsedCompany);
+
+      // Backend'den güncel kullanıcı bilgisini çek (rol değişiklikleri vs.)
+      const token = localStorage.getItem('auth_token');
+      if (token && parsedUser?.id) {
+        userAPI.get(parsedUser.id).then(res => {
+          const freshUser = res.data?.data || res.data;
+          if (freshUser && freshUser.id) {
+            const updated = {
+              ...parsedUser,
+              role: freshUser.role,
+              roles: freshUser.roles || (freshUser.role ? [freshUser.role] : ['employee']),
+              status: freshUser.status,
+              position: freshUser.position,
+              department: freshUser.department,
+              avatarUrl: freshUser.avatarUrl || freshUser.avatar_url
+            };
+            setUser(updated);
+            localStorage.setItem('currentUser', JSON.stringify(updated));
+          }
+        }).catch(() => {});
+      }
     }
     setIsLoading(false);
   }, []);
@@ -229,6 +252,13 @@ export const AuthProvider = ({ children }) => {
 
   const userRoles = getUserRoles(user);
 
+  // Yönetim rolleri: boss, manager veya manager içeren özel roller
+  const MANAGEMENT_ROLES = ['boss', 'manager', 'project_manager', 'team_lead', 'hr'];
+  const isBoss = userRoles.includes('boss');
+  const isManager = userRoles.includes('manager') || userRoles.some(r => MANAGEMENT_ROLES.includes(r) && r !== 'boss');
+  const isEmployee = !isBoss && !isManager;
+  const canManage = isBoss || isManager;
+
   // Kullanıcıya rol ata (sadece patron yapabilir)
   const updateUserRoles = async (targetUserId, newRoles) => {
     if (!userRoles.includes('boss')) return;
@@ -257,9 +287,10 @@ export const AuthProvider = ({ children }) => {
     company: currentCompany,
     isLoading,
     isAuthenticated: !!user,
-    isBoss: userRoles.includes('boss'),
-    isManager: userRoles.includes('manager'),
-    isEmployee: userRoles.includes('employee'),
+    isBoss,
+    isManager,
+    isEmployee,
+    canManage,
     userRoles,
     updateUserRoles,
     updateProfile,

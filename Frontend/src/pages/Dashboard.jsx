@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import logger from '../utils/logger';
@@ -77,7 +78,8 @@ import {
   Flag,
   PieChart,
   Trophy,
-  BookTemplate
+  BookTemplate,
+  MoreHorizontal
 } from 'lucide-react';
 import {
   DndContext,
@@ -232,6 +234,11 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuBtnRef = useRef(null);
+  const tabContainerRef = useRef(null);
+  const tabWrapperRef = useRef(null);
+  const [maxVisibleTabs, setMaxVisibleTabs] = useState(Infinity);
   const [selectedTask, setSelectedTask] = useState(null);
   const [userAvatarUrl, setUserAvatarUrl] = useState(null);
   
@@ -347,7 +354,7 @@ const Dashboard = () => {
           const mapped = (Array.isArray(userData) ? userData : []).map(u => ({
             ...u,
             skills: u.UserSkills || u.skills || [],
-            roles: u.roles || (u.role ? [u.role] : ['employee'])
+            roles: [...new Set(u.roles || (u.role ? [u.role] : ['employee']))]
           }));
           setEmployees(mapped);
         }
@@ -385,7 +392,7 @@ const Dashboard = () => {
         const rolesRes = await roleAPI.list();
         const rolesData = rolesRes.data?.data || rolesRes.data;
         if (Array.isArray(rolesData)) {
-          setAvailableRoles(rolesData.filter(r => (r.roleKey || r.role_key || r.id) !== 'boss'));
+          setAvailableRoles(rolesData);
         }
       } catch (err) {
         console.error('Rolleri yüklerken hata:', err);
@@ -508,7 +515,7 @@ const Dashboard = () => {
           const mapped = userData.map(u => ({
             ...u,
             skills: u.UserSkills || u.skills || [],
-            roles: u.roles || (u.role ? [u.role] : ['employee'])
+            roles: [...new Set(u.roles || (u.role ? [u.role] : ['employee']))]
           }));
           setEmployees(mapped);
         }
@@ -533,7 +540,28 @@ const Dashboard = () => {
     };
   }, []);
 
-  const canManage = isBoss || isManager;
+  // Kullanıcının rol izinlerini hesapla (Role tablosundaki permissions alanı)
+  const userPermissions = useMemo(() => {
+    if (isBoss) return ['*'];
+    const perms = new Set();
+    for (const roleKey of userRoles) {
+      const roleRecord = availableRoles.find(r => (r.roleKey || r.role_key) === roleKey);
+      if (roleRecord?.permissions) {
+        const p = typeof roleRecord.permissions === 'string'
+          ? (() => { try { return JSON.parse(roleRecord.permissions); } catch { return []; } })()
+          : Array.isArray(roleRecord.permissions) ? roleRecord.permissions : [];
+        p.forEach(perm => perms.add(perm));
+      }
+    }
+    return [...perms];
+  }, [isBoss, userRoles, availableRoles]);
+
+  const hasPermission = (...perms) => userPermissions.includes('*') || perms.some(p => userPermissions.includes(p));
+  // canManage: hardcoded yönetim rolleri VEYA yönetim izinleri olan özel roller
+  const canManage = isBoss || isManager || hasPermission('employee_view_all', 'employee_create', 'employee_edit_all', 'task_view_all', 'task_edit_all');
+  const canSeeReports = canManage || hasPermission('view_reports', 'report_view_basic', 'report_view_advanced', 'manage_reports');
+  const canSeeEmployees = canManage || hasPermission('manage_employees', 'employee_view_all', 'employee_view_team', 'employee_create');
+  const canSeeCRM = canManage || hasPermission('manage_crm', 'crm_view', 'crm_manage');
 
   const menuItems = [
     { id: 'overview', label: 'Genel Bakış', icon: LayoutDashboard },
@@ -542,17 +570,39 @@ const Dashboard = () => {
     { id: 'kanban', label: 'Kanban', icon: Kanban },
     { id: 'calendar', label: 'Takvim', icon: CalendarDays },
     ...(!isBoss ? [{ id: 'timetracker', label: 'Mesai', icon: Timer }] : []),
-    ...(canManage ? [{ id: 'reports', label: 'Raporlar', icon: BarChart3 }] : []),
-    ...(canManage ? [{ id: 'employees', label: 'Çalışanlar', icon: Users }] : []),
+    ...(canSeeReports ? [{ id: 'reports', label: 'Raporlar', icon: BarChart3 }] : []),
+    ...(canSeeEmployees ? [{ id: 'employees', label: 'Çalışanlar', icon: Users }] : []),
     { id: 'leaves', label: 'İzinler', icon: Palmtree },
     { id: 'support', label: 'Destek', icon: Headphones },
-    ...(canManage ? [{ id: 'crm', label: 'Müşteriler', icon: Contact }] : []),
+    ...(canSeeCRM ? [{ id: 'crm', label: 'Müşteriler', icon: Contact }] : []),
     { id: 'files', label: 'Dosyalar', icon: FolderOpen },
     { id: 'surveys', label: 'Anketler', icon: Vote },
     { id: 'announcements', label: 'Duyurular', icon: Megaphone },
   ];
 
+  const visibleTabCount = Math.min(menuItems.length, maxVisibleTabs);
 
+  // Dinamik taşma algılama - sekmeler sığmazsa "Diğer"e taşır
+  useLayoutEffect(() => {
+    const container = tabContainerRef.current;
+    if (!container) return;
+    if (container.scrollWidth > container.clientWidth + 2 && visibleTabCount > 1) {
+      setMaxVisibleTabs(visibleTabCount - 1);
+    }
+  }, [visibleTabCount]);
+
+  // Pencere boyutu değişince yeniden hesapla
+  useEffect(() => {
+    const wrapper = tabWrapperRef.current;
+    if (!wrapper) return;
+    let timer;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setMaxVisibleTabs(Infinity), 150);
+    });
+    observer.observe(wrapper);
+    return () => { observer.disconnect(); clearTimeout(timer); };
+  }, []);
 
   const copyCompanyCode = () => {
     navigator.clipboard.writeText(company?.companyCode || '');
@@ -567,7 +617,7 @@ const Dashboard = () => {
     try {
       const res = await userAPI.create(empData);
       const raw = res.data.data || res.data;
-      const newEmp = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: raw.roles || (raw.role ? [raw.role] : ['employee']) };
+      const newEmp = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: [...new Set(raw.roles || (raw.role ? [raw.role] : ['employee']))] };
       setEmployees(prev => [...prev, newEmp]);
     } catch (err) {
       console.error('Çalışan eklerken hata:', err);
@@ -586,7 +636,7 @@ const Dashboard = () => {
     try {
       const res = await userAPI.update(empId, updates);
       const raw = res.data.data || res.data;
-      const updated = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: raw.roles || (raw.role ? [raw.role] : ['employee']) };
+      const updated = { ...raw, skills: raw.UserSkills || raw.skills || [], roles: [...new Set(raw.roles || (raw.role ? [raw.role] : ['employee']))] };
       setEmployees(prev => prev.map(e => e.id === empId ? { ...e, ...updated } : e));
     } catch (err) {
       console.error('Çalışan güncellerken hata:', err);
@@ -1050,51 +1100,137 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Tab Navigasyonu - Modern */}
         <div className="mb-6 sm:mb-8 space-y-3">
-          <div className="relative group">
+          <div className="relative group" ref={tabWrapperRef}>
             {/* Sol gradient mask */}
             <div className={`absolute left-0 top-0 bottom-0 w-8 z-10 pointer-events-none rounded-l-2xl transition-opacity ${isDark ? 'bg-gradient-to-r from-slate-900/90 to-transparent' : 'bg-gradient-to-r from-slate-50/90 to-transparent'}`} style={{ opacity: 0 }} id="tab-fade-left" />
             {/* Sağ gradient mask */}
             <div className={`absolute right-0 top-0 bottom-0 w-8 z-10 pointer-events-none rounded-r-2xl transition-opacity ${isDark ? 'bg-gradient-to-l from-slate-900/90 to-transparent' : 'bg-gradient-to-l from-slate-50/90 to-transparent'}`} id="tab-fade-right" />
             
             <div
-              className={`flex items-center gap-1 p-1.5 rounded-2xl border backdrop-blur-xl overflow-x-auto scroll-smooth
+              className={`flex items-center gap-1 p-1.5 rounded-2xl border backdrop-blur-xl
                 ${isDark 
                   ? 'bg-slate-800/60 border-slate-700/40 shadow-lg shadow-black/20' 
                   : 'bg-white/70 border-slate-200/60 shadow-lg shadow-slate-200/50'}`}
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const fadeL = document.getElementById('tab-fade-left');
-                const fadeR = document.getElementById('tab-fade-right');
-                if (fadeL) fadeL.style.opacity = el.scrollLeft > 8 ? '1' : '0';
-                if (fadeR) fadeR.style.opacity = el.scrollLeft < el.scrollWidth - el.clientWidth - 8 ? '1' : '0';
-              }}
             >
-              {menuItems.map(item => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
+              {/* Scrollable tab alanı */}
+              <div
+                ref={tabContainerRef}
+                className="flex items-center gap-1 overflow-x-auto scroll-smooth flex-1 min-w-0"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const fadeL = document.getElementById('tab-fade-left');
+                  const fadeR = document.getElementById('tab-fade-right');
+                  if (fadeL) fadeL.style.opacity = el.scrollLeft > 8 ? '1' : '0';
+                  if (fadeR) fadeR.style.opacity = el.scrollLeft < el.scrollWidth - el.clientWidth - 8 ? '1' : '0';
+                }}
+              >
+                {/* Görünür sekmeler - taşanlar Diğer menüsüne alınır */}
+                {menuItems.slice(0, visibleTabCount).map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setShowMoreMenu(false); }}
+                      className={`relative flex items-center gap-1.5 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
+                        ${isActive
+                          ? 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-[1.02]'
+                          : isDark
+                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
+                        }`}
+                    >
+                      <Icon size={16} className={isActive ? 'drop-shadow-sm' : ''} />
+                      <span className="hidden md:inline text-[12px]">{item.label}</span>
+                      {isActive && (
+                        <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-400 shadow-sm shadow-indigo-400/50 md:hidden" />
+                      )}
+                    </button>
+                  );
+                })}
+                {/* CSS to hide scrollbar for webkit */}
+                <style>{`.scroll-smooth::-webkit-scrollbar { display: none; }`}</style>
+              </div>
+
+              {/* Diğer dropdown - sadece taşma varsa görünür */}
+              {visibleTabCount < menuItems.length && (() => {
+                const overflowItems = menuItems.slice(visibleTabCount);
+                const isOverflowActive = overflowItems.some(item => item.id === activeTab);
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`relative flex items-center gap-1.5 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap shrink-0
-                      ${isActive
-                        ? 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-[1.02]'
-                        : isDark
-                          ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
-                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
-                      }`}
-                  >
-                    <Icon size={16} className={isActive ? 'drop-shadow-sm' : ''} />
-                    <span className="hidden md:inline text-[12px]">{item.label}</span>
-                    {isActive && (
-                      <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-400 shadow-sm shadow-indigo-400/50 md:hidden" />
+                  <div className="relative shrink-0">
+                    {/* Ayırıcı çizgi */}
+                    <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-px h-6 ${isDark ? 'bg-slate-600/50' : 'bg-slate-200'}`} />
+                    
+                    <button
+                      ref={moreMenuBtnRef}
+                      onClick={() => setShowMoreMenu(!showMoreMenu)}
+                      className={`relative flex items-center gap-1.5 ml-1 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap
+                        ${isOverflowActive
+                          ? 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/30 scale-[1.02]'
+                          : isDark
+                            ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
+                        }`}
+                    >
+                      <MoreHorizontal size={16} />
+                      <span className="hidden md:inline text-[12px]">Diğer</span>
+                      <ChevronDown size={14} className={`transition-transform duration-300 ${showMoreMenu ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Dropdown - Portal ile body'ye render edilir, z-index sorunu olmaz */}
+                    {showMoreMenu && createPortal(
+                      <>
+                        <div className="fixed inset-0 z-[9998]" onClick={() => setShowMoreMenu(false)} />
+                        <div
+                          className={`fixed rounded-2xl border shadow-2xl z-[9999] min-w-[200px] py-1
+                            ${isDark
+                              ? 'bg-slate-800 border-slate-700/60'
+                              : 'bg-white border-slate-200/60'
+                            }`}
+                          style={(() => {
+                            const rect = moreMenuBtnRef.current?.getBoundingClientRect();
+                            if (!rect) return {};
+                            return { top: rect.bottom + 8, right: window.innerWidth - rect.right };
+                          })()}
+                        >
+                          <div className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Daha Fazla
+                          </div>
+                          <div className="h-px my-1 mx-2 bg-gradient-to-r from-transparent via-slate-400/20 to-transparent"></div>
+                          {overflowItems.map(item => {
+                            const Icon = item.icon;
+                            const isActive = activeTab === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                onClick={() => { setActiveTab(item.id); setShowMoreMenu(false); }}
+                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all duration-150
+                                  ${
+                                    isActive
+                                      ? isDark
+                                        ? 'bg-indigo-600/30 text-indigo-300'
+                                        : 'bg-indigo-50 text-indigo-700'
+                                      : isDark
+                                        ? 'text-slate-300 hover:bg-slate-700/50'
+                                        : 'text-slate-600 hover:bg-slate-50'
+                                  }`}
+                              >
+                                <Icon size={16} className="flex-shrink-0" />
+                                <span className="flex-1 text-left">{item.label}</span>
+                                {isActive && (
+                                  <div className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"></div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>,
+                      document.body
                     )}
-                  </button>
+                  </div>
                 );
-              })}
-              {/* CSS to hide scrollbar for webkit */}
-              <style>{`.scroll-smooth::-webkit-scrollbar { display: none; }`}</style>
+              })()}
             </div>
           </div>
 
@@ -1152,11 +1288,11 @@ const Dashboard = () => {
         {activeTab === 'kanban' && <KanbanBoard tasks={tasks} isDark={isDark} canManage={canManage} onTaskClick={handleTaskClick} onUpdateTask={updateTask} />}
         {activeTab === 'calendar' && <CalendarView tasks={tasks} isDark={isDark} onTaskClick={handleTaskClick} onAddTask={canManage ? (date) => openTaskModal(null, date) : undefined} onUpdateTaskDate={isBoss ? updateTaskDate : undefined} />}
         {activeTab === 'timetracker' && <TimeTracker user={user} isDark={isDark} />}
-        {activeTab === 'reports' && canManage && <ReportsPage tasks={tasks} users={employees} isDark={isDark} departments={departments} />}
-        {activeTab === 'employees' && canManage && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} />}
+        {activeTab === 'reports' && canSeeReports && <ReportsPage tasks={tasks} users={employees} isDark={isDark} departments={departments} />}
+        {activeTab === 'employees' && canSeeEmployees && <EmployeesTab employees={employees} tasks={tasks} isDark={isDark} onEdit={openEmployeeModal} onDelete={deleteEmployee} onBulkAdd={() => setShowBulkEmployeeModal(true)} availableRoles={availableRoles} />}
         {activeTab === 'leaves' && <LeaveRequestSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'support' && <SupportSystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
-        {activeTab === 'crm' && canManage && <CustomerCRM user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
+        {activeTab === 'crm' && canSeeCRM && <CustomerCRM user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'files' && <FileSharing user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'surveys' && <SurveySystem user={user} isBoss={isBoss} canManage={canManage} isDark={isDark} />}
         {activeTab === 'announcements' && <AnnouncementsTab announcements={announcementsList} canManage={canManage} isDark={isDark} onEdit={openAnnouncementModal} onDelete={deleteAnnouncement} onUpdate={updateAnnouncement} departments={departments} />}
@@ -2184,7 +2320,9 @@ const EmployeeFormModal = ({ employee, departments, availableRoles = [], onClose
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) return;
-    onSave(form);
+    // role alanını roles'dan türetme işini backend'e bırak
+    const { role, ...submitData } = form;
+    onSave(submitData);
   };
 
   const getLevelInfo = (level) => SKILL_LEVELS.find(l => l.value === level) || SKILL_LEVELS[1];
@@ -2270,10 +2408,11 @@ const EmployeeFormModal = ({ employee, departments, availableRoles = [], onClose
                 </label>
                 <div className="flex flex-col gap-2">
                   {(availableRoles.length > 0
-                    ? availableRoles.map(r => ({
+                    ? availableRoles.filter(r => (r.roleKey || r.role_key) !== 'boss').map(r => ({
                         value: r.roleKey || r.role_key || r.label?.toLowerCase(),
                         label: r.label,
-                        icon: (r.roleKey || r.role_key) === 'manager' ? '👔' : '👤',
+                        icon: ['boss', 'manager'].includes(r.roleKey || r.role_key) ? '👔' : 
+                              ['hr', 'team_lead', 'project_manager'].includes(r.roleKey || r.role_key) ? '🛡️' : '👤',
                         color: r.color
                       }))
                     : [
@@ -2299,7 +2438,8 @@ const EmployeeFormModal = ({ employee, departments, availableRoles = [], onClose
                               } else {
                                 newRoles = [...prev.roles, roleOpt.value];
                               }
-                              return { ...prev, roles: newRoles, role: newRoles[0] };
+                              // ENUM role'ü backend'de resolveRoleEnum çözecek, burada roles dizisini gönder
+                              return { ...prev, roles: newRoles };
                             });
                           }}
                           className="w-4 h-4 rounded accent-indigo-600" />
@@ -3874,7 +4014,7 @@ const PoolTab = ({ tasks, user, isDark, onClaimTask, onTaskClick }) => {
 };
 
 // ===== ÇALIŞANLAR TAB =====
-const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd }) => {
+const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd, availableRoles = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -3937,8 +4077,15 @@ const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd })
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
             className={`px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
             <option value="all">Tüm Roller</option>
-            <option value="manager">Yönetici</option>
-            <option value="employee">Çalışan</option>
+            {availableRoles.length > 0 
+              ? availableRoles.filter(r => (r.roleKey || r.role_key) !== 'boss').map(r => (
+                  <option key={r.roleKey || r.role_key} value={r.roleKey || r.role_key}>{r.label}</option>
+                ))
+              : <>
+                  <option value="manager">Yönetici</option>
+                  <option value="employee">Çalışan</option>
+                </>
+            }
           </select>
           {(searchTerm || statusFilter !== 'all' || departmentFilter !== 'all' || roleFilter !== 'all') && (
             <button onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDepartmentFilter('all'); setRoleFilter('all'); }}
@@ -3974,13 +4121,17 @@ const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd })
                                           'bg-slate-100 text-slate-600'}`}>
                           {emp.status === 'active' ? 'Aktif' : emp.status === 'on_leave' ? 'İzinli' : 'Pasif'}
                         </span>
-                        {(emp.roles || [emp.role]).filter(Boolean).map(r => (
-                          <span key={r} className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            r === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {r === 'manager' ? 'Yönetici' : r === 'boss' ? 'Patron' : 'Çalışan'}
-                          </span>
-                        ))}
+                        {[...new Set((emp.roles || [emp.role]).filter(Boolean))].map(r => {
+                          const roleInfo = availableRoles.find(ar => (ar.roleKey || ar.role_key) === r);
+                          const label = roleInfo?.label || (r === 'boss' ? 'Patron' : r === 'manager' ? 'Yönetici' : r === 'employee' ? 'Çalışan' : r);
+                          return (
+                            <span key={r} className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              r === 'boss' ? 'bg-red-100 text-red-700' : r === 'manager' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {label}
+                            </span>
+                          );
+                        })}
                         <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{emp.department}</span>
                       </div>
                     </div>

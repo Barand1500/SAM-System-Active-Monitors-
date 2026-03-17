@@ -50,7 +50,9 @@ httpServer.listen(PORT, async () => {
   // Eksik kolonları otomatik ekle (alter: true sadece yeni kolon ekler, veri silmez)
   try {
     const sequelize = require('./config/database');
-    await sequelize.sync({ alter: true });
+    // Production'da alter:true risklidir; sadece yeni tablo oluştur, mevcut tabloları değiştirme
+    const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+    await sequelize.sync({ alter: !isProduction });
     console.log('[DB] Tablo senkronizasyonu tamamlandı');
   } catch (err) {
     console.error('[DB] Sync hatası:', err.message);

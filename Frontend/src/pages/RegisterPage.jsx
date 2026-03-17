@@ -1001,40 +1001,6 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Departman</label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
-                           text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                >
-                  <option value="">Seçin</option>
-                  <option value="Yazılım">Yazılım</option>
-                  <option value="Tasarım">Tasarım</option>
-                  <option value="Pazarlama">Pazarlama</option>
-                  <option value="İK">İnsan Kaynakları</option>
-                  <option value="Finans">Finans</option>
-                  <option value="Diğer">Diğer</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Pozisyon</label>
-                <input
-                  type="text"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  placeholder="Ünvanınız"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
-                           text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Şifre</label>
               <div className="relative">

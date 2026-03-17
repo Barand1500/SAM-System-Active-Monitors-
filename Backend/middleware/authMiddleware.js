@@ -65,7 +65,13 @@ function authorizeRoles(...roles) {
         error: "Bu işlem için giriş yapmanız gerekiyor."
       });
     }
-    if (!roles.includes(req.user.role)) {
+    // Hem ENUM role hem de custom roles dizisini kontrol et
+    const userRole = req.user.role;
+    const userRoles = Array.isArray(req.user.roles) ? req.user.roles : [];
+    
+    const hasAccess = roles.includes(userRole) || userRoles.some(r => roles.includes(r));
+    
+    if (!hasAccess) {
       return res.status(403).json({
         code: "AUTH_FORBIDDEN",
         error: "Bu işlemi yapma yetkiniz bulunmuyor."

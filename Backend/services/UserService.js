@@ -3,14 +3,32 @@ const bcrypt = require("bcrypt");
 const UserRepo = require("../repositories/UserRepository");
 const UserSkill = require("../models").UserSkill;
 
+// Geçerli ENUM değerleri
+const VALID_ROLE_ENUMS = ["boss", "manager", "employee", "customer"];
+
+// roles dizisinden ENUM'a uygun değer çıkar
+function resolveRoleEnum(roles) {
+  if (!Array.isArray(roles) || roles.length === 0) return "employee";
+  // Önce ENUM'a uyan bir değer bul (boss > manager > employee > customer)
+  for (const priority of VALID_ROLE_ENUMS) {
+    if (roles.includes(priority)) return priority;
+  }
+  // Hiçbiri uymuyorsa (özel rol), varsayılan olarak employee kullan
+  return "employee";
+}
+
 class UserService {
   async createUser(data) {
     const skills = data.skills;
     delete data.skills;
+    if (!data.password) {
+      throw new Error("Şifre alanı zorunludur");
+    }
     data.password = await bcrypt.hash(data.password, 10);
-    // roles array'den role ENUM'u senkronize et
+    // roles array'den role ENUM'u güvenli senkronize et
     if (Array.isArray(data.roles) && data.roles.length > 0) {
-      data.role = data.roles[0];
+      data.roles = [...new Set(data.roles)];
+      data.role = resolveRoleEnum(data.roles);
     }
     const user = await UserRepo.create(data);
     if (skills && skills.length > 0) {
@@ -30,9 +48,10 @@ class UserService {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-    // roles array'den role ENUM'u senkronize et
+    // roles array'den role ENUM'u güvenli senkronize et
     if (Array.isArray(data.roles) && data.roles.length > 0) {
-      data.role = data.roles[0];
+      data.roles = [...new Set(data.roles)];
+      data.role = resolveRoleEnum(data.roles);
     }
     const user = await UserRepo.update(id, data, companyId);
     if (skills !== undefined) {

@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { fn, col, where } = require("sequelize");
-const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList } = require("../models");
+const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList, Role } = require("../models");
 const userRepo = require("../repositories/UserRepository");
 
 class AuthService {
@@ -46,6 +46,7 @@ class AuthService {
         company_id: companyId,
         companyId: companyId,
         role: user.role,
+        roles: user.roles || (user.role ? [user.role] : ['employee']),
         email: user.email
       },
       process.env.JWT_SECRET,
@@ -57,6 +58,10 @@ class AuthService {
   sanitizeUser(user) {
     const userData = user.toJSON ? user.toJSON() : { ...user };
     delete userData.password;
+    // roles null ise role ENUM'dan türet
+    if (!userData.roles) {
+      userData.roles = userData.role ? [userData.role] : ['employee'];
+    }
     return userData;
   }
 
@@ -141,6 +146,7 @@ class AuthService {
       ...adminData,
       companyId: company.id,
       role: "boss",
+      roles: ["boss"],
       password: hashedPassword
     });
 
@@ -175,6 +181,13 @@ class AuthService {
     const project = await Project.create({ workspaceId: workspace.id, createdBy: user.id, name: 'Genel Proje', status: 'active' });
     await TaskList.create({ projectId: project.id, name: 'Yapılacaklar', orderNo: 1 });
 
+    // Varsayılan Rolleri oluştur
+    await Role.bulkCreate([
+      { companyId: company.id, roleKey: 'boss', label: 'Patron', color: '#f59e0b', permissions: JSON.stringify(['*']), sortOrder: 0 },
+      { companyId: company.id, roleKey: 'manager', label: 'Yönetici', color: '#3b82f6', permissions: JSON.stringify(['task_view_all','task_create','task_edit_all','task_delete_all','task_assign','employee_view_all','employee_create','employee_edit_all','employee_delete','employee_manage_roles','department_view','department_create','department_edit','department_delete','department_manage','leave_view_all','leave_approve','leave_reject','report_view_basic','report_view_advanced','report_export','announcement_view','announcement_create','announcement_edit_all','announcement_delete','file_view_all','file_upload','file_delete_all','company_view_info']), sortOrder: 1 },
+      { companyId: company.id, roleKey: 'employee', label: 'Çalışan', color: '#22c55e', permissions: JSON.stringify(['task_view_own','task_edit_own','leave_view_own','leave_create','announcement_view','file_view_own','file_upload']), sortOrder: 2 },
+    ]);
+
     const token = this.generateJWT(user);
     return { user: this.sanitizeUser(user), company, token };
   }
@@ -194,7 +207,8 @@ class AuthService {
       ...employeeData,
       companyId: employeeData.companyId,
       password: hashedPassword,
-      role
+      role,
+      roles: [role]
     });
 
     const token = this.generateJWT(user);
@@ -221,7 +235,8 @@ class AuthService {
       ...employeeData,
       companyId: company.id,
       password: hashedPassword,
-      role
+      role,
+      roles: [role]
     };
     
     const user = await userRepo.create(userData);
@@ -272,6 +287,17 @@ class AuthService {
         user.companyId = firstCompany.id;
         await user.save();
         console.log("[AuthService] User assigned to company:", { userId: user.id, companyId: firstCompany.id });
+      }
+    }
+
+    // roles null ise ENUM role'den otomatik doldur (eski kullanıcılar için)
+    if (!user.roles || (Array.isArray(user.roles) && user.roles.length === 0)) {
+      try {
+        user.roles = user.role ? [user.role] : ['employee'];
+        await user.save();
+      } catch (e) {
+        // roles sütunu yoksa veya kayıt hatası olursa sessizce devam et
+        console.warn('[AuthService] roles güncellenemedi:', e.message);
       }
     }
 
