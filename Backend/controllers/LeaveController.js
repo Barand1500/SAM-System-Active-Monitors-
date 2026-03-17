@@ -1,6 +1,8 @@
 // Backend/controllers/LeaveController.js
 const LeaveService = require("../services/LeaveService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForUsers, createForCompany } = require("../utils/notificationDispatcher");
+const { User } = require("../models");
 
 const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
   try {
@@ -30,6 +32,26 @@ class LeaveController {
         documentUrl,
       });
       await logAudit(req, 'leave_created', 'CREATE', `İzin talebi oluşturuldu: ${leaveType} (${startDate} - ${endDate})`, leave.id, null, leave);
+      
+      // Boss'lara bildirim gönder
+      try {
+        const bosses = await User.findAll({
+          where: { companyId: req.user.company_id || req.user.companyId, role: 'boss' },
+          attributes: ['id']
+        });
+        const bossIds = bosses.map(b => Number(b.id)).filter(id => id !== Number(req.user.id));
+        if (bossIds.length > 0) {
+          const userName = `${req.user.firstName || req.user.first_name || ''} ${req.user.lastName || req.user.last_name || ''}`.trim();
+          await createForUsers(req, bossIds, {
+            title: 'Yeni izin talebi',
+            message: `${userName} ${leaveType} izni talep etti (${startDate} - ${endDate}).`,
+            type: 'leave',
+            referenceType: 'leave',
+            referenceId: Number(leave.id)
+          });
+        }
+      } catch (e) { /* bildirim hatası ana işlemi engellemesin */ }
+      
       res.status(201).json(leave);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -77,6 +99,18 @@ class LeaveController {
     try {
       const leave = await LeaveService.approve(req.params.id, req.user.id);
       await logAudit(req, 'leave_approved', 'UPDATE', `İzin talebi onaylandı #${req.params.id}`, req.params.id, { status: 'pending' }, { status: 'approved' });
+      
+      // İzin sahibine bildirim gönder
+      if (leave?.userId) {
+        await createForUsers(req, [leave.userId], {
+          title: 'İzin talebi onaylandı',
+          message: `İzin talebiniz onaylandı.`,
+          type: 'leave',
+          referenceType: 'leave',
+          referenceId: Number(req.params.id)
+        }).catch(() => {});
+      }
+      
       res.json(leave);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -87,6 +121,18 @@ class LeaveController {
     try {
       const leave = await LeaveService.reject(req.params.id, req.user.id, req.body.rejection_reason);
       await logAudit(req, 'leave_rejected', 'UPDATE', `İzin talebi reddedildi #${req.params.id}: ${req.body.rejection_reason || ''}`, req.params.id, { status: 'pending' }, { status: 'rejected', reason: req.body.rejection_reason });
+      
+      // İzin sahibine bildirim gönder
+      if (leave?.userId) {
+        await createForUsers(req, [leave.userId], {
+          title: 'İzin talebi reddedildi',
+          message: `İzin talebiniz reddedildi.${req.body.rejection_reason ? ' Sebep: ' + req.body.rejection_reason : ''}`,
+          type: 'leave',
+          referenceType: 'leave',
+          referenceId: Number(req.params.id)
+        }).catch(() => {});
+      }
+      
       res.json(leave);
     } catch (err) {
       res.status(400).json({ error: err.message });

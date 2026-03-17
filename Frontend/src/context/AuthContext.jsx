@@ -64,7 +64,11 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post('/auth/register-company', {
         company: {
           name: companyData.name,
-          industry: companyData.industry || ''
+          industry: companyData.industry || '',
+          companyType: companyData.companyType || 'gercek',
+          tcNo: companyData.tcNo || null,
+          vergiNo: companyData.vergiNo || null,
+          vergiDairesi: companyData.vergiDairesi || null
         },
         admin: {
           firstName: userData.firstName,

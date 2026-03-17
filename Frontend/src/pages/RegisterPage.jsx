@@ -17,7 +17,9 @@ import {
   Check,
   Copy,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Hash,
+  CreditCard
 } from 'lucide-react';
 
 const INDUSTRY_OPTIONS = [
@@ -65,6 +67,10 @@ const RegisterPage = ({ onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     companyName: '',
     industry: '',
+    companyType: 'gercek',
+    tcNo: '',
+    vergiNo: '',
+    vergiDairesi: '',
     companyCode: '',
     firstName: '',
     lastName: '',
@@ -161,7 +167,14 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     setIsLoading(true);
     try {
       const result = await registerCompany(
-        { name: formData.companyName, industry: getIndustryValue() },
+        { 
+          name: formData.companyName, 
+          industry: getIndustryValue(),
+          companyType: formData.companyType,
+          tcNo: formData.companyType === 'gercek' ? formData.tcNo : null,
+          vergiNo: formData.companyType === 'tuzel' ? formData.vergiNo : null,
+          vergiDairesi: formData.companyType === 'tuzel' ? formData.vergiDairesi : null
+        },
         { 
           firstName: formData.firstName, 
           lastName: formData.lastName, 
@@ -456,9 +469,129 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                     )}
                   </div>
 
+                  {/* Şirket Tipi Seçimi */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Şirket Tipi</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, companyType: 'gercek', vergiNo: '', vergiDairesi: '' }))}
+                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                          formData.companyType === 'gercek' 
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        👤 Gerçek Kişi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, companyType: 'tuzel', tcNo: '' }))}
+                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                          formData.companyType === 'tuzel' 
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        🏢 Tüzel Kişi
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gerçek Kişi: TC Kimlik */}
+                  {formData.companyType === 'gercek' && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">TC Kimlik No</label>
+                      <div className="relative">
+                        <CreditCard size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={formData.tcNo}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                            setFormData(prev => ({ ...prev, tcNo: val }));
+                          }}
+                          placeholder="11 haneli TC Kimlik No"
+                          maxLength={11}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                                   text-slate-800 placeholder-slate-400
+                                   focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tüzel Kişi: Vergi No + Vergi Dairesi */}
+                  {formData.companyType === 'tuzel' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Numarası</label>
+                        <div className="relative">
+                          <Hash size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={formData.vergiNo}
+                            onChange={e => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              setFormData(prev => ({ ...prev, vergiNo: val }));
+                            }}
+                            placeholder="10 haneli Vergi No"
+                            maxLength={10}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                                     text-slate-800 placeholder-slate-400
+                                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Dairesi</label>
+                        <div className="relative">
+                          <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            name="vergiDairesi"
+                            value={formData.vergiDairesi}
+                            onChange={handleChange}
+                            placeholder="Örn: Kadıköy Vergi Dairesi"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                                     text-slate-800 placeholder-slate-400
+                                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
+                    onClick={() => {
+                      if (!formData.companyName.trim()) {
+                        setError('Şirket adı zorunludur');
+                        return;
+                      }
+                      if (formData.companyType === 'gercek') {
+                        const tc = formData.tcNo.replace(/\D/g, '');
+                        if (tc.length !== 11) {
+                          setError('TC Kimlik numarası 11 haneli olmalıdır');
+                          return;
+                        }
+                      } else {
+                        const vn = formData.vergiNo.replace(/\D/g, '');
+                        if (vn.length !== 10) {
+                          setError('Vergi numarası 10 haneli olmalıdır');
+                          return;
+                        }
+                        if (!formData.vergiDairesi.trim()) {
+                          setError('Vergi dairesi zorunludur');
+                          return;
+                        }
+                      }
+                      setError('');
+                      setStep(2);
+                    }}
                     className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
                              text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2
                              transition-all shadow-lg shadow-indigo-500/25"

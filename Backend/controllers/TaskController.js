@@ -1,6 +1,6 @@
 const TaskService = require("../services/TaskService");
 const AuditLogService = require("../services/AuditLogService");
-const { createForUsers } = require("../utils/notificationDispatcher");
+const { createForUsers, createForCompany } = require("../utils/notificationDispatcher");
 const { TaskStatus, TaskPriority, Workspace, Project, TaskList, Task, sequelize } = require("../models");
 const logger = require("../utils/logger");
 
@@ -394,6 +394,23 @@ class TaskController {
       const task = await TaskService.update(req.params.id, req.body, req.user.company_id);
       const { oldValue, newValue } = getChangedTaskFields(oldTask, req.body);
       await logAudit(req, 'task_updated', 'UPDATE', `Görev güncellendi: ${task.title || ''}`, 'Task', 'tasks', task.id, oldValue, newValue);
+      
+      // Atanan kullanıcılara bildirim gönder
+      if (oldTask?.TaskAssignments?.length > 0) {
+        const assignedUserIds = oldTask.TaskAssignments
+          .map(a => a.User?.id || a.userId)
+          .filter(id => id && Number(id) !== Number(req.user.id));
+        if (assignedUserIds.length > 0) {
+          await createForUsers(req, assignedUserIds, {
+            title: 'Görev güncellendi',
+            message: `"${task.title || ''}" görevi güncellendi.`,
+            type: 'task',
+            referenceType: 'task',
+            referenceId: Number(task.id)
+          }).catch(() => {});
+        }
+      }
+      
       emitCompanyDataChanged(req, { entity: 'task', action: 'update', id: task.id });
       res.json(task);
     } catch (err) {
@@ -407,6 +424,23 @@ class TaskController {
       const oldTask = await TaskService.getById(req.params.id, req.user.company_id);
       await TaskService.delete(req.params.id, req.user.company_id);
       await logAudit(req, 'task_deleted', 'DELETE', `Görev silindi: ${oldTask?.title || req.params.id}`, 'Task', 'tasks', req.params.id, pickTaskFields(oldTask), null);
+      
+      // Atanan kullanıcılara bildirim gönder
+      if (oldTask?.TaskAssignments?.length > 0) {
+        const assignedUserIds = oldTask.TaskAssignments
+          .map(a => a.User?.id || a.userId)
+          .filter(id => id && Number(id) !== Number(req.user.id));
+        if (assignedUserIds.length > 0) {
+          await createForUsers(req, assignedUserIds, {
+            title: 'Görev silindi',
+            message: `"${oldTask.title || ''}" görevi silindi.`,
+            type: 'task',
+            referenceType: 'task',
+            referenceId: Number(req.params.id)
+          }).catch(() => {});
+        }
+      }
+      
       emitCompanyDataChanged(req, { entity: 'task', action: 'delete', id: Number(req.params.id) });
       res.json({ message: "Task deleted successfully" });
     } catch (err) {

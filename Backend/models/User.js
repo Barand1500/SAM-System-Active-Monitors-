@@ -38,8 +38,7 @@ module.exports = (sequelize, DataTypes) => {
 
     email: {
       type: DataTypes.STRING(255),
-      allowNull: false,
-      unique: true
+      allowNull: false
     },
 
     password: {
@@ -96,6 +95,9 @@ module.exports = (sequelize, DataTypes) => {
     tableName: "users",
     underscored: true,
     timestamps: true,
+    indexes: [
+      { unique: true, fields: ['email'], name: 'email' }
+    ],
     hooks: {
       beforeCreate: async (user) => {
         if (user.password && !user.password.startsWith("$2b$")) {

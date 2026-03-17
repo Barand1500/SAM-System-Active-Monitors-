@@ -62,10 +62,10 @@ class ReportService {
     const workStartHour = 9; // Mesai başlangıcı: 09:00
 
     attendances.forEach(att => {
-      if (att.check_out) {
+      if (att.checkOut) {
         totalDays++;
-        const checkIn = new Date(att.check_in);
-        const checkOut = new Date(att.check_out);
+        const checkIn = new Date(att.checkIn);
+        const checkOut = new Date(att.checkOut);
         const workSeconds = Math.floor((checkOut - checkIn) / 1000);
         totalWorkSeconds += workSeconds;
 
@@ -81,9 +81,9 @@ class ReportService {
         // Mola süreleri
         if (att.breaks && att.breaks.length > 0) {
           att.breaks.forEach(brk => {
-            if (brk.end_time) {
-              const breakStart = new Date(brk.start_time);
-              const breakEnd = new Date(brk.end_time);
+            if (brk.endTime) {
+              const breakStart = new Date(brk.startTime);
+              const breakEnd = new Date(brk.endTime);
               totalBreakSeconds += Math.floor((breakEnd - breakStart) / 1000);
             }
           });
@@ -104,8 +104,8 @@ class ReportService {
     return {
       user: {
         id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         department: user.department
       },
@@ -125,22 +125,22 @@ class ReportService {
       },
       attendances: attendances.map(att => ({
         id: att.id,
-        date: att.check_in,
-        checkIn: att.check_in,
-        checkOut: att.check_out,
+        date: att.checkIn,
+        checkIn: att.checkIn,
+        checkOut: att.checkOut,
         isLate: (() => {
-          const checkIn = new Date(att.check_in);
+          const checkIn = new Date(att.checkIn);
           const hour = checkIn.getHours();
           const minute = checkIn.getMinutes();
           return hour > workStartHour || (hour === workStartHour && minute > 15);
         })(),
-        workDuration: att.check_out ? formatDuration(Math.floor((new Date(att.check_out) - new Date(att.check_in)) / 1000)) : null,
+        workDuration: att.checkOut ? formatDuration(Math.floor((new Date(att.checkOut) - new Date(att.checkIn)) / 1000)) : null,
         breakCount: att.breaks ? att.breaks.length : 0,
         breaks: att.breaks ? att.breaks.map(brk => ({
           id: brk.id,
-          startTime: brk.start_time,
-          endTime: brk.end_time,
-          duration: brk.end_time ? formatDuration(Math.floor((new Date(brk.end_time) - new Date(brk.start_time)) / 1000)) : null
+          startTime: brk.startTime,
+          endTime: brk.endTime,
+          duration: brk.endTime ? formatDuration(Math.floor((new Date(brk.endTime) - new Date(brk.startTime)) / 1000)) : null
         })) : []
       }))
     };

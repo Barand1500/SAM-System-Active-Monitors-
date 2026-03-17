@@ -293,13 +293,13 @@ export const RecentActivitiesWidget = ({ isDark }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await auditLogAPI.list({ limit: 15 });
-        setActivities((res.data?.data || res.data || []).map(a => ({
+        const res = await auditLogAPI.list({ limit: 3 });
+        setActivities((res.data?.data || res.data || []).slice(0, 3).map(a => ({
           ...a,
           timestamp: a.created_at || a.createdAt
         })));
       } catch (err) {
-        console.error('😂😂😊😊 Aktiviteler yüklenemedi:', {
+        console.error(' Aktiviteler yüklenemedi:', {
           message: err.message,
           status: err.response?.status,
           statusText: err.response?.statusText,

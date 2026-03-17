@@ -18,14 +18,17 @@ const NotificationCenter = ({ isDark }) => {
   const [showSettings, setShowSettings] = useState(false);
 
   const formatTime = (timestamp) => {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return '';
     const now = new Date();
     const diff = now - date;
     
     if (diff < 60000) return 'Az önce';
     if (diff < 3600000) return `${Math.floor(diff / 60000)} dk önce`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)} saat önce`;
-    return date.toLocaleDateString('tr-TR');
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)} gün önce`;
+    return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const typeIcons = {
@@ -144,8 +147,8 @@ const NotificationCenter = ({ isDark }) => {
                     key={notification.id}
                     className={`p-4 border-b transition-colors cursor-pointer ${
                       isDark 
-                        ? `border-slate-700 ${notification.read ? 'bg-slate-800' : 'bg-slate-700/50'}` 
-                        : `border-slate-100 ${notification.read ? 'bg-white' : 'bg-indigo-50/50'}`
+                        ? `border-slate-700 ${notification.isRead ? 'bg-slate-800' : 'bg-slate-700/50'}` 
+                        : `border-slate-100 ${notification.isRead ? 'bg-white' : 'bg-indigo-50/50'}`
                     } hover:${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}
                     onClick={() => markAsRead(notification.id)}
                   >
@@ -155,20 +158,20 @@ const NotificationCenter = ({ isDark }) => {
                         <div className="flex items-start justify-between gap-2">
                           <h4 className={`font-semibold text-sm ${
                             isDark ? 'text-white' : 'text-slate-800'
-                          } ${!notification.read ? 'font-bold' : ''}`}>
+                          } ${!notification.isRead ? 'font-bold' : ''}`}>
                             {notification.title}
                           </h4>
-                          {!notification.read && (
+                          {!notification.isRead && (
                             <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
                           )}
                         </div>
-                        {notification.message && (
+                        {(notification.content || notification.message) && (
                           <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                            {notification.message}
+                            {notification.content || notification.message}
                           </p>
                         )}
                         <p className={`text-xs mt-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {formatTime(notification.timestamp)}
+                          {formatTime(notification.createdAt || notification.timestamp)}
                         </p>
                       </div>
                       <button

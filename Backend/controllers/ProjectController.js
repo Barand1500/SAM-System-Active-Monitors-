@@ -1,5 +1,6 @@
 const ProjectService = require("../services/ProjectService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForCompany } = require("../utils/notificationDispatcher");
 
 const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
   try {
@@ -62,6 +63,18 @@ class ProjectController {
         companyId: companyId
       });
       await logAudit(req, 'project_created', 'CREATE', `Proje oluşturuldu: ${name}`, project.id, null, project);
+      
+      // Tüm şirkete bildirim gönder
+      await createForCompany(req, {
+        companyId,
+        excludeUserId: req.user.id,
+        title: 'Yeni proje oluşturuldu',
+        message: `"${name}" adlı yeni bir proje oluşturuldu.`,
+        type: 'project',
+        referenceType: 'project',
+        referenceId: Number(project.id)
+      }).catch(() => {});
+      
       res.status(201).json(project);
     } catch (err) {
       console.error('[ProjectController] create error:', err.message);

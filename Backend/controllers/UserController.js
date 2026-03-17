@@ -1,6 +1,7 @@
 // Backend/controllers/UserController.js
 const UserService = require("../services/UserService");
 const AuditLogService = require("../services/AuditLogService");
+const { createForCompany } = require("../utils/notificationDispatcher");
 
 const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
   try {
@@ -49,6 +50,18 @@ class UserController {
       const userData = { ...req.body, companyId };
       const user = await UserService.createUser(userData);
       await logAudit(req, 'user_created', 'CREATE', `Kullanıcı oluşturuldu: ${userData.firstName || ''} ${userData.lastName || ''}`, user.id, null, userData);
+      
+      // Tüm şirkete bildirim gönder
+      await createForCompany(req, {
+        companyId,
+        excludeUserId: req.user.id,
+        title: 'Yeni çalışan eklendi',
+        message: `${userData.firstName || ''} ${userData.lastName || ''} ekibe katıldı.`,
+        type: 'user',
+        referenceType: 'user',
+        referenceId: Number(user.id)
+      }).catch(() => {});
+      
       emitCompanyDataChanged(req, { entity: 'user', action: 'create', id: user.id });
       res.status(201).json(user);
     } catch (err) {

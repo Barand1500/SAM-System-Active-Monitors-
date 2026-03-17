@@ -23,7 +23,7 @@ class NotificationController {
   async markAllRead(req, res) {
     try {
       await NotificationService.markAllAsRead(req.user.id);
-      res.json({ message: "All notifications marked as read" });
+      res.json({ message: "Tüm bildirimler okundu olarak işaretlendi" });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

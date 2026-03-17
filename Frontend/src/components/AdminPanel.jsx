@@ -4,7 +4,7 @@ import { useNotification } from '../context/NotificationContext';
 import { departmentAPI, taskStatusAPI, taskPriorityAPI, companyProfileAPI, roleAPI } from '../services/api';
 import ConfirmDialog from './ConfirmDialog';
 import BaseModal from './BaseModal';
-import { logChange } from './ChangeHistory';
+
 import {
   Building2, Plus, Edit, Trash2, CheckCircle2, Shield, ChevronDown,
   Phone, Mail, Globe, MapPin, FileText, Banknote, Hash, Users,
@@ -341,6 +341,22 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         const res = await companyProfileAPI.get();
         if (res.data) {
           const profileData = { ...defaultProfile, ...res.data };
+          // API'den gelen dinamik listelerdeki alanları normalize et
+          if (Array.isArray(profileData.adresler)) {
+            profileData.adresler = profileData.adresler.map(addr => ({
+              label: '', mahalle: '', sokak: '', binaNo: '', ilce: '', il: '', postaKodu: '', visible: true,
+              ...addr
+            }));
+          }
+          if (Array.isArray(profileData.telefonlar)) {
+            profileData.telefonlar = profileData.telefonlar.map(tel => ({ label: '', value: '', visible: true, ...tel }));
+          }
+          if (Array.isArray(profileData.websites)) {
+            profileData.websites = profileData.websites.map(site => ({ label: '', value: '', visible: true, ...site }));
+          }
+          if (Array.isArray(profileData.emails)) {
+            profileData.emails = profileData.emails.map(email => ({ label: '', value: '', visible: true, ...email }));
+          }
           setCompanyProfile(profileData);
           setLogoPreview(getImageUrl(profileData.logoUrl || res.data.logoUrl));
         }
@@ -820,7 +836,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     try {
       const res = await departmentAPI.create({ name: newDeptName.trim(), color: newDeptColor });
       setDeptList(prev => [...prev, res.data]);
-      logChange('department', 'create', `Yeni departman eklendi: ${newDeptName.trim()}`, null, newDeptName.trim(), newDeptName.trim());
       setNewDeptName('');
       setNewDeptColor('#6366f1');
     } catch (err) {
@@ -838,7 +853,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         try {
           await departmentAPI.delete(id);
           setDeptList(prev => prev.filter(d => d.id !== id));
-          logChange('department', 'delete', `Departman silindi: ${dept?.name}`, dept?.name, null, dept?.name);
           addToast({ type: 'success', title: 'Silindi', message: 'Departman başarıyla silindi', duration: 2000 });
         } catch (err) {
           addToast({ type: 'error', title: 'Hata', message: 'Departman silinemedi', duration: 3000 });
@@ -851,10 +865,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     const oldDept = deptList.find(d => d.id === id);
     try {
       await departmentAPI.update(id, updates);
-      setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d)); 
-      if (updates.name && oldDept?.name !== updates.name) {
-        logChange('department', 'update', `Departman adı değiştirildi`, oldDept?.name, updates.name, oldDept?.name);
-      }
+      setDeptList(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     } catch (err) {
       addToast({ type: 'error', title: 'Hata', message: 'Departman güncellenemedi', duration: 3000 });
     }
@@ -898,7 +909,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         try {
           await taskPriorityAPI.delete(id);
           setPriorityList(prev => prev.filter(p => p.id !== id));
-          logChange('priority', 'delete', `Öncelik silindi: ${priority?.label}`, priority?.label, null, priority?.label);
           addToast({ type: 'success', title: 'Silindi', message: 'Öncelik başarıyla silindi', duration: 2000 });
         } catch (err) {
           addToast({ type: 'error', title: 'Hata', message: 'Öncelik silinemedi', duration: 3000 });
@@ -985,7 +995,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         try {
           await roleAPI.delete(id);
           setRoleList(prev => prev.filter(r => r.id !== id));
-          logChange('role', 'delete', `Rol silindi: ${role?.label}`, role?.label, null, role?.label);
           addToast({
             type: 'success',
             title: 'Silindi',
@@ -1023,15 +1032,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
             ? { ...r, permissions: editingRolePermissions.permissions }
             : r
         ));
-      
-        logChange(
-          'role',
-          'update',
-          `"${editingRolePermissions.label}" rolünün yetkileri güncellendi`,
-          'Eski yetkiler',
-          'Yeni yetkiler',
-          editingRolePermissions.label
-        );
       
         addToast({
           type: 'success',
@@ -1108,7 +1108,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
     try {
       const res = await taskStatusAPI.create({ name: newStatusLabel.trim(), color: newStatusColor, orderNo: statusList.length });
       setStatusList(prev => [...prev, { ...res.data, label: res.data.name }]);
-      logChange('status', 'create', `Yeni durum eklendi: ${newStatusLabel.trim()}`, null, newStatusLabel.trim(), newStatusLabel.trim());
       setNewStatusLabel('');
       setNewStatusColor('#6366f1');
     } catch (err) {
@@ -1135,7 +1134,6 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
         try {
           await taskStatusAPI.delete(id);
           setStatusList(prev => prev.filter(s => s.id !== id));
-          logChange('status', 'delete', `Durum silindi: ${status?.label}`, status?.label, null, status?.label);
           addToast({ type: 'success', title: 'Silindi', message: 'Durum başarıyla silindi', duration: 2000 });
         } catch (err) {
           addToast({ type: 'error', title: 'Hata', message: 'Durum silinemedi', duration: 3000 });
@@ -1574,7 +1572,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="flex items-center gap-2 mb-3">
                     <input
                       type="text"
-                      value={addr.label}
+                      value={addr.label || ''}
                       onChange={(e) => updateDynamicItem('adresler', addr.id, 'label', e.target.value)}
                       placeholder="Adres Adı (ör. Merkez, Şube, Depo...)"
                       className={`flex-1 ${inputClass} border rounded-lg px-3 py-2 text-sm font-semibold`}
@@ -1600,7 +1598,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Mahalle</label>
                       <input
                         type="text"
-                        value={addr.mahalle}
+                        value={addr.mahalle || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'mahalle', e.target.value)}
                         placeholder="ör. Yeni Emek"
                         className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1610,7 +1608,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Sokak / Cadde</label>
                       <input
                         type="text"
-                        value={addr.sokak}
+                        value={addr.sokak || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'sokak', e.target.value)}
                         placeholder="ör. Atatürk Cad."
                         className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1620,7 +1618,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Bina No / Diğer</label>
                       <input
                         type="text"
-                        value={addr.binaNo}
+                        value={addr.binaNo || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'binaNo', e.target.value)}
                         placeholder="ör. No: 42, Kat: 3, Daire: 5"
                         className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1630,7 +1628,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>İlçe</label>
                       <input
                         type="text"
-                        value={addr.ilce}
+                        value={addr.ilce || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'ilce', e.target.value)}
                         placeholder="ör. Kepez"
                         className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1640,7 +1638,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>İl / Şehir</label>
                       <input
                         type="text"
-                        value={addr.il}
+                        value={addr.il || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'il', e.target.value)}
                         placeholder="ör. Antalya"
                         className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1650,7 +1648,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                       <label className={`block text-xs mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Posta Kodu (Opsiyonel)</label>
                       <input
                         type="text"
-                        value={addr.postaKodu}
+                        value={addr.postaKodu || ''}
                         onChange={(e) => updateDynamicItem('adresler', addr.id, 'postaKodu', e.target.value)}
                         placeholder="ör. 07070"
                         maxLength={5}
@@ -1710,7 +1708,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="w-1/3">
                     <input
                       type="text"
-                      value={tel.label}
+                      value={tel.label || ''}
                       onChange={(e) => updateDynamicItem('telefonlar', tel.id, 'label', e.target.value)}
                       placeholder="ör. Sabit, GSM..."
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1719,7 +1717,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="flex-1">
                     <input
                       type="tel"
-                      value={tel.value}
+                      value={tel.value || ''}
                       onChange={(e) => updateDynamicItem('telefonlar', tel.id, 'value', e.target.value)}
                       placeholder="0XXX XXX XX XX"
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1786,7 +1784,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="w-1/3">
                     <input
                       type="text"
-                      value={site.label}
+                      value={site.label || ''}
                       onChange={(e) => updateDynamicItem('websites', site.id, 'label', e.target.value)}
                       placeholder="ör. Ana Site, Blog..."
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1795,7 +1793,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="flex-1">
                     <input
                       type="url"
-                      value={site.value}
+                      value={site.value || ''}
                       onChange={(e) => updateDynamicItem('websites', site.id, 'value', e.target.value)}
                       placeholder="www.example.com"
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1862,7 +1860,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="w-1/3">
                     <input
                       type="text"
-                      value={email.label}
+                      value={email.label || ''}
                       onChange={(e) => updateDynamicItem('emails', email.id, 'label', e.target.value)}
                       placeholder="ör. Genel, Destek..."
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}
@@ -1871,7 +1869,7 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
                   <div className="flex-1">
                     <input
                       type="email"
-                      value={email.value}
+                      value={email.value || ''}
                       onChange={(e) => updateDynamicItem('emails', email.id, 'value', e.target.value)}
                       placeholder="bilgi@example.com"
                       className={`w-full ${inputClass} border rounded-lg px-3 py-2 text-sm`}

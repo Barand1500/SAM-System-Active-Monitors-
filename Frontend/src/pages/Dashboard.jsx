@@ -315,7 +315,7 @@ const Dashboard = () => {
   useEffect(() => {
     dashboardSettingAPI.get().then(res => {
       const settings = res.data;
-      if (settings && typeof settings === 'object') {
+      if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
         Object.entries(settings).forEach(([key, val]) => {
           localStorage.setItem(key, JSON.stringify(val));
         });
@@ -323,6 +323,15 @@ const Dashboard = () => {
         if (settings['dashboard_layouts']) setDashboardLayouts(settings['dashboard_layouts']);
         if (settings['active_layout_id']) setActiveLayoutId(settings['active_layout_id']);
         if (settings['task_templates']) setTaskTemplates(settings['task_templates']);
+      } else {
+        // Kullanıcının kendi ayarı yok — varsayılana sıfırla (önceki kullanıcı verisini temizle)
+        const defaultLayouts = [{ id: 1, name: 'Varsayılan', isDefault: true, createdAt: new Date().toISOString() }];
+        setDashboardLayouts(defaultLayouts);
+        setActiveLayoutId(1);
+        setTaskTemplates([]);
+        saveToStorage('dashboard_layouts', defaultLayouts);
+        saveToStorage('active_layout_id', 1);
+        saveToStorage('task_templates', []);
       }
     }).catch(() => {});
   }, []);

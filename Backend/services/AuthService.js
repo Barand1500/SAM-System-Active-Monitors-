@@ -77,6 +77,54 @@ class AuthService {
 
     companyData.name = normalizedCompanyName;
 
+    // Şirket tipi doğrulama (gerçek kişi → TC, tüzel kişi → vergi no)
+    const companyType = companyData.companyType || 'gercek';
+    if (companyType === 'gercek') {
+      const tc = (companyData.tcNo || '').replace(/\D/g, '');
+      if (!tc || tc.length !== 11) {
+        throw new Error('TC Kimlik numarası 11 haneli olmalıdır');
+      }
+      if (!/^[1-9]/.test(tc)) {
+        throw new Error('TC Kimlik numarası 0 ile başlayamaz');
+      }
+      // TC Kimlik algoritma doğrulama
+      const digits = tc.split('').map(Number);
+      const sum1 = (digits[0] + digits[2] + digits[4] + digits[6] + digits[8]) * 7;
+      const sum2 = digits[1] + digits[3] + digits[5] + digits[7];
+      if ((sum1 - sum2) % 10 !== digits[9]) {
+        throw new Error('Geçersiz TC Kimlik numarası');
+      }
+      const totalSum = digits.slice(0, 10).reduce((a, b) => a + b, 0);
+      if (totalSum % 10 !== digits[10]) {
+        throw new Error('Geçersiz TC Kimlik numarası');
+      }
+      // Aynı TC ile kayıtlı şirket kontrolü
+      const existingTc = await Company.findOne({ where: { tc_no: tc } });
+      if (existingTc) {
+        throw new Error('Bu TC Kimlik numarası ile kayıtlı bir şirket zaten mevcut');
+      }
+      companyData.tcNo = tc;
+      companyData.vergiNo = null;
+      companyData.vergiDairesi = null;
+    } else if (companyType === 'tuzel') {
+      const vn = (companyData.vergiNo || '').replace(/\D/g, '');
+      if (!vn || vn.length !== 10) {
+        throw new Error('Vergi numarası 10 haneli olmalıdır');
+      }
+      if (!(companyData.vergiDairesi || '').trim()) {
+        throw new Error('Vergi dairesi zorunludur');
+      }
+      // Aynı vergi numarası kontrolü
+      const existingVn = await Company.findOne({ where: { vergi_no: vn } });
+      if (existingVn) {
+        throw new Error('Bu vergi numarası ile kayıtlı bir şirket zaten mevcut');
+      }
+      companyData.vergiNo = vn;
+      companyData.vergiDairesi = companyData.vergiDairesi.trim();
+      companyData.tcNo = null;
+    }
+    companyData.companyType = companyType;
+
     // Global unique email çakışmasını Sequelize seviyesine bırakmadan yakala
     const existingUser = await userRepo.findByEmail(adminData.email);
     if (existingUser) {
