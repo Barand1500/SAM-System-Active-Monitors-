@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { fn, col, where } = require("sequelize");
-const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList, Role } = require("../models");
+const { Company, User, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList, Role } = require("../models");
 const userRepo = require("../repositories/UserRepository");
 const EmailService = require("./EmailService");
 
@@ -95,8 +95,6 @@ class AuthService {
       throw new Error("Bu şirket adı zaten kullanımda");
     }
 
-    companyData.name = normalizedCompanyName;
-
     if (companyType === 'gercek') {
       const tc = (companyData.tcNo || '').replace(/\D/g, '');
       if (!tc || tc.length !== 11) {
@@ -150,9 +148,17 @@ class AuthService {
     }
 
     // Şirket kodu üret
-    companyData.companyCode = await this.generateCompanyCode();
+    const generatedCode = await this.generateCompanyCode();
 
-    const company = await Company.create(companyData);
+    const company = await Company.create({
+      name: normalizedCompanyName,
+      companyCode: generatedCode,
+      companyType,
+      industry: companyData.industry || null,
+      tcNo: companyData.tcNo || null,
+      vergiNo: companyData.vergiNo || null,
+      vergiDairesi: companyData.vergiDairesi || null
+    });
 
     // Şifre otomatik üret ve e-posta ile gönder
     const tempPassword = this.generateRandomPassword();
@@ -171,7 +177,8 @@ class AuthService {
       await EmailService.sendPasswordEmail(
         adminData.email,
         tempPassword,
-        `${adminData.firstName} ${adminData.lastName}`
+        `${adminData.firstName} ${adminData.lastName}`,
+        generatedCode
       );
     } catch (emailErr) {
       console.error('[AuthService] Şifre e-postası gönderilemedi:', emailErr.message);
@@ -283,7 +290,8 @@ class AuthService {
       await EmailService.sendPasswordEmail(
         employeeData.email,
         tempPassword,
-        `${employeeData.firstName} ${employeeData.lastName}`
+        `${employeeData.firstName} ${employeeData.lastName}`,
+        company.company_code || company.companyCode
       );
     } catch (emailErr) {
       console.error('[AuthService] Şifre e-postası gönderilemedi:', emailErr.message);
@@ -356,17 +364,23 @@ class AuthService {
     return { user: sanitizedUser, company, token };
   }
 
-  // Şifre değiştir
-  async changePassword(userId, newPassword) {
-    const user = await userRepo.findById(userId);
+  // Şifre değiştir (mevcut şifre doğrulama ile)
+  async changePassword(userId, currentPassword, newPassword) {
+    const user = await User.findByPk(userId);
     if (!user) throw new Error('Kullanıcı bulunamadı');
     
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    user.mustChangePassword = false;
-    await user.save();
+    // Mevcut şifreyi doğrula
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) throw new Error('Mevcut şifre hatalı');
     
-    const sanitizedUser = this.sanitizeUser(user);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.update(
+      { password: hashedPassword, mustChangePassword: false },
+      { where: { id: userId } }
+    );
+    
+    const updatedUser = await User.findByPk(userId);
+    const sanitizedUser = this.sanitizeUser(updatedUser);
     sanitizedUser.mustChangePassword = false;
     return { user: sanitizedUser };
   }

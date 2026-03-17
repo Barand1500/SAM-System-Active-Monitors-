@@ -11,211 +11,20 @@ import {
   Briefcase,
   Users,
   CheckCircle2,
-  AlertCircle,
-  Copy,
-  Check,
-  ShieldCheck,
-  X
+  AlertCircle
 } from 'lucide-react';
 
-// Şifre güç hesaplama
-const getPasswordStrength = (password) => {
-  if (!password) return { level: 0, label: '', color: '' };
-  let score = 0;
-  if (password.length >= 4) score++;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  
-  if (score <= 1) return { level: 1, label: 'Çok Zayıf', color: 'bg-red-500' };
-  if (score === 2) return { level: 2, label: 'Zayıf', color: 'bg-orange-500' };
-  if (score === 3) return { level: 3, label: 'Orta', color: 'bg-yellow-500' };
-  if (score === 4) return { level: 4, label: 'Güçlü', color: 'bg-emerald-500' };
-  return { level: 5, label: 'Çok Güçlü', color: 'bg-emerald-600' };
-};
-
-// Şifre Değiştirme Modalı
-const PasswordChangeModal = ({ currentPassword, onComplete, onSkip }) => {
-  const [newPassword, setNewPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [isChanging, setIsChanging] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
-  const { changePassword } = useAuth();
-
-  const strength = getPasswordStrength(newPassword);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(currentPassword);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleChangePassword = async () => {
-    if (!newPassword) {
-      setError('Yeni şifre giriniz');
-      return;
-    }
-    setError('');
-    setIsChanging(true);
-    try {
-      await changePassword(newPassword);
-      onComplete();
-    } catch (err) {
-      setError(err.message || 'Şifre değiştirilemedi');
-    } finally {
-      setIsChanging(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative animate-in fade-in">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl 
-                        flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/25">
-            <ShieldCheck className="text-white" size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-slate-800">Hoş Geldiniz!</h2>
-          <p className="text-slate-500 text-sm mt-1">İlk girişiniz için şifre ayarları</p>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 mb-4">
-            <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Mevcut Şifre */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-slate-700 mb-2">Şu anki şifreniz</label>
-          <div className="relative">
-            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type={showCurrentPassword ? 'text' : 'password'}
-              value={currentPassword}
-              readOnly
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-11 pr-20
-                       text-slate-800 font-mono tracking-wider"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors"
-                title={showCurrentPassword ? 'Gizle' : 'Göster'}
-              >
-                {showCurrentPassword ? <EyeOff size={16} className="text-slate-400" /> : <Eye size={16} className="text-slate-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors"
-                title="Kopyala"
-              >
-                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} className="text-slate-400" />}
-              </button>
-            </div>
-          </div>
-          {copied && <p className="text-xs text-emerald-600 mt-1">Kopyalandı!</p>}
-        </div>
-
-        {/* Yeni Şifre */}
-        <div className="border-t border-slate-100 pt-5">
-          <p className="text-sm text-slate-600 mb-3">İsterseniz şifrenizi değiştirebilirsiniz</p>
-          <div className="relative">
-            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type={showNewPassword ? 'text' : 'password'}
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="Yeni şifrenizi girin"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-11 pr-12
-                       text-slate-800 placeholder-slate-400
-                       focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-            <button
-              type="button"
-              onClick={() => setShowNewPassword(!showNewPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-
-          {/* Güç göstergesi */}
-          {newPassword && (
-            <div className="mt-3">
-              <div className="flex gap-1 mb-1.5">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div
-                    key={i}
-                    className={`h-1.5 flex-1 rounded-full transition-all ${
-                      i <= strength.level ? strength.color : 'bg-slate-200'
-                    }`}
-                  />
-                ))}
-              </div>
-              <p className={`text-xs font-medium ${
-                strength.level <= 1 ? 'text-red-500' :
-                strength.level === 2 ? 'text-orange-500' :
-                strength.level === 3 ? 'text-yellow-600' :
-                'text-emerald-600'
-              }`}>
-                Şifre Gücü: {strength.label}
-              </p>
-            </div>
-          )}
-
-          {newPassword && (
-            <button
-              onClick={handleChangePassword}
-              disabled={isChanging}
-              className="w-full mt-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
-                       text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2
-                       transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-70"
-            >
-              {isChanging ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  Şifremi Değiştir
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        <button
-          onClick={onSkip}
-          className="w-full mt-3 text-slate-500 hover:text-slate-700 font-medium py-2.5 text-sm transition-colors"
-        >
-          Şimdilik bu şifreyle devam et
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const LoginPage = ({ onSwitchToRegister }) => {
+const LoginPage = ({ onSwitchToRegister, prefill }) => {
   const { login } = useAuth();
   const { addToast } = useNotification();
   const [formData, setFormData] = useState({
-    companyCode: '',
-    email: '',
+    companyCode: prefill?.companyCode || '',
+    email: prefill?.email || '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Şifre değiştirme modalı state'i
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [loginPassword, setLoginPassword] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -223,15 +32,8 @@ const LoginPage = ({ onSwitchToRegister }) => {
     setIsLoading(true);
 
     try {
-      const result = await login(formData.companyCode, formData.email, formData.password);
-      
-      // mustChangePassword kontrolü
-      if (result?.mustChangePassword) {
-        setLoginPassword(formData.password);
-        setShowPasswordModal(true);
-      } else {
-        addToast({ type: 'success', title: 'Giriş Başarılı', message: 'Hoş geldiniz!' });
-      }
+      await login(formData.companyCode, formData.email, formData.password);
+      addToast({ type: 'success', title: 'Giriş Başarılı', message: 'Hoş geldiniz!' });
     } catch (err) {
       setError(err.message);
       addToast({ type: 'error', title: 'Giriş Hatası', message: err.message });
@@ -247,26 +49,8 @@ const LoginPage = ({ onSwitchToRegister }) => {
     }));
   };
 
-  const handlePasswordChangeComplete = () => {
-    setShowPasswordModal(false);
-    addToast({ type: 'success', title: 'Şifre Değiştirildi', message: 'Yeni şifreniz kaydedildi. Hoş geldiniz!' });
-  };
-
-  const handlePasswordChangeSkip = () => {
-    setShowPasswordModal(false);
-    addToast({ type: 'success', title: 'Giriş Başarılı', message: 'Hoş geldiniz!' });
-  };
-
   return (
     <div className="min-h-screen flex">
-      {/* Şifre Değiştirme Modalı */}
-      {showPasswordModal && (
-        <PasswordChangeModal
-          currentPassword={loginPassword}
-          onComplete={handlePasswordChangeComplete}
-          onSkip={handlePasswordChangeSkip}
-        />
-      )}
 
       {/* Sol Panel - Bilgi */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 p-12 flex-col justify-between relative overflow-hidden">

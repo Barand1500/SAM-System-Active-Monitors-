@@ -145,11 +145,14 @@ class AuthController {
 
   async changePassword(req, res) {
     try {
-      const { newPassword } = req.body;
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword) {
+        return res.status(400).json({ error: "Mevcut şifre zorunludur" });
+      }
       if (!newPassword || newPassword.length < 1) {
         return res.status(400).json({ error: "Yeni şifre zorunludur" });
       }
-      const result = await AuthService.changePassword(req.user.id, newPassword);
+      const result = await AuthService.changePassword(req.user.id, currentPassword, newPassword);
       res.json(result);
     } catch (err) {
       res.status(400).json({ error: normalizeAuthError(err) });

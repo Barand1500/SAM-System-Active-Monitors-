@@ -35,6 +35,6 @@ router.get("/check-company-name", AuthController.checkCompanyName);
 router.get("/check-email", AuthController.checkEmail);
 
 // PUT /api/auth/change-password (authenticated)
-router.put("/change-password", authenticate, AuthController.changePassword);
+router.put("/change-password", authenticate, (req, res) => AuthController.changePassword(req, res));
 
 module.exports = router;

@@ -130,10 +130,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Şifre değiştirme (ilk giriş sonrası)
-  const changePassword = async (newPassword) => {
+  // Şifre değiştirme (mevcut şifre doğrulama ile)
+  const changePassword = async (currentPassword, newPassword) => {
     try {
-      await api.put('/auth/change-password', { newPassword });
+      await api.put('/auth/change-password', { currentPassword, newPassword });
       // Kullanıcının mustChangePassword bayrağını kaldır
       const updatedUser = { ...user, mustChangePassword: false };
       setUser(updatedUser);

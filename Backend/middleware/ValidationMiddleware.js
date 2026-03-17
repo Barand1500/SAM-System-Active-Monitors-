@@ -80,7 +80,6 @@ const rules = {
   ],
 
   registerCompany: [
-    body("company.name").optional({ nullable: true }),
     body("company.companyType").trim().notEmpty().isIn(['gercek', 'tuzel']).withMessage("Şirket tipi seçiniz (gerçek/tüzel)"),
     body("company.tcNo").optional({ nullable: true }),
     body("company.vergiNo").optional({ nullable: true }),
@@ -101,8 +100,7 @@ const rules = {
     body("company_code").trim().notEmpty().withMessage("Şirket kodu zorunludur"),
     body("firstName").trim().notEmpty().withMessage("Ad zorunludur"),
     body("lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
-    body("email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
-    body("password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır")
+    body("email").isEmail().withMessage("Geçerli bir e-posta giriniz")
   ]
 };
 
