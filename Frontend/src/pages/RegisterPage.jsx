@@ -63,6 +63,8 @@ const RegisterPage = ({ onSwitchToLogin }) => {
   const [emailVerified, setEmailVerified] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [fieldChecking, setFieldChecking] = useState({});
   
   const [formData, setFormData] = useState({
     companyName: '',
@@ -110,6 +112,42 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
+  // Şirket adı müsaitlik kontrolü (onBlur)
+  const checkCompanyName = async (name) => {
+    if (!name || !name.trim()) {
+      setFieldErrors(prev => ({ ...prev, companyName: null }));
+      return;
+    }
+    setFieldChecking(prev => ({ ...prev, companyName: true }));
+    try {
+      const res = await apiClient.get('/auth/check-company-name', { params: { name: name.trim() } });
+      if (!res.data.available) {
+        setFieldErrors(prev => ({ ...prev, companyName: 'Bu şirket adı zaten kullanımda' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, companyName: null }));
+      }
+    } catch { setFieldErrors(prev => ({ ...prev, companyName: null })); }
+    finally { setFieldChecking(prev => ({ ...prev, companyName: false })); }
+  };
+
+  // E-posta müsaitlik kontrolü (onBlur)
+  const checkEmailAvailability = async (email) => {
+    if (!email || !isValidEmail(email)) {
+      setFieldErrors(prev => ({ ...prev, email: null }));
+      return;
+    }
+    setFieldChecking(prev => ({ ...prev, email: true }));
+    try {
+      const res = await apiClient.get('/auth/check-email', { params: { email: email.trim() } });
+      if (!res.data.available) {
+        setFieldErrors(prev => ({ ...prev, email: 'Bu e-posta adresi zaten kayıtlı' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, email: null }));
+      }
+    } catch { setFieldErrors(prev => ({ ...prev, email: null })); }
+    finally { setFieldChecking(prev => ({ ...prev, email: false })); }
+  };
+
   // E-posta doğrulama kodu gönder
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
@@ -148,6 +186,16 @@ const RegisterPage = ({ onSwitchToLogin }) => {
   const handleBossRegister = async (e) => {
     e.preventDefault();
     setError('');
+    
+    if (fieldErrors.companyName) {
+      setError(fieldErrors.companyName);
+      return;
+    }
+
+    if (fieldErrors.email) {
+      setError(fieldErrors.email);
+      return;
+    }
     
     if (!emailVerified) {
       setError('Lütfen e-posta adresinizi doğrulayın!');
@@ -388,13 +436,25 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         name="companyName"
                         value={formData.companyName}
                         onChange={handleChange}
+                        onBlur={() => checkCompanyName(formData.companyName)}
                         placeholder="Şirketinizin adı"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
                                  text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.companyName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                         required
                       />
+                      {fieldChecking.companyName && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
+                    {fieldErrors.companyName && (
+                      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                        <AlertCircle size={12} /> {fieldErrors.companyName}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -572,6 +632,10 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         setError('Şirket adı zorunludur');
                         return;
                       }
+                      if (fieldErrors.companyName) {
+                        setError(fieldErrors.companyName);
+                        return;
+                      }
                       if (formData.companyType === 'gercek') {
                         const tc = formData.tcNo.replace(/\D/g, '');
                         if (tc.length !== 11) {
@@ -642,17 +706,19 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
+                        onBlur={() => checkEmailAvailability(formData.email)}
                         placeholder="ornek@sirket.com"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-24
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12 pr-24
                                  text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.email ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                         required
                       />
                       {!emailVerified && (
                         <button
                           type="button"
                           onClick={sendVerificationCode}
-                          disabled={!isValidEmail(formData.email) || sendingCode}
+                          disabled={!isValidEmail(formData.email) || sendingCode || !!fieldErrors.email}
                           className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
                                    bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
                                    disabled:opacity-50 disabled:cursor-not-allowed"
@@ -699,6 +765,11 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                     {emailVerified && (
                       <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                         <Check size={12} /> E-posta doğrulandı
+                      </p>
+                    )}
+                    {fieldErrors.email && !emailVerified && (
+                      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                        <AlertCircle size={12} /> {fieldErrors.email}
                       </p>
                     )}
                   </div>

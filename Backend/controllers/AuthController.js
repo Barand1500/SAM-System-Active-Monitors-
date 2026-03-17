@@ -115,6 +115,33 @@ class AuthController {
       res.status(500).json({ error: normalizeAuthError(err) });
     }
   }
+
+  async checkCompanyName(req, res) {
+    try {
+      const { name } = req.query;
+      if (!name || !name.trim()) return res.json({ available: true });
+      const { fn, col, where: whereFn } = require('sequelize');
+      const { Company } = require('../models');
+      const existing = await Company.findOne({
+        where: whereFn(fn('LOWER', col('name')), name.trim().toLowerCase())
+      });
+      res.json({ available: !existing });
+    } catch (err) {
+      res.status(500).json({ error: normalizeAuthError(err) });
+    }
+  }
+
+  async checkEmail(req, res) {
+    try {
+      const { email } = req.query;
+      if (!email || !email.trim()) return res.json({ available: true });
+      const userRepo = require('../repositories/UserRepository');
+      const existing = await userRepo.findByEmail(email.trim());
+      res.json({ available: !existing });
+    } catch (err) {
+      res.status(500).json({ error: normalizeAuthError(err) });
+    }
+  }
 }
 
 module.exports = new AuthController();

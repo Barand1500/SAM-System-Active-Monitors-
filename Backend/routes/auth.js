@@ -28,4 +28,10 @@ router.post("/send-verification-code", AuthController.sendVerificationCode);
 // POST /api/auth/verify-email-code (public)
 router.post("/verify-email-code", AuthController.verifyEmailCode);
 
+// GET /api/auth/check-company-name?name=XXX (public)
+router.get("/check-company-name", AuthController.checkCompanyName);
+
+// GET /api/auth/check-email?email=XXX (public)
+router.get("/check-email", AuthController.checkEmail);
+
 module.exports = router;
