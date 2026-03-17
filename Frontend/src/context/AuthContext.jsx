@@ -63,21 +63,19 @@ export const AuthProvider = ({ children }) => {
         password
       });
       
-      const { token, user, company: backendCompany } = response.data;
+      const { token, user: loginUser, company: backendCompany } = response.data;
       
-      // LocalStorage'a kaydet
+      // mustChangePassword kontrolü — modal gösterilecekse state'i ayarla ama login'i tamamla
       localStorage.setItem('auth_token', token);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('currentUser', JSON.stringify(loginUser));
       localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
       
-      // State'i güncelle
-      setUser(user);
+      setUser(loginUser);
       setCurrentCompany(backendCompany);
 
-      // Bildirim sistemini tetikle
       window.dispatchEvent(new Event('auth:login'));
       
-      return user;
+      return { ...loginUser, mustChangePassword: loginUser.mustChangePassword };
     } catch (error) {
       const errorMsg = getApiErrorMessage(error, 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
       throw { message: errorMsg };
@@ -99,26 +97,12 @@ export const AuthProvider = ({ children }) => {
         admin: {
           firstName: userData.firstName,
           lastName: userData.lastName,
-          email: userData.email,
-          password: userData.password  // Frontend'den password gelmeli
+          email: userData.email
         }
       });
 
-      const { token, user, company: backendCompany } = response.data;
-
-      // LocalStorage'a kaydet
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
-
-      // State'i güncelle
-      setUser(user);
-      setCurrentCompany(backendCompany);
-
-      // Bildirim sistemini tetikle
-      window.dispatchEvent(new Event('auth:login'));
-
-      return { user, company: backendCompany };
+      // Kayıt sonrası otomatik giriş yapma — kullanıcı e-posta ile gelen şifreyle giriş yapacak
+      return response.data;
     } catch (error) {
       const errorMsg = getApiErrorMessage(error, 'Şirket kaydı tamamlanamadı. Lütfen bilgileri kontrol edin.');
       throw { message: errorMsg };
@@ -133,29 +117,29 @@ export const AuthProvider = ({ children }) => {
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
-        password: userData.password,
         department: userData.department || 'Genel',
         position: userData.position || 'Çalışan',
         role: 'employee'
       });
 
-      const { token, user, company: backendCompany } = response.data;
-
-      // LocalStorage'a kaydet
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('currentUser', JSON.stringify(user));
-      localStorage.setItem('currentCompany', JSON.stringify(backendCompany));
-
-      // State'i güncelle
-      setUser(user);
-      setCurrentCompany(backendCompany);
-
-      // Bildirim sistemini tetikle
-      window.dispatchEvent(new Event('auth:login'));
-
-      return { user, company: backendCompany };
+      // Kayıt sonrası otomatik giriş yapma — kullanıcı e-posta ile gelen şifreyle giriş yapacak
+      return response.data;
     } catch (error) {
       const errorMsg = getApiErrorMessage(error, 'Şirkete katılım tamamlanamadı. Lütfen bilgileri kontrol edin.');
+      throw { message: errorMsg };
+    }
+  };
+
+  // Şifre değiştirme (ilk giriş sonrası)
+  const changePassword = async (newPassword) => {
+    try {
+      await api.put('/auth/change-password', { newPassword });
+      // Kullanıcının mustChangePassword bayrağını kaldır
+      const updatedUser = { ...user, mustChangePassword: false };
+      setUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    } catch (error) {
+      const errorMsg = getApiErrorMessage(error, 'Şifre değiştirilemedi.');
       throw { message: errorMsg };
     }
   };
@@ -299,6 +283,7 @@ export const AuthProvider = ({ children }) => {
     updateCompany,
     registerCompany,
     joinCompany,
+    changePassword,
     checkCompanyCodeAvailability
   };
 

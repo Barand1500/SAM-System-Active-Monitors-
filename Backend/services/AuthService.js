@@ -1,8 +1,10 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { fn, col, where } = require("sequelize");
 const { Company, TaskStatus, TaskPriority, Department, BreakType, Workspace, Project, TaskList, Role } = require("../models");
 const userRepo = require("../repositories/UserRepository");
+const EmailService = require("./EmailService");
 
 class AuthService {
   // Şirket için benzersiz 8 haneli kod üret (UPPERCASE olarak)
@@ -20,6 +22,11 @@ class AuthService {
       exists = !!existing;
     }
     return code;
+  }
+
+  // Rastgele şifre üret (8 karakter)
+  generateRandomPassword() {
+    return crypto.randomBytes(4).toString('hex').toUpperCase();
   }
 
   // JWT üret
@@ -67,6 +74,14 @@ class AuthService {
 
   // Şirket kaydı + ilk admin
   async registerCompany(companyData, adminData) {
+    // Şirket tipi doğrulama (gerçek kişi → TC, tüzel kişi → vergi no)
+    const companyType = companyData.companyType || 'gercek';
+    
+    // Gerçek kişi: şirket adı = ad soyad
+    if (companyType === 'gercek') {
+      companyData.name = `${adminData.firstName} ${adminData.lastName}`.trim();
+    }
+
     const normalizedCompanyName = (companyData?.name || "").trim();
     if (!normalizedCompanyName) {
       throw new Error("Şirket adı zorunludur");
@@ -82,8 +97,6 @@ class AuthService {
 
     companyData.name = normalizedCompanyName;
 
-    // Şirket tipi doğrulama (gerçek kişi → TC, tüzel kişi → vergi no)
-    const companyType = companyData.companyType || 'gercek';
     if (companyType === 'gercek') {
       const tc = (companyData.tcNo || '').replace(/\D/g, '');
       if (!tc || tc.length !== 11) {
@@ -141,14 +154,28 @@ class AuthService {
 
     const company = await Company.create(companyData);
 
-    const hashedPassword = await bcrypt.hash(adminData.password, 10);
+    // Şifre otomatik üret ve e-posta ile gönder
+    const tempPassword = this.generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
     const user = await userRepo.create({
       ...adminData,
       companyId: company.id,
       role: "boss",
       roles: ["boss"],
-      password: hashedPassword
+      password: hashedPassword,
+      mustChangePassword: true
     });
+
+    // Şifreyi e-posta ile gönder
+    try {
+      await EmailService.sendPasswordEmail(
+        adminData.email,
+        tempPassword,
+        `${adminData.firstName} ${adminData.lastName}`
+      );
+    } catch (emailErr) {
+      console.error('[AuthService] Şifre e-postası gönderilemedi:', emailErr.message);
+    }
 
     // Varsayılan TaskStatus'ları oluştur
     await TaskStatus.bulkCreate([
@@ -189,7 +216,9 @@ class AuthService {
     ]);
 
     const token = this.generateJWT(user);
-    return { user: this.sanitizeUser(user), company, token };
+    const sanitizedUser = this.sanitizeUser(user);
+    sanitizedUser.mustChangePassword = true;
+    return { user: sanitizedUser, company, token, tempPassword };
   }
 
   // Çalışan kaydı
@@ -228,7 +257,9 @@ class AuthService {
     const allowedRoles = ["employee", "manager"];
     const role = allowedRoles.includes(employeeData.role) ? employeeData.role : "employee";
 
-    const hashedPassword = await bcrypt.hash(employeeData.password, 10);
+    // Şifre otomatik üret
+    const tempPassword = this.generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
     
     // CRITICAL: Ensure companyId is set
     const userData = {
@@ -236,7 +267,8 @@ class AuthService {
       companyId: company.id,
       password: hashedPassword,
       role,
-      roles: [role]
+      roles: [role],
+      mustChangePassword: true
     };
     
     const user = await userRepo.create(userData);
@@ -246,8 +278,21 @@ class AuthService {
       throw new Error("Kullanıcıya şirket atanamadı");
     }
 
+    // Şifreyi e-posta ile gönder
+    try {
+      await EmailService.sendPasswordEmail(
+        employeeData.email,
+        tempPassword,
+        `${employeeData.firstName} ${employeeData.lastName}`
+      );
+    } catch (emailErr) {
+      console.error('[AuthService] Şifre e-postası gönderilemedi:', emailErr.message);
+    }
+
     const token = this.generateJWT(user);
-    return { user: this.sanitizeUser(user), company, token };
+    const sanitizedUser = this.sanitizeUser(user);
+    sanitizedUser.mustChangePassword = true;
+    return { user: sanitizedUser, company, token, tempPassword };
   }
 
   // Login
@@ -306,7 +351,24 @@ class AuthService {
     // Company bilgisini de dön
     const company = await Company.findByPk(user.companyId);
     
-    return { user: this.sanitizeUser(user), company, token };
+    const sanitizedUser = this.sanitizeUser(user);
+    sanitizedUser.mustChangePassword = !!user.mustChangePassword;
+    return { user: sanitizedUser, company, token };
+  }
+
+  // Şifre değiştir
+  async changePassword(userId, newPassword) {
+    const user = await userRepo.findById(userId);
+    if (!user) throw new Error('Kullanıcı bulunamadı');
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.mustChangePassword = false;
+    await user.save();
+    
+    const sanitizedUser = this.sanitizeUser(user);
+    sanitizedUser.mustChangePassword = false;
+    return { user: sanitizedUser };
   }
 
   // Şirket kodu müsaitlik kontrolü

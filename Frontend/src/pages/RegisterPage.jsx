@@ -4,133 +4,80 @@ import apiClient from '../services/api';
 import { 
   Building2, 
   Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
   ArrowRight,
   ArrowLeft,
   Briefcase,
-  User,
   Users,
   Crown,
   AlertCircle,
   Check,
   Copy,
-  ShieldCheck,
-  ChevronDown,
   Hash,
-  CreditCard
+  CreditCard,
+  User,
+  CheckCircle2
 } from 'lucide-react';
 
-const INDUSTRY_OPTIONS = [
-  { value: 'technology', label: 'Teknoloji' },
-  { value: 'finance', label: 'Finans & Bankacılık' },
-  { value: 'healthcare', label: 'Sağlık' },
-  { value: 'education', label: 'Eğitim' },
-  { value: 'retail', label: 'Perakende' },
-  { value: 'manufacturing', label: 'Üretim & Sanayi' },
-  { value: 'construction', label: 'İnşaat' },
-  { value: 'food', label: 'Gıda & İçecek' },
-  { value: 'logistics', label: 'Lojistik & Taşımacılık' },
-  { value: 'tourism', label: 'Turizm & Otelcilik' },
-  { value: 'automotive', label: 'Otomotiv' },
-  { value: 'energy', label: 'Enerji' },
-  { value: 'agriculture', label: 'Tarım & Hayvancılık' },
-  { value: 'media', label: 'Medya & İletişim' },
-  { value: 'realestate', label: 'Gayrimenkul' },
-  { value: 'law', label: 'Hukuk & Danışmanlık' },
-  { value: 'textile', label: 'Tekstil & Moda' },
-  { value: 'insurance', label: 'Sigortacılık' },
-  { value: 'telecom', label: 'Telekomünikasyon' },
-  { value: 'ecommerce', label: 'E-Ticaret' },
-];
+// TC Kimlik doğrulama algoritması
+const validateTCKimlik = (tc) => {
+  if (!tc || tc.length !== 11) return { valid: false, message: 'TC Kimlik numarası 11 haneli olmalıdır' };
+  if (!/^\d{11}$/.test(tc)) return { valid: false, message: 'TC Kimlik numarası sadece rakamlardan oluşmalıdır' };
+  if (tc[0] === '0') return { valid: false, message: 'TC Kimlik numarası 0 ile başlayamaz' };
+  
+  const digits = tc.split('').map(Number);
+  const sum1 = (digits[0] + digits[2] + digits[4] + digits[6] + digits[8]) * 7;
+  const sum2 = digits[1] + digits[3] + digits[5] + digits[7];
+  if ((sum1 - sum2) % 10 !== digits[9]) return { valid: false, message: 'Geçersiz TC Kimlik numarası' };
+  
+  const totalSum = digits.slice(0, 10).reduce((a, b) => a + b, 0);
+  if (totalSum % 10 !== digits[10]) return { valid: false, message: 'Geçersiz TC Kimlik numarası' };
+  
+  return { valid: true };
+};
+
+// Vergi numarası doğrulama
+const validateVergiNo = (vn) => {
+  if (!vn || vn.length !== 10) return { valid: false, message: 'Vergi numarası 10 haneli olmalıdır' };
+  if (!/^\d{10}$/.test(vn)) return { valid: false, message: 'Vergi numarası sadece rakamlardan oluşmalıdır' };
+  return { valid: true };
+};
 
 const RegisterPage = ({ onSwitchToLogin }) => {
   const { registerCompany, joinCompany } = useAuth();
-  const [mode, setMode] = useState(null);
-  const [step, setStep] = useState(1);
+  const [mode, setMode] = useState(null); // null | 'boss' | 'employee'
+  const [companyType, setCompanyType] = useState('gercek'); // 'gercek' | 'tuzel'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [customIndustry, setCustomIndustry] = useState('');
-  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
-  const [industrySearch, setIndustrySearch] = useState('');
-  
-  // E-posta doğrulama
-  const [emailVerificationStep, setEmailVerificationStep] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [verificationError, setVerificationError] = useState('');
-  const [verificationSent, setVerificationSent] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [fieldChecking, setFieldChecking] = useState({});
   
   const [formData, setFormData] = useState({
-    companyName: '',
-    industry: '',
-    companyType: 'gercek',
-    tcNo: '',
-    vergiNo: '',
-    vergiDairesi: '',
-    companyCode: '',
+    // Gerçek kişi
     firstName: '',
     lastName: '',
+    tcNo: '',
+    // Tüzel kişi
+    companyName: '',
+    vergiNo: '',
+    vergiDairesi: '',
+    // Ortak
     email: '',
-    password: '',
-    confirmPassword: '',
-    department: '',
-    position: ''
+    // Çalışan
+    companyCode: ''
   });
 
   const handleChange = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
-    // E-posta değişirse doğrulamayı sıfırla
-    if (e.target.name === 'email') {
-      setEmailVerified(false);
-      setVerificationSent(false);
-      setVerificationCode('');
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: null }));
     }
   };
 
-  const handleIndustryChange = (e) => {
-    const val = e.target.value;
-    setFormData(prev => ({ ...prev, industry: val }));
-    if (val !== 'custom') setCustomIndustry('');
-  };
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const getIndustryValue = () => {
-    if (formData.industry === 'custom') return customIndustry;
-    return formData.industry;
-  };
-
-  // E-posta format kontrolü
-  const isValidEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  // Şirket adı müsaitlik kontrolü (onBlur)
-  const checkCompanyName = async (name) => {
-    if (!name || !name.trim()) {
-      setFieldErrors(prev => ({ ...prev, companyName: null }));
-      return;
-    }
-    setFieldChecking(prev => ({ ...prev, companyName: true }));
-    try {
-      const res = await apiClient.get('/auth/check-company-name', { params: { name: name.trim() } });
-      if (!res.data.available) {
-        setFieldErrors(prev => ({ ...prev, companyName: 'Bu şirket adı zaten kullanımda' }));
-      } else {
-        setFieldErrors(prev => ({ ...prev, companyName: null }));
-      }
-    } catch { setFieldErrors(prev => ({ ...prev, companyName: null })); }
-    finally { setFieldChecking(prev => ({ ...prev, companyName: false })); }
-  };
-
-  // E-posta müsaitlik kontrolü (onBlur)
+  // E-posta müsaitlik kontrolü
   const checkEmailAvailability = async (email) => {
     if (!email || !isValidEmail(email)) {
       setFieldErrors(prev => ({ ...prev, email: null }));
@@ -148,88 +95,98 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     finally { setFieldChecking(prev => ({ ...prev, email: false })); }
   };
 
-  // E-posta doğrulama kodu gönder
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
-
-  const sendVerificationCode = async () => {
-    if (!isValidEmail(formData.email)) return;
-    setSendingCode(true);
-    setVerificationError('');
-    try {
-      await apiClient.post('/auth/send-verification-code', { email: formData.email });
-      setVerificationSent(true);
-      setVerificationCode('');
-    } catch (err) {
-      setVerificationError(err.response?.data?.message || 'Kod gönderilemedi');
-    } finally {
-      setSendingCode(false);
+  // Şirket adı müsaitlik kontrolü
+  const checkCompanyName = async (name) => {
+    if (!name || !name.trim()) {
+      setFieldErrors(prev => ({ ...prev, companyName: null }));
+      return;
     }
+    setFieldChecking(prev => ({ ...prev, companyName: true }));
+    try {
+      const res = await apiClient.get('/auth/check-company-name', { params: { name: name.trim() } });
+      if (!res.data.available) {
+        setFieldErrors(prev => ({ ...prev, companyName: 'Bu şirket adı zaten kullanımda' }));
+      } else {
+        setFieldErrors(prev => ({ ...prev, companyName: null }));
+      }
+    } catch { setFieldErrors(prev => ({ ...prev, companyName: null })); }
+    finally { setFieldChecking(prev => ({ ...prev, companyName: false })); }
   };
 
-  // E-posta doğrulama kodunu kontrol et
-  const verifyEmailCode = async () => {
-    if (!verificationCode.trim()) return;
-    setVerifyingCode(true);
-    setVerificationError('');
-    try {
-      await apiClient.post('/auth/verify-email-code', { email: formData.email, code: verificationCode.trim() });
-      setEmailVerified(true);
-      setEmailVerificationStep(false);
-    } catch (err) {
-      setVerificationError(err.response?.data?.message || 'Geçersiz doğrulama kodu!');
-    } finally {
-      setVerifyingCode(false);
+  // Form doğrulama
+  const validateBossForm = () => {
+    const errors = {};
+    
+    if (companyType === 'gercek') {
+      if (!formData.firstName.trim()) errors.firstName = 'Ad zorunludur';
+      if (!formData.lastName.trim()) errors.lastName = 'Soyad zorunludur';
+      
+      const tcResult = validateTCKimlik(formData.tcNo);
+      if (!tcResult.valid) errors.tcNo = tcResult.message;
+    } else {
+      if (!formData.companyName.trim()) errors.companyName = 'Şirket adı zorunludur';
+      
+      const vnResult = validateVergiNo(formData.vergiNo);
+      if (!vnResult.valid) errors.vergiNo = vnResult.message;
+      
+      if (!formData.vergiDairesi.trim()) errors.vergiDairesi = 'Vergi dairesi zorunludur';
+
+      if (!formData.firstName.trim()) errors.firstName = 'Ad zorunludur';
+      if (!formData.lastName.trim()) errors.lastName = 'Soyad zorunludur';
     }
+    
+    if (!formData.email.trim()) errors.email = 'E-posta adresi zorunludur';
+    else if (!isValidEmail(formData.email)) errors.email = 'Geçerli bir e-posta adresi giriniz';
+    
+    if (fieldErrors.email) errors.email = fieldErrors.email;
+    if (fieldErrors.companyName) errors.companyName = fieldErrors.companyName;
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
+  const validateEmployeeForm = () => {
+    const errors = {};
+    
+    if (!formData.companyCode.trim()) errors.companyCode = 'Şirket kodu zorunludur';
+    else if (formData.companyCode.trim().length < 6) errors.companyCode = 'Geçerli bir şirket kodu giriniz';
+    
+    if (!formData.firstName.trim()) errors.firstName = 'Ad zorunludur';
+    if (!formData.lastName.trim()) errors.lastName = 'Soyad zorunludur';
+    
+    if (!formData.email.trim()) errors.email = 'E-posta adresi zorunludur';
+    else if (!isValidEmail(formData.email)) errors.email = 'Geçerli bir e-posta adresi giriniz';
+    
+    if (fieldErrors.email) errors.email = fieldErrors.email;
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Şirket sahibi kayıt
   const handleBossRegister = async (e) => {
     e.preventDefault();
     setError('');
     
-    if (fieldErrors.companyName) {
-      setError(fieldErrors.companyName);
-      return;
-    }
-
-    if (fieldErrors.email) {
-      setError(fieldErrors.email);
-      return;
-    }
+    if (!validateBossForm()) return;
     
-    if (!emailVerified) {
-      setError('Lütfen e-posta adresinizi doğrulayın!');
-      return;
-    }
-    
-    if (formData.password !== formData.confirmPassword) {
-      setError('Şifreler eşleşmiyor!');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır!');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const result = await registerCompany(
-        { 
-          name: formData.companyName, 
-          industry: getIndustryValue(),
-          companyType: formData.companyType,
-          tcNo: formData.companyType === 'gercek' ? formData.tcNo : null,
-          vergiNo: formData.companyType === 'tuzel' ? formData.vergiNo : null,
-          vergiDairesi: formData.companyType === 'tuzel' ? formData.vergiDairesi : null
-        },
-        { 
-          firstName: formData.firstName, 
-          lastName: formData.lastName, 
-          email: formData.email,
-          password: formData.password
-        }
-      );
+      const companyPayload = {
+        companyType,
+        tcNo: companyType === 'gercek' ? formData.tcNo : null,
+        vergiNo: companyType === 'tuzel' ? formData.vergiNo : null,
+        vergiDairesi: companyType === 'tuzel' ? formData.vergiDairesi : null,
+        name: companyType === 'tuzel' ? formData.companyName : null
+      };
+      
+      const adminPayload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email
+      };
+
+      const result = await registerCompany(companyPayload, adminPayload);
       setSuccess(result);
     } catch (err) {
       setError(err.message);
@@ -238,35 +195,21 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     }
   };
 
+  // Çalışan kayıt
   const handleEmployeeRegister = async (e) => {
     e.preventDefault();
     setError('');
     
-    if (!emailVerified) {
-      setError('Lütfen e-posta adresinizi doğrulayın!');
-      return;
-    }
+    if (!validateEmployeeForm()) return;
     
-    if (formData.password !== formData.confirmPassword) {
-      setError('Şifreler eşleşmiyor!');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır!');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await joinCompany(formData.companyCode, {
+      const result = await joinCompany(formData.companyCode, {
         firstName: formData.firstName,
         lastName: formData.lastName,
-        email: formData.email,
-        password: formData.password,
-        department: formData.department,
-        position: formData.position
+        email: formData.email
       });
+      setSuccess({ ...result, isEmployee: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -276,6 +219,16 @@ const RegisterPage = ({ onSwitchToLogin }) => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+  };
+
+  // Field hata göstergesi
+  const FieldError = ({ error }) => {
+    if (!error) return null;
+    return (
+      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+        <AlertCircle size={12} /> {error}
+      </p>
+    );
   };
 
   // Mod seçim ekranı
@@ -294,7 +247,6 @@ const RegisterPage = ({ onSwitchToLogin }) => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Patron Kartı */}
             <button
               onClick={() => setMode('boss')}
               className="p-8 bg-white rounded-3xl border-2 border-slate-200 hover:border-indigo-500
@@ -315,7 +267,6 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               </div>
             </button>
 
-            {/* Çalışan Kartı */}
             <button
               onClick={() => setMode('employee')}
               className="p-8 bg-white rounded-3xl border-2 border-slate-200 hover:border-indigo-500
@@ -353,7 +304,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     );
   }
 
-  // Başarılı kayıt - Şirket kodu göster
+  // Başarılı kayıt ekranı
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-8">
@@ -362,43 +313,61 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/25">
             <Check className="text-white" size={40} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Şirketiniz Oluşturuldu!</h1>
-          <p className="text-slate-500 mb-8">Çalışanlarınızı davet etmek için aşağıdaki kodu paylaşın</p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">
+            {success.isEmployee ? 'Şirkete Katıldınız!' : 'Şirketiniz Oluşturuldu!'}
+          </h1>
+          <p className="text-slate-500 mb-6">
+            Giriş şifreniz e-posta adresinize gönderildi.
+          </p>
 
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 mb-6">
-            <p className="text-sm text-slate-500 mb-3">Şirket Kodu</p>
-            <div className="flex items-center justify-center gap-3">
-              <code className="text-3xl font-bold text-indigo-600 tracking-widest">
-                {success.company.companyCode}
-              </code>
-              <button
-                onClick={() => copyToClipboard(success.company.companyCode)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <Copy size={20} className="text-slate-400" />
-              </button>
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 mb-4">
+            <div className="flex items-center gap-2 justify-center mb-3">
+              <Mail size={18} className="text-indigo-500" />
+              <p className="text-sm text-slate-600">
+                <span className="font-medium">{formData.email}</span> adresini kontrol edin
+              </p>
             </div>
+            <p className="text-xs text-slate-400">Şifreniz e-posta ile gönderildi. Bu şifre ile giriş yapabilirsiniz.</p>
           </div>
 
+          {!success.isEmployee && success.company && (
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 mb-6">
+              <p className="text-sm text-slate-500 mb-3">Şirket Kodu</p>
+              <div className="flex items-center justify-center gap-3">
+                <code className="text-3xl font-bold text-indigo-600 tracking-widest">
+                  {success.company.companyCode || success.company.company_code}
+                </code>
+                <button
+                  onClick={() => copyToClipboard(success.company.companyCode || success.company.company_code)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Kopyala"
+                >
+                  <Copy size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-3">Bu kodu çalışanlarınızla paylaşarak onları davet edebilirsiniz.</p>
+            </div>
+          )}
+
           <button
-            onClick={() => window.location.reload()}
+            onClick={onSwitchToLogin}
             className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
                      text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/25"
           >
-            Panele Git
+            Giriş Yap
           </button>
         </div>
       </div>
     );
   }
 
-  // Patron kayıt formu
+  // Şirket Sahibi - Kayıt Formu
   if (mode === 'boss') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-8">
         <div className="max-w-md w-full">
           <button
-            onClick={() => setMode(null)}
+            onClick={() => { setMode(null); setError(''); setFieldErrors({}); }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-6 transition-colors"
           >
             <ArrowLeft size={18} />
@@ -413,8 +382,36 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-800">Şirket Oluştur</h2>
-                <p className="text-sm text-slate-500">Adım {step}/2</p>
+                <p className="text-sm text-slate-500">Şirket sahibi kaydı</p>
               </div>
+            </div>
+
+            {/* Gerçek / Tüzel Seçimi */}
+            <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+              <button
+                type="button"
+                onClick={() => { setCompanyType('gercek'); setError(''); setFieldErrors({}); }}
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2
+                  ${companyType === 'gercek' 
+                    ? 'bg-white text-indigo-700 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                <User size={16} />
+                Gerçek Kişi
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCompanyType('tuzel'); setError(''); setFieldErrors({}); }}
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2
+                  ${companyType === 'tuzel' 
+                    ? 'bg-white text-indigo-700 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                  }`}
+              >
+                <Building2 size={16} />
+                Tüzel Kişi
+              </button>
             </div>
 
             {error && (
@@ -424,9 +421,72 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               </div>
             )}
 
-            <form onSubmit={handleBossRegister}>
-              {step === 1 ? (
-                <div className="space-y-4">
+            <form onSubmit={handleBossRegister} className="space-y-4">
+              {companyType === 'gercek' ? (
+                <>
+                  {/* Gerçek Kişi Formu */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Ad</label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        placeholder="Adınız"
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3
+                                 text-slate-800 placeholder-slate-400
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.firstName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
+                      />
+                      <FieldError error={fieldErrors.firstName} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Soyad</label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        placeholder="Soyadınız"
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3
+                                 text-slate-800 placeholder-slate-400
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.lastName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
+                      />
+                      <FieldError error={fieldErrors.lastName} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">TC Kimlik No</label>
+                    <div className="relative">
+                      <CreditCard size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={formData.tcNo}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          setFormData(prev => ({ ...prev, tcNo: val }));
+                          if (fieldErrors.tcNo) setFieldErrors(prev => ({ ...prev, tcNo: null }));
+                        }}
+                        placeholder="11 haneli TC Kimlik No"
+                        maxLength={11}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
+                                 text-slate-800 placeholder-slate-400
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.tcNo ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
+                      />
+                      {formData.tcNo.length === 11 && validateTCKimlik(formData.tcNo).valid && (
+                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />
+                      )}
+                    </div>
+                    <FieldError error={fieldErrors.tcNo} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Tüzel Kişi Formu */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Şirket Adı</label>
                     <div className="relative">
@@ -442,7 +502,6 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                                  text-slate-800 placeholder-slate-400
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                                  ${fieldErrors.companyName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
-                        required
                       />
                       {fieldChecking.companyName && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -450,398 +509,132 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                         </div>
                       )}
                     </div>
-                    {fieldErrors.companyName && (
-                      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                        <AlertCircle size={12} /> {fieldErrors.companyName}
-                      </p>
-                    )}
+                    <FieldError error={fieldErrors.companyName} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Sektör</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Numarası</label>
                     <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5
-                                 text-left text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                                 flex items-center justify-between"
-                      >
-                        <span className={formData.industry ? 'text-slate-800' : 'text-slate-400'}>
-                          {formData.industry === 'custom' ? '✏️ Kendim Girmek İstiyorum' :
-                           formData.industry ? INDUSTRY_OPTIONS.find(o => o.value === formData.industry)?.label : 'Sektör seçin'}
-                        </span>
-                        <ChevronDown size={18} className={`text-slate-400 transition-transform ${showIndustryDropdown ? 'rotate-180' : ''}`} />
-                      </button>
-                      {showIndustryDropdown && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setShowIndustryDropdown(false)} />
-                          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
-                            <div className="p-2 border-b border-slate-100">
-                              <input
-                                type="text"
-                                value={industrySearch}
-                                onChange={e => setIndustrySearch(e.target.value)}
-                                placeholder="Sektör ara..."
-                                autoFocus
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm
-                                         text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                              />
-                            </div>
-                            <div className="max-h-48 overflow-y-auto">
-                              {INDUSTRY_OPTIONS
-                                .filter(opt => opt.label.toLowerCase().includes(industrySearch.toLowerCase()))
-                                .map(opt => (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() => { handleIndustryChange({ target: { value: opt.value } }); setShowIndustryDropdown(false); setIndustrySearch(''); }}
-                                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors
-                                    ${formData.industry === opt.value ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() => { handleIndustryChange({ target: { value: 'custom' } }); setShowIndustryDropdown(false); setIndustrySearch(''); }}
-                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 border-t border-slate-100 transition-colors
-                                  ${formData.industry === 'custom' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-700'}`}
-                              >
-                                ✏️ Kendim Girmek İstiyorum
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    {formData.industry === 'custom' && (
+                      <Hash size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
-                        value={customIndustry}
-                        onChange={e => setCustomIndustry(e.target.value)}
-                        placeholder="Sektörünüzü yazın..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mt-2
+                        value={formData.vergiNo}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setFormData(prev => ({ ...prev, vergiNo: val }));
+                          if (fieldErrors.vergiNo) setFieldErrors(prev => ({ ...prev, vergiNo: null }));
+                        }}
+                        placeholder="10 haneli Vergi No"
+                        maxLength={10}
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
                                  text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        required
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.vergiNo ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                       />
-                    )}
+                      {formData.vergiNo.length === 10 && validateVergiNo(formData.vergiNo).valid && (
+                        <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />
+                      )}
+                    </div>
+                    <FieldError error={fieldErrors.vergiNo} />
                   </div>
 
-                  {/* Şirket Tipi Seçimi */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Şirket Tipi</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, companyType: 'gercek', vergiNo: '', vergiDairesi: '' }))}
-                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                          formData.companyType === 'gercek' 
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        👤 Gerçek Kişi
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, companyType: 'tuzel', tcNo: '' }))}
-                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                          formData.companyType === 'tuzel' 
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        🏢 Tüzel Kişi
-                      </button>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Dairesi</label>
+                    <div className="relative">
+                      <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        name="vergiDairesi"
+                        value={formData.vergiDairesi}
+                        onChange={handleChange}
+                        placeholder="Örn: Kadıköy Vergi Dairesi"
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
+                                 text-slate-800 placeholder-slate-400
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.vergiDairesi ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
+                      />
                     </div>
+                    <FieldError error={fieldErrors.vergiDairesi} />
                   </div>
 
-                  {/* Gerçek Kişi: TC Kimlik */}
-                  {formData.companyType === 'gercek' && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">TC Kimlik No</label>
-                      <div className="relative">
-                        <CreditCard size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          value={formData.tcNo}
-                          onChange={e => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                            setFormData(prev => ({ ...prev, tcNo: val }));
-                          }}
-                          placeholder="11 haneli TC Kimlik No"
-                          maxLength={11}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                                   text-slate-800 placeholder-slate-400
-                                   focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                          required
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tüzel Kişi: Vergi No + Vergi Dairesi */}
-                  {formData.companyType === 'tuzel' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Numarası</label>
-                        <div className="relative">
-                          <Hash size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            value={formData.vergiNo}
-                            onChange={e => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              setFormData(prev => ({ ...prev, vergiNo: val }));
-                            }}
-                            placeholder="10 haneli Vergi No"
-                            maxLength={10}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                                     text-slate-800 placeholder-slate-400
-                                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Vergi Dairesi</label>
-                        <div className="relative">
-                          <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            name="vergiDairesi"
-                            value={formData.vergiDairesi}
-                            onChange={handleChange}
-                            placeholder="Örn: Kadıköy Vergi Dairesi"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                                     text-slate-800 placeholder-slate-400
-                                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!formData.companyName.trim()) {
-                        setError('Şirket adı zorunludur');
-                        return;
-                      }
-                      if (fieldErrors.companyName) {
-                        setError(fieldErrors.companyName);
-                        return;
-                      }
-                      if (formData.companyType === 'gercek') {
-                        const tc = formData.tcNo.replace(/\D/g, '');
-                        if (tc.length !== 11) {
-                          setError('TC Kimlik numarası 11 haneli olmalıdır');
-                          return;
-                        }
-                      } else {
-                        const vn = formData.vergiNo.replace(/\D/g, '');
-                        if (vn.length !== 10) {
-                          setError('Vergi numarası 10 haneli olmalıdır');
-                          return;
-                        }
-                        if (!formData.vergiDairesi.trim()) {
-                          setError('Vergi dairesi zorunludur');
-                          return;
-                        }
-                      }
-                      setError('');
-                      setStep(2);
-                    }}
-                    className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
-                             text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2
-                             transition-all shadow-lg shadow-indigo-500/25"
-                  >
-                    Devam Et
-                    <ArrowRight size={18} />
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Ad</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Yetkili Adı</label>
                       <input
                         type="text"
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleChange}
                         placeholder="Adınız"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3
                                  text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        required
+                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                                 ${fieldErrors.firstName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                       />
+                      <FieldError error={fieldErrors.firstName} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Soyad</label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Yetkili Soyadı</label>
                       <input
                         type="text"
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleChange}
                         placeholder="Soyadınız"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
-                                 text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">E-posta</label>
-                    <div className="relative">
-                      <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        onBlur={() => checkEmailAvailability(formData.email)}
-                        placeholder="ornek@sirket.com"
-                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12 pr-24
+                        className={`w-full bg-slate-50 border rounded-xl px-4 py-3
                                  text-slate-800 placeholder-slate-400
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                                 ${fieldErrors.email ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
-                        required
+                                 ${fieldErrors.lastName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                       />
-                      {!emailVerified && (
-                        <button
-                          type="button"
-                          onClick={sendVerificationCode}
-                          disabled={!isValidEmail(formData.email) || sendingCode || !!fieldErrors.email}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
-                                   bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
-                                   disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {sendingCode ? 'Gönderiliyor...' : 'Doğrula'}
-                        </button>
-                      )}
-                      {emailVerified && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <ShieldCheck size={20} className="text-emerald-500" />
-                        </div>
-                      )}
-                    </div>
-                    {verificationSent && !emailVerified && (
-                      <div className="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-                        <p className="text-xs text-indigo-700 mb-2">
-                          📧 <span className="font-medium">{formData.email}</span> adresine doğrulama kodu gönderildi
-                        </p>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={verificationCode}
-                            onChange={e => setVerificationCode(e.target.value)}
-                            placeholder="Doğrulama kodunu girin"
-                            className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm
-                                     focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                            maxLength={6}
-                          />
-                          <button
-                            type="button"
-                            onClick={verifyEmailCode}
-                            disabled={verifyingCode}
-                            className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors
-                                     disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {verifyingCode ? 'Kontrol...' : 'Onayla'}
-                          </button>
-                        </div>
-                        {verificationError && (
-                          <p className="text-xs text-red-500 mt-1.5">{verificationError}</p>
-                        )}
-                      </div>
-                    )}
-                    {emailVerified && (
-                      <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                        <Check size={12} /> E-posta doğrulandı
-                      </p>
-                    )}
-                    {fieldErrors.email && !emailVerified && (
-                      <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                        <AlertCircle size={12} /> {fieldErrors.email}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Şifre</label>
-                    <div className="relative">
-                      <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        placeholder="En az 6 karakter"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-12
-                                 text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        required
-                        minLength={6}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
+                      <FieldError error={fieldErrors.lastName} />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Şifre Tekrar</label>
-                    <div className="relative">
-                      <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        placeholder="Şifrenizi tekrar girin"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                                 text-slate-800 placeholder-slate-400
-                                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3.5 rounded-xl transition-colors"
-                    >
-                      Geri
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
-                               text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2
-                               transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-70"
-                    >
-                      {isLoading ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        'Oluştur'
-                      )}
-                    </button>
-                  </div>
-                </div>
+                </>
               )}
+
+              {/* E-posta - her iki tipte de */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">E-posta</label>
+                <div className="relative">
+                  <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    onBlur={() => checkEmailAvailability(formData.email)}
+                    placeholder="ornek@sirket.com"
+                    className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
+                             text-slate-800 placeholder-slate-400
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                             ${fieldErrors.email ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
+                  />
+                  {fieldChecking.email && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <FieldError error={fieldErrors.email} />
+                <p className="text-xs text-slate-400 mt-1.5">Şifreniz bu adrese gönderilecektir</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
+                         text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2
+                         transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-70 mt-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Kayıt Ol
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
             </form>
           </div>
         </div>
@@ -849,12 +642,12 @@ const RegisterPage = ({ onSwitchToLogin }) => {
     );
   }
 
-  // Çalışan kayıt formu
+  // Çalışan Kayıt Formu
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-8">
       <div className="max-w-md w-full">
         <button
-          onClick={() => setMode(null)}
+          onClick={() => { setMode(null); setError(''); setFieldErrors({}); }}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-6 transition-colors"
         >
           <ArrowLeft size={18} />
@@ -891,13 +684,14 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   value={formData.companyCode}
                   onChange={handleChange}
                   placeholder="Örn: GZL2026X"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
                            text-slate-800 placeholder-slate-400 uppercase tracking-wider
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                           ${fieldErrors.companyCode ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                 />
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">Patronunuzun size verdiği 8 haneli kod</p>
+              <FieldError error={fieldErrors.companyCode} />
+              <p className="text-xs text-slate-400 mt-1.5">Patronunuzun size verdiği şirket kodu</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -909,11 +703,12 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   value={formData.firstName}
                   onChange={handleChange}
                   placeholder="Adınız"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3
                            text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                           ${fieldErrors.firstName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                 />
+                <FieldError error={fieldErrors.firstName} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Soyad</label>
@@ -923,11 +718,12 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Soyadınız"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3
                            text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                           ${fieldErrors.lastName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                 />
+                <FieldError error={fieldErrors.lastName} />
               </div>
             </div>
 
@@ -940,109 +736,21 @@ const RegisterPage = ({ onSwitchToLogin }) => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  onBlur={() => checkEmailAvailability(formData.email)}
                   placeholder="ornek@sirket.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-24
+                  className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 pl-12
                            text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                           ${fieldErrors.email ? 'border-red-400 bg-red-50/50' : 'border-slate-200'}`}
                 />
-                {!emailVerified && (
-                  <button
-                    type="button"
-                    onClick={sendVerificationCode}
-                    disabled={!isValidEmail(formData.email) || sendingCode}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium 
-                             bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors
-                             disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {sendingCode ? 'Gönderiliyor...' : 'Doğrula'}
-                  </button>
-                )}
-                {emailVerified && (
+                {fieldChecking.email && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <ShieldCheck size={20} className="text-emerald-500" />
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-indigo-500 rounded-full animate-spin" />
                   </div>
                 )}
               </div>
-              {verificationSent && !emailVerified && (
-                <div className="mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
-                  <p className="text-xs text-indigo-700 mb-2">
-                    📧 <span className="font-medium">{formData.email}</span> adresine doğrulama kodu gönderildi
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={verificationCode}
-                      onChange={e => setVerificationCode(e.target.value)}
-                      placeholder="Doğrulama kodunu girin"
-                      className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm
-                               focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                      maxLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={verifyEmailCode}
-                      disabled={verifyingCode}
-                      className="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {verifyingCode ? 'Kontrol...' : 'Onayla'}
-                    </button>
-                  </div>
-                  {verificationError && (
-                    <p className="text-xs text-red-500 mt-1.5">{verificationError}</p>
-                  )}
-                </div>
-              )}
-              {emailVerified && (
-                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <Check size={12} /> E-posta doğrulandı
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Şifre</label>
-              <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="En az 6 karakter"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-12
-                           text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Şifre Tekrar</label>
-              <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="Şifrenizi tekrar girin"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                           text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  required
-                />
-              </div>
+              <FieldError error={fieldErrors.email} />
+              <p className="text-xs text-slate-400 mt-1.5">Şifreniz bu adrese gönderilecektir</p>
             </div>
 
             <button
@@ -1050,7 +758,7 @@ const RegisterPage = ({ onSwitchToLogin }) => {
               disabled={isLoading}
               className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
                        text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2
-                       transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-70 mt-6"
+                       transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-70 mt-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

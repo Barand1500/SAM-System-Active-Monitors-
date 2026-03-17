@@ -142,6 +142,19 @@ class AuthController {
       res.status(500).json({ error: normalizeAuthError(err) });
     }
   }
+
+  async changePassword(req, res) {
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 1) {
+        return res.status(400).json({ error: "Yeni şifre zorunludur" });
+      }
+      const result = await AuthService.changePassword(req.user.id, newPassword);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: normalizeAuthError(err) });
+    }
+  }
 }
 
 module.exports = new AuthController();

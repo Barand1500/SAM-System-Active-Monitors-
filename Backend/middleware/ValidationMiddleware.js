@@ -80,15 +80,14 @@ const rules = {
   ],
 
   registerCompany: [
-    body("company.name").trim().notEmpty().withMessage("Şirket adı zorunludur"),
+    body("company.name").optional({ nullable: true }),
     body("company.companyType").trim().notEmpty().isIn(['gercek', 'tuzel']).withMessage("Şirket tipi seçiniz (gerçek/tüzel)"),
     body("company.tcNo").optional({ nullable: true }),
     body("company.vergiNo").optional({ nullable: true }),
     body("company.vergiDairesi").optional({ nullable: true }),
     body("admin.firstName").trim().notEmpty().withMessage("Ad zorunludur"),
     body("admin.lastName").trim().notEmpty().withMessage("Soyad zorunludur"),
-    body("admin.email").isEmail().withMessage("Geçerli bir e-posta giriniz"),
-    body("admin.password").isLength({ min: 6 }).withMessage("Şifre en az 6 karakter olmalıdır")
+    body("admin.email").isEmail().withMessage("Geçerli bir e-posta giriniz")
   ],
 
   registerEmployee: [

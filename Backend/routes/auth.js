@@ -34,4 +34,7 @@ router.get("/check-company-name", AuthController.checkCompanyName);
 // GET /api/auth/check-email?email=XXX (public)
 router.get("/check-email", AuthController.checkEmail);
 
+// PUT /api/auth/change-password (authenticated)
+router.put("/change-password", authenticate, AuthController.changePassword);
+
 module.exports = router;

@@ -89,6 +89,12 @@ module.exports = (sequelize, DataTypes) => {
     lastLogin: {
       type: DataTypes.DATE,
       field: "last_login"
+    },
+
+    mustChangePassword: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: "must_change_password"
     }
 
   }, {
