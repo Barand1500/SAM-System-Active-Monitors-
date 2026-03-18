@@ -1,6 +1,8 @@
 // Backend/controllers/UserController.js
 const UserService = require("../services/UserService");
 const AuditLogService = require("../services/AuditLogService");
+const EmailService = require("../services/EmailService");
+const { Company } = require("../models");
 const { createForCompany } = require("../utils/notificationDispatcher");
 
 const logAudit = async (req, type, action, description, recordId, oldValue, newValue) => {
@@ -49,6 +51,16 @@ class UserController {
       // Ensure companyId is in the request
       const userData = { ...req.body, companyId };
       const user = await UserService.createUser(userData);
+
+      // Otomatik üretilen şifre varsa e-posta gönder
+      const generatedPwd = user.dataValues?._generatedPassword;
+      if (generatedPwd && userData.email) {
+        Company.findByPk(companyId, { attributes: ['companyCode'] })
+          .then(c => EmailService.sendPasswordEmail(userData.email, generatedPwd, userData.firstName || '', c?.companyCode || ''))
+          .catch(err => console.error('[Mail] Yeni çalışan maili gönderilemedi:', err.message));
+        delete user.dataValues._generatedPassword;
+      }
+
       await logAudit(req, 'user_created', 'CREATE', `Kullanıcı oluşturuldu: ${userData.firstName || ''} ${userData.lastName || ''}`, user.id, null, userData);
       
       // Tüm şirkete bildirim gönder
@@ -65,8 +77,12 @@ class UserController {
       emitCompanyDataChanged(req, { entity: 'user', action: 'create', id: user.id });
       res.status(201).json(user);
     } catch (err) {
-      console.error('[UserController] create error:', err.message);
-      res.status(400).json({ error: err.message });
+      console.error('[UserController] create error:', err.name, err.message);
+      if (err.errors) err.errors.forEach(e => console.error('  →', e.message, e.path));
+      const msg = err.name === 'SequelizeUniqueConstraintError'
+        ? 'Bu e-posta adresi zaten kayıtlıdır'
+        : (err.message || 'Çalışan oluşturulurken hata oluştu');
+      res.status(400).json({ error: msg });
     }
   }
 

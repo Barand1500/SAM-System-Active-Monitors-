@@ -32,7 +32,10 @@ async function syncDatabase() {
       console.log("📦 SAFE modu: Sadece yeni tablolar oluşturulacak.");
     }
 
+    // FK constraint uyumsuzluklarını çözmek için sync öncesi FK kontrolünü kapat
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 0");
     await sequelize.sync(options);
+    await sequelize.query("SET FOREIGN_KEY_CHECKS = 1");
     console.log("✅ Tüm tablolar senkronize edildi.");
 
     // Tablo listesini göster

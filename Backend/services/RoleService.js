@@ -7,9 +7,18 @@ class RoleService {
   }
 
   async create(companyId, data) {
+    // roleKey: Türkçe karakterleri normalize et, boşlukları _ yap
+    const rawKey = data.roleKey || data.id || data.label || '';
+    const roleKey = rawKey
+      .toLowerCase()
+      .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
+      .replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
     return roleRepo.create({
       companyId,
-      roleKey: data.roleKey || data.id || data.label.toLowerCase().replace(/\s+/g, '_'),
+      roleKey: roleKey || 'custom_role',
       label: data.label,
       color: data.color || '#6366f1',
       permissions: data.permissions || [],

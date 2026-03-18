@@ -26,17 +26,17 @@ const backendToFrontendTicket = (t) => ({
   callerCompany: t.callerCompany || '',
   callerAddress: t.callerAddress,
   createdBy: t.creator ? { id: t.creator.id, firstName: t.creator.firstName, lastName: t.creator.lastName } : null,
-  createdAt: t.createdAt,
+  createdAt: t.createdAt || t.created_at,
   assignee: t.assignee ? { id: t.assignee.id, firstName: t.assignee.firstName, lastName: t.assignee.lastName } : null,
-  assignedAt: t.updatedAt,
+  assignedAt: t.updatedAt || t.updated_at,
   resolution: t.resolution,
-  resolvedAt: t.resolvedAt,
+  resolvedAt: t.resolvedAt || t.resolved_at || (t.status === 'resolved' ? (t.updatedAt || t.updated_at) : null),
   notes: (t.TicketMessages || []).map(m => ({
     id: m.id,
     userId: m.userId,
     userName: m.User ? `${m.User.firstName} ${m.User.lastName}` : 'Bilinmeyen',
     text: m.messageText,
-    at: m.createdAt
+    at: m.createdAt || m.created_at
   })),
   helpers: [],
   viewers: [],
@@ -634,7 +634,12 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     open: poolTickets.length,
     resolved: resolvedTickets.length,
     avgResolveTime: resolvedTickets.length > 0
-      ? Math.round(resolvedTickets.reduce((sum, t) => sum + (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000, 0) / resolvedTickets.length)
+      ? Math.round(resolvedTickets.reduce((sum, t) => {
+          const resolved = new Date(t.resolvedAt);
+          const created = new Date(t.createdAt);
+          if (isNaN(resolved.getTime()) || isNaN(created.getTime())) return sum;
+          return sum + (resolved - created) / 3600000;
+        }, 0) / resolvedTickets.length)
       : 0
   };
 
@@ -677,11 +682,14 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
           <div className="flex items-center gap-3">
             {/* Timer */}
             <span className={`flex items-center gap-1 font-medium ${
-              (currentTime - new Date(ticket.createdAt).getTime()) > 14400000
-                ? 'text-red-500'
-                : (currentTime - new Date(ticket.createdAt).getTime()) > 3600000
-                  ? 'text-amber-500'
-                  : isDark ? 'text-emerald-400' : 'text-emerald-600'
+              (() => {
+                const created = new Date(ticket.createdAt);
+                if (isNaN(created.getTime())) return isDark ? 'text-slate-400' : 'text-slate-500';
+                const elapsed = currentTime - created.getTime();
+                if (elapsed > 14400000) return 'text-red-500';
+                if (elapsed > 3600000) return 'text-amber-500';
+                return isDark ? 'text-emerald-400' : 'text-emerald-600';
+              })()
             }`}>
               <Clock size={13} /> {formatElapsed(ticket.createdAt)}
             </span>
@@ -859,8 +867,21 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className={`p-3 rounded-xl text-center ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
                 <Clock size={16} className={`mx-auto mb-1 ${isDark ? 'text-amber-400' : 'text-amber-500'}`} />
-                <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Boşta Süresi</p>
-                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{formatElapsed(t.createdAt)}</p>
+                <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{t.status === 'resolved' ? 'Toplam Süre' : 'Boşta Süresi'}</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.status === 'resolved' && t.resolvedAt ? (() => {
+                  const rd = new Date(t.resolvedAt);
+                  const cd = new Date(t.createdAt);
+                  if (isNaN(rd.getTime()) || isNaN(cd.getTime())) return '–';
+                  const diff = rd - cd;
+                  if (diff < 0) return '–';
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 1) return 'Az önce';
+                  if (mins < 60) return `${mins} dk`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs} sa ${mins % 60} dk`;
+                  const days = Math.floor(hrs / 24);
+                  return `${days} gün ${hrs % 24} sa`;
+                })() : formatElapsed(t.createdAt)}</p>
               </div>
               <div className={`p-3 rounded-xl text-center ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
                 <Eye size={16} className={`mx-auto mb-1 ${isDark ? 'text-blue-400' : 'text-blue-500'}`} />
@@ -914,12 +935,16 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                   <CheckCircle2 size={15} /> Çözüm
                 </h4>
                 <p className={`text-sm ${isDark ? 'text-purple-200/80' : 'text-purple-800'}`}>{t.resolution}</p>
-                {t.resolvedAt && <p className={`text-xs mt-1 ${isDark ? 'text-purple-400/50' : 'text-purple-500'}`}>Çözüm süresi: {formatElapsed(t.createdAt).replace(formatElapsed(t.createdAt), (() => {
-                  const diff = new Date(t.resolvedAt) - new Date(t.createdAt);
+                {t.resolvedAt && <p className={`text-xs mt-1 ${isDark ? 'text-purple-400/50' : 'text-purple-500'}`}>Çözüm süresi: {(() => {
+                  const rd = new Date(t.resolvedAt);
+                  const cd = new Date(t.createdAt);
+                  if (isNaN(rd.getTime()) || isNaN(cd.getTime())) return '–';
+                  const diff = rd - cd;
+                  if (diff < 0) return '–';
                   const h = Math.floor(diff / 3600000);
                   const m = Math.floor((diff % 3600000) / 60000);
                   return h > 0 ? `${h} sa ${m} dk` : `${m} dk`;
-                })())}</p>}
+                })()}</p>}
               </div>
             )}
 
@@ -1073,10 +1098,13 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
         resolvedTickets.map(t => {
           const cat = categories.find(c => c.id === t.category) || categories[4];
           const CIcon = cat.icon;
-          const resolveDiff = new Date(t.resolvedAt) - new Date(t.createdAt);
+          const resolvedDate = new Date(t.resolvedAt);
+          const createdDate = new Date(t.createdAt);
+          const validDates = !isNaN(resolvedDate.getTime()) && !isNaN(createdDate.getTime());
+          const resolveDiff = validDates ? resolvedDate - createdDate : 0;
           const rHours = Math.floor(resolveDiff / 3600000);
           const rMins = Math.floor((resolveDiff % 3600000) / 60000);
-          const resolveTime = rHours > 0 ? `${rHours} sa ${rMins} dk` : `${rMins} dk`;
+          const resolveTime = !validDates ? '–' : rHours > 0 ? `${rHours} sa ${rMins} dk` : `${rMins} dk`;
           return (
             <div key={t.id} onClick={() => viewTicket(t)}
               className={`${cardClass} rounded-2xl border p-5 cursor-pointer hover:shadow-lg transition-all`}>
@@ -1102,7 +1130,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
               <div className={`flex items-center gap-3 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 <span>Çözen: <span className="font-medium">{t.assignee?.firstName} {t.assignee?.lastName}</span></span>
                 {t.helpers.length > 0 && <span>Yardımcılar: {t.helpers.map(h => `${h.firstName} ${h.lastName}`).join(', ')}</span>}
-                <span>{new Date(t.resolvedAt).toLocaleDateString('tr-TR')}</span>
+                <span>{t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString('tr-TR') : new Date(t.createdAt).toLocaleDateString('tr-TR')}</span>
               </div>
             </div>
           );

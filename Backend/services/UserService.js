@@ -1,7 +1,8 @@
 // Backend/services/UserService.js
+const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const UserRepo = require("../repositories/UserRepository");
-const UserSkill = require("../models").UserSkill;
+const { UserSkill, Department } = require("../models");
 
 // Geçerli ENUM değerleri
 const VALID_ROLE_ENUMS = ["boss", "manager", "employee", "customer"];
@@ -21,8 +22,22 @@ class UserService {
   async createUser(data) {
     const skills = data.skills;
     delete data.skills;
+
+    // department adı geldiyse departmentId'ye çevir
+    if (data.department && !data.departmentId) {
+      const companyId = data.companyId || data.company_id;
+      if (companyId) {
+        const dept = await Department.findOne({ where: { name: data.department, company_id: companyId } });
+        if (dept) data.departmentId = dept.id;
+      }
+      delete data.department;
+    }
+
+    // Şifre yoksa güvenli rastgele şifre üret
+    let generatedPassword = null;
     if (!data.password) {
-      throw new Error("Şifre alanı zorunludur");
+      generatedPassword = crypto.randomBytes(4).toString('hex') + 'A1!'; // 11 karakter, güvenli
+      data.password = generatedPassword;
     }
     data.password = await bcrypt.hash(data.password, 10);
     // roles array'den role ENUM'u güvenli senkronize et
@@ -39,12 +54,28 @@ class UserService {
         level: typeof s === 'string' ? 'intermediate' : (s.level || 'intermediate')
       })));
     }
-    return UserRepo.getWithSkills(user.id, user.companyId || user.company_id);
+    const result = await UserRepo.getWithSkills(user.id, user.companyId || user.company_id);
+    // Üretilen şifreyi sonuçla beraber dön (mail göndermek için)
+    if (generatedPassword && result) {
+      result.dataValues = result.dataValues || {};
+      result.dataValues._generatedPassword = generatedPassword;
+    }
+    return result;
   }
 
   async updateUser(id, data, companyId) {
     const skills = data.skills;
     delete data.skills;
+
+    // department adı geldiyse departmentId'ye çevir
+    if (data.department && !data.departmentId) {
+      if (companyId) {
+        const dept = await Department.findOne({ where: { name: data.department, company_id: companyId } });
+        if (dept) data.departmentId = dept.id;
+      }
+      delete data.department;
+    }
+
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }

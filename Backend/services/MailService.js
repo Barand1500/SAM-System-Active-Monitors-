@@ -51,6 +51,24 @@ class MailService {
   async sendWelcomeMail(userEmail, firstName) {
     return this.sendMail(userEmail, "SAM'e Hoş Geldiniz", `<p>Merhaba ${firstName}, SAM platformuna hoş geldiniz!</p>`);
   }
+
+  async sendNewEmployeeMail(userEmail, firstName, password) {
+    const loginUrl = process.env.FRONTEND_URL || 'https://sam.guzelteknoloji.com';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #4f46e5;">SAM'e Hoş Geldiniz!</h2>
+        <p>Merhaba <strong>${firstName}</strong>,</p>
+        <p>SAM platformuna hesabınız oluşturuldu. Giriş bilgileriniz aşağıdadır:</p>
+        <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin: 20px 0;">
+          <p style="margin: 5px 0;"><strong>E-posta:</strong> ${userEmail}</p>
+          <p style="margin: 5px 0;"><strong>Şifre:</strong> ${password}</p>
+        </div>
+        <p style="color: #ef4444;">⚠️ Güvenliğiniz için lütfen giriş yaptıktan sonra şifrenizi değiştirin.</p>
+        <a href="${loginUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 10px;">Giriş Yap</a>
+      </div>
+    `;
+    return this.sendMail(userEmail, 'SAM - Hesap Bilgileriniz', html);
+  }
 }
 
 module.exports = new MailService();

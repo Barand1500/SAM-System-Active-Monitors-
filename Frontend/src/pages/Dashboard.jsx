@@ -392,7 +392,15 @@ const Dashboard = () => {
         const rolesRes = await roleAPI.list();
         const rolesData = rolesRes.data?.data || rolesRes.data;
         if (Array.isArray(rolesData)) {
-          setAvailableRoles(rolesData);
+          // Aynı roleKey'den birden fazla varsa sadece ilkini al
+          const seen = new Set();
+          const unique = rolesData.filter(r => {
+            const key = r.roleKey || r.role_key;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setAvailableRoles(unique);
         }
       } catch (err) {
         console.error('Rolleri yüklerken hata:', err);
@@ -621,14 +629,8 @@ const Dashboard = () => {
       setEmployees(prev => [...prev, newEmp]);
     } catch (err) {
       console.error('Çalışan eklerken hata:', err);
-      const newEmployee = {
-        ...empData,
-        id: Date.now(),
-        companyId: company?.id || 1,
-        status: 'active',
-        avatar: null
-      };
-      setEmployees(prev => [...prev, newEmployee]);
+      const msg = err.response?.data?.error || err.message || 'Çalışan eklenirken hata oluştu';
+      alert('Hata: ' + msg);
     }
   };
 
@@ -2892,10 +2894,8 @@ const BulkEmployeeModal = ({ departments, onClose, onSave, isDark }) => {
     if (validRows.length === 0) return;
     const empList = validRows.map(r => ({
       ...r,
-      id: Date.now() + Math.random(),
       role: 'employee',
-      status: 'active',
-      password: '123456'
+      status: 'active'
     }));
     onSave(empList);
   };
@@ -4079,7 +4079,7 @@ const EmployeesTab = ({ employees, tasks, isDark, onEdit, onDelete, onBulkAdd, a
             <option value="all">Tüm Roller</option>
             {availableRoles.length > 0 
               ? availableRoles.filter(r => (r.roleKey || r.role_key) !== 'boss').map(r => (
-                  <option key={r.roleKey || r.role_key} value={r.roleKey || r.role_key}>{r.label}</option>
+                  <option key={r.id || r.roleKey || r.role_key} value={r.roleKey || r.role_key}>{r.label}</option>
                 ))
               : <>
                   <option value="manager">Yönetici</option>
