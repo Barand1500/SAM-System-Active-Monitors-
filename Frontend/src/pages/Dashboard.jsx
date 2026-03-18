@@ -475,28 +475,7 @@ const Dashboard = () => {
     loadData();
   }, []); // Sadece component mount olduğunda çalış
 
-  // Otomatik yenilenme için polling (her 5 dakikada bir, sadece tab görünürken)
-  useEffect(() => {
-    const refreshTasks = async () => {
-      // Tab görünür değilse yenileme
-      if (document.hidden) return;
-      
-      const token = localStorage.getItem('auth_token');
-      if (!token) return; // Token yoksa istek yapma
-      try {
-        const tasksRes = await taskAPI.list();
-        const taskData = tasksRes.data?.data || tasksRes.data;
-        if (Array.isArray(taskData)) {
-          setTasks(taskData.map(backendToFrontendTask));
-        }
-      } catch (err) {
-        console.error('Görevler otomatik yenilenirken hata:', err);
-      }
-    };
-
-    const interval = setInterval(refreshTasks, 300000); // 5 dakika (300000 ms)
-    return () => clearInterval(interval);
-  }, []);
+  // Otomatik yenilenme kaldırıldı — kullanıcı etkileşimi sırasında sorun yaratıyordu
 
   // Realtime: Aynı şirkette veri değişince listeleri yenile
   useEffect(() => {

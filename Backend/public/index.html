@@ -12,22 +12,21 @@
     <link rel="manifest" href="./manifest.json" />
     <link rel="apple-touch-icon" href="./icons/icon-192x192.png" />
     <title>Görev Takip - İş Yönetim Sistemi</title>
-    <script type="module" crossorigin src="./assets/index-BjAUAK5G.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CC_ozXMr.css">
+    <script type="module" crossorigin src="./assets/index-CnflmEYF.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B2Q_38j9.css">
   </head>
   <body>
     <div id="root"></div>
     <script>
-      // Service Worker Registration
+      // Service Worker'ı kaldır (gereksiz yenileme sorunlarını önler)
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('SW registered:', registration.scope);
-            })
-            .catch((error) => {
-              console.log('SW registration failed:', error);
-            });
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var reg of registrations) {
+            reg.unregister();
+          }
+        });
+        caches.keys().then(function(names) {
+          for (var name of names) caches.delete(name);
         });
       }
     </script>

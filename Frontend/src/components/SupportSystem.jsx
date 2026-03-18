@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import {
   Plus, Phone, Building2, User, Tag, AlertCircle, Clock,
   Eye, UserPlus, CheckCircle2, X, ChevronRight, MessageSquare,
@@ -59,7 +59,7 @@ const formatPhoneNumber = (value) => {
   return f.trim();
 };
 
-const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, inputClass, cardClass, priorities, categories }) => {
+const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, inputClass, cardClass, priorities, categories, tickets, onViewTicket }) => {
   const [step, setStep] = useState('phone');
   const [phoneInput, setPhoneInput] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -390,6 +390,44 @@ const CreateForm = ({ contacts, setContacts, onCreateTicket, onCancel, isDark, i
             </div>
           </div>
 
+          {/* Önceki Destek Talepleri */}
+          {(() => {
+            const phone = selectedContact.phone.replace(/\D/g, '');
+            const prevTickets = tickets.filter(tk => tk.callerPhone.replace(/\D/g, '') === phone);
+            if (prevTickets.length === 0) return null;
+            const statusLabels = { new: 'Yeni', assigned: 'Atandı', resolved: 'Çözüldü' };
+            const statusColors = { new: 'bg-blue-100 text-blue-700', assigned: 'bg-amber-100 text-amber-700', resolved: 'bg-emerald-100 text-emerald-700' };
+            return (
+              <div className={`rounded-xl border ${isDark ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/50'}`}>
+                <div className={`px-4 py-2.5 border-b ${isDark ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-2`}>
+                  <History size={14} className={isDark ? 'text-amber-400' : 'text-amber-600'} />
+                  <span className={`text-sm font-semibold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                    Önceki Destek Talepleri ({prevTickets.length})
+                  </span>
+                </div>
+                <div className="max-h-40 overflow-y-auto">
+                  {prevTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(tk => (
+                    <div key={tk.id} onClick={() => onViewTicket(tk)} className={`px-4 py-2.5 border-b last:border-b-0 cursor-pointer transition-colors ${isDark ? 'border-slate-700/50 hover:bg-amber-500/10' : 'border-amber-100 hover:bg-amber-100/70'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>#{tk.id} {tk.subject}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[tk.status] || 'bg-slate-100 text-slate-600'}`}>
+                            {statusLabels[tk.status] || tk.status}
+                          </span>
+                          <Eye size={13} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
+                        </div>
+                      </div>
+                      <div className={`text-xs mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {new Date(tk.createdAt).toLocaleDateString('tr-TR')} · {categories.find(c => c.id === tk.category)?.label || tk.category}
+                        {tk.resolution && <span className="ml-2 italic">— {tk.resolution.length > 50 ? tk.resolution.slice(0, 50) + '...' : tk.resolution}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {selectedContact.addresses.length > 0 && (
             <div>
               <label className={`block text-sm mb-2 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -472,8 +510,19 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentTime, setCurrentTime] = useState(Date.now());
   const [contacts, setContacts] = useState([]);
+  const [noteText, setNoteText] = useState('');
+  const [noteImage, setNoteImage] = useState(null);
+  const [noteImagePreview, setNoteImagePreview] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [resolveText, setResolveText] = useState('');
+  const [showResolve, setShowResolve] = useState(false);
+  const [showReopen, setShowReopen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [resolutionHistory, setResolutionHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchTickets = async () => {
     try {
@@ -488,7 +537,14 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
 
   useEffect(() => { fetchTickets(); }, []);
   useEffect(() => { contactAPI.list().then(res => setContacts(res.data || [])).catch(() => {}); }, []);
-  useEffect(() => { const t = setInterval(() => setCurrentTime(Date.now()), 30000); return () => clearInterval(t); }, []);
+
+  // Ticket değiştiğinde alanları sıfırla
+  useEffect(() => {
+    setNoteText(''); setNoteImage(null); setNoteImagePreview(null);
+    setDeleteConfirm(null); setPreviewImage(null); setResolveText('');
+    setShowResolve(false); setShowReopen(false); setReopenReason('');
+    setResolutionHistory([]); setShowHistory(false);
+  }, [selectedTicket?.id]);
 
   const categories = [
     { id: 'technical', label: 'Teknik Sorun', icon: Wrench, color: 'text-blue-500', bg: 'bg-blue-100' },
@@ -517,7 +573,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     const date = new Date(isoDate);
     if (isNaN(date.getTime())) return '–';
     
-    const diff = currentTime - date.getTime();
+    const diff = Date.now() - date.getTime();
     if (diff < 0) return 'Az önce';
     
     const mins = Math.floor(diff / 60000);
@@ -534,7 +590,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     const date = new Date(isoDate);
     if (isNaN(date.getTime())) return isDark ? 'border-gray-500/40' : 'border-gray-300';
     
-    const hours = (currentTime - date.getTime()) / 3600000;
+    const hours = (Date.now() - date.getTime()) / 3600000;
     if (hours < 0) return isDark ? 'border-gray-500/40' : 'border-gray-300';
     if (hours < 1) return isDark ? 'border-emerald-500/40' : 'border-emerald-300';
     if (hours < 4) return isDark ? 'border-amber-500/40' : 'border-amber-300';
@@ -730,7 +786,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
               (() => {
                 const created = new Date(ticket.createdAt);
                 if (isNaN(created.getTime())) return isDark ? 'text-slate-400' : 'text-slate-500';
-                const elapsed = currentTime - created.getTime();
+                const elapsed = Date.now() - created.getTime();
                 if (elapsed > 14400000) return 'text-red-500';
                 if (elapsed > 3600000) return 'text-amber-500';
                 return isDark ? 'text-emerald-400' : 'text-emerald-600';
@@ -764,18 +820,6 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   const TicketDetail = () => {
     const t = tickets.find(tk => tk.id === selectedTicket?.id);
     if (!t) return null;
-    const [noteText, setNoteText] = useState('');
-    const [noteImage, setNoteImage] = useState(null);
-    const [noteImagePreview, setNoteImagePreview] = useState(null);
-    const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const [previewImage, setPreviewImage] = useState(null);
-    const [resolveText, setResolveText] = useState('');
-    const [showResolve, setShowResolve] = useState(false);
-    const [showReopen, setShowReopen] = useState(false);
-    const [reopenReason, setReopenReason] = useState('');
-    const [resolutionHistory, setResolutionHistory] = useState([]);
-    const [showHistory, setShowHistory] = useState(false);
-    const [historyLoading, setHistoryLoading] = useState(false);
     const cat = categories.find(c => c.id === t.category) || categories[4];
     const pri = priorities.find(p => p.id === t.priority);
     const isMine = t.assignee?.id === user.id;
@@ -1487,7 +1531,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
       )}
 
       {/* Content */}
-      {view === 'create' && <CreateForm contacts={contacts} setContacts={setContacts} onCreateTicket={createTicket} onCancel={() => setView('pool')} isDark={isDark} inputClass={inputClass} cardClass={cardClass} priorities={priorities} categories={categories} />}
+      {view === 'create' && <CreateForm contacts={contacts} setContacts={setContacts} onCreateTicket={createTicket} onCancel={() => setView('pool')} isDark={isDark} inputClass={inputClass} cardClass={cardClass} priorities={priorities} categories={categories} tickets={tickets} onViewTicket={viewTicket} />}
       {view === 'pool' && (
         loading ? (
           <div className={`${cardClass} rounded-2xl border p-12 text-center`}>
@@ -1513,4 +1557,4 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
   );
 };
 
-export default SupportSystem;
+export default memo(SupportSystem);
