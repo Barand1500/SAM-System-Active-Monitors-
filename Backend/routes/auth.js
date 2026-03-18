@@ -34,6 +34,9 @@ router.get("/check-company-name", AuthController.checkCompanyName);
 // GET /api/auth/check-email?email=XXX (public)
 router.get("/check-email", AuthController.checkEmail);
 
+// POST /api/auth/forgot-password (public)
+router.post("/forgot-password", AuthController.forgotPassword);
+
 // PUT /api/auth/change-password (authenticated)
 router.put("/change-password", authenticate, (req, res) => AuthController.changePassword(req, res));
 

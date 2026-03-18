@@ -378,11 +378,53 @@ class AuthService {
       { password: hashedPassword, mustChangePassword: false },
       { where: { id: userId } }
     );
+
+    // Yeni şifreyi e-posta ile gönder
+    try {
+      const company = await Company.findByPk(user.companyId);
+      await EmailService.sendPasswordEmail(
+        user.email,
+        newPassword,
+        `${user.firstName} ${user.lastName}`,
+        company?.company_code
+      );
+    } catch (emailErr) {
+      console.error('[AuthService] Şifre e-postası gönderilemedi:', emailErr.message);
+    }
     
     const updatedUser = await User.findByPk(userId);
     const sanitizedUser = this.sanitizeUser(updatedUser);
     sanitizedUser.mustChangePassword = false;
     return { user: sanitizedUser };
+  }
+
+  // Şifremi unuttum - yeni şifre oluştur ve e-posta ile gönder
+  async forgotPassword(email, companyCode) {
+    const user = await userRepo.findByEmail(email);
+    if (!user) throw new Error('Bu e-posta ile kayıtlı kullanıcı bulunamadı');
+
+    if (companyCode) {
+      const company = await Company.findOne({ where: { company_code: companyCode } });
+      if (!company) throw new Error('Şirket kodu geçersiz');
+      if (company.id !== user.companyId) throw new Error('Bu kullanıcı bu şirkete ait değil');
+    }
+
+    const newPassword = this.generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.update(
+      { password: hashedPassword, mustChangePassword: true },
+      { where: { id: user.id } }
+    );
+
+    const company = await Company.findByPk(user.companyId);
+    await EmailService.sendPasswordEmail(
+      email,
+      newPassword,
+      `${user.firstName} ${user.lastName}`,
+      company?.company_code
+    );
+
+    return { message: 'Yeni şifreniz e-posta adresinize gönderildi' };
   }
 
   // Şirket kodu müsaitlik kontrolü

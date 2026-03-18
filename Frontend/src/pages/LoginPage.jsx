@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import api from '../services/api';
 import { 
   Building2, 
   Mail, 
@@ -8,10 +9,12 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight,
+  ArrowLeft,
   Briefcase,
   Users,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  KeyRound
 } from 'lucide-react';
 
 const LoginPage = ({ onSwitchToRegister, prefill }) => {
@@ -25,6 +28,11 @@ const LoginPage = ({ onSwitchToRegister, prefill }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCompanyCode, setForgotCompanyCode] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,6 +55,27 @@ const LoginPage = ({ onSwitchToRegister, prefill }) => {
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setForgotSuccess('');
+    setForgotLoading(true);
+    try {
+      const res = await api.post('/auth/forgot-password', {
+        email: forgotEmail,
+        companyCode: forgotCompanyCode
+      });
+      setForgotSuccess(res.data.message || 'Yeni şifreniz e-posta adresinize gönderildi');
+      addToast({ type: 'success', title: 'Başarılı', message: 'Yeni şifreniz e-postanıza gönderildi' });
+    } catch (err) {
+      const msg = err.response?.data?.error || 'İşlem başarısız. Lütfen bilgilerinizi kontrol edin.';
+      setError(msg);
+      addToast({ type: 'error', title: 'Hata', message: msg });
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   return (
@@ -127,120 +156,224 @@ const LoginPage = ({ onSwitchToRegister, prefill }) => {
             <p className="text-slate-500 mt-2">Hesabınıza giriş yapın!</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-                <AlertCircle size={20} className="text-red-500 flex-shrink-0" />
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Şirket Kodu */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Şirket Kodu
-              </label>
-              <div className="relative">
-                <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  name="companyCode"
-                  value={formData.companyCode}
-                  onChange={handleChange}
-                  placeholder="Örn: GZL2026X"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                           text-slate-800 placeholder-slate-400 uppercase tracking-wider
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                           transition-all"
-                  required
-                />
-              </div>
-              <p className="text-xs text-slate-400 mt-1.5">Şirketinizin size verdiği 8 haneli kod</p>
-            </div>
-
-            {/* E-posta */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                E-Posta Adresi
-              </label>
-              <div className="relative">
-                <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="ornek@sirket.com"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
-                           text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                           transition-all"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Şifre */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Şifre
-              </label>
-              <div className="relative">
-                <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-12
-                           text-slate-800 placeholder-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                           transition-all"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Giriş Butonu */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
-                       text-white font-semibold py-3.5 rounded-xl
-                       flex items-center justify-center gap-2 transition-all
-                       disabled:opacity-70 disabled:cursor-not-allowed
-                       shadow-lg shadow-indigo-500/25"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  Giriş Yap
-                  <ArrowRight size={18} />
-                </>
+          {forgotMode ? (
+            /* ─── ŞİFREMİ UNUTTUM FORMU ─── */
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+                  <AlertCircle size={20} className="text-red-500 flex-shrink-0" />
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
               )}
-            </button>
-          </form>
+              {forgotSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+                  <CheckCircle2 size={20} className="text-emerald-500 flex-shrink-0" />
+                  <p className="text-emerald-600 text-sm">{forgotSuccess}</p>
+                </div>
+              )}
 
-          <div className="mt-8 text-center">
-            <p className="text-slate-500">
-              Hesabınız yok mu?{' '}
+              <div className="text-center mb-2">
+                <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <KeyRound size={28} className="text-indigo-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Şifremi Unuttum</h3>
+                <p className="text-slate-500 text-sm mt-1">Şirket kodunuzu ve e-posta adresinizi girin, yeni şifreniz e-postanıza gönderilsin.</p>
+              </div>
+
+              {/* Şirket Kodu */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Şirket Kodu</label>
+                <div className="relative">
+                  <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={forgotCompanyCode}
+                    onChange={e => setForgotCompanyCode(e.target.value)}
+                    placeholder="Örn: GZL2026X"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                             text-slate-800 placeholder-slate-400 uppercase tracking-wider
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                             transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* E-posta */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">E-Posta Adresi</label>
+                <div className="relative">
+                  <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    placeholder="ornek@sirket.com"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                             text-slate-800 placeholder-slate-400
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                             transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
               <button
-                onClick={onSwitchToRegister}
-                className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
+                         text-white font-semibold py-3.5 rounded-xl
+                         flex items-center justify-center gap-2 transition-all
+                         disabled:opacity-70 disabled:cursor-not-allowed
+                         shadow-lg shadow-indigo-500/25"
               >
-                Kayıt Olun
+                {forgotLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Şifremi Gönder
+                    <ArrowRight size={18} />
+                  </>
+                )}
               </button>
-            </p>
-          </div>
+
+              <button
+                type="button"
+                onClick={() => { setForgotMode(false); setError(''); setForgotSuccess(''); }}
+                className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-indigo-600 font-medium py-2 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Giriş Ekranına Dön
+              </button>
+            </form>
+          ) : (
+            /* ─── GİRİŞ FORMU ─── */
+            <>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+                    <AlertCircle size={20} className="text-red-500 flex-shrink-0" />
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Şirket Kodu */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Şirket Kodu
+                  </label>
+                  <div className="relative">
+                    <Building2 size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      name="companyCode"
+                      value={formData.companyCode}
+                      onChange={handleChange}
+                      placeholder="Örn: GZL2026X"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                               text-slate-800 placeholder-slate-400 uppercase tracking-wider
+                               focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                               transition-all"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1.5">Şirketinizin size verdiği 8 haneli kod</p>
+                </div>
+
+                {/* E-posta */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    E-Posta Adresi
+                  </label>
+                  <div className="relative">
+                    <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="ornek@sirket.com"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12
+                               text-slate-800 placeholder-slate-400
+                               focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                               transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Şifre */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">
+                      Şifre
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotMode(true); setError(''); }}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                    >
+                      Şifremi Unuttum
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="••••••••"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 pl-12 pr-12
+                               text-slate-800 placeholder-slate-400
+                               focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                               transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Giriş Butonu */}
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700
+                           text-white font-semibold py-3.5 rounded-xl
+                           flex items-center justify-center gap-2 transition-all
+                           disabled:opacity-70 disabled:cursor-not-allowed
+                           shadow-lg shadow-indigo-500/25"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Giriş Yap
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-8 text-center">
+                <p className="text-slate-500">
+                  Hesabınız yok mu?{' '}
+                  <button
+                    onClick={onSwitchToRegister}
+                    className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors"
+                  >
+                    Kayıt Olun
+                  </button>
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

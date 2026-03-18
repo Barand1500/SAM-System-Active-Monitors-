@@ -143,6 +143,17 @@ class AuthController {
     }
   }
 
+  async forgotPassword(req, res) {
+    try {
+      const { email, companyCode } = req.body;
+      if (!email) return res.status(400).json({ error: 'E-posta adresi gerekli' });
+      const result = await AuthService.forgotPassword(email, companyCode);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: normalizeAuthError(err) });
+    }
+  }
+
   async changePassword(req, res) {
     try {
       const { currentPassword, newPassword } = req.body;

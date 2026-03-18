@@ -637,7 +637,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
 
   // Filtering
   const poolTickets = tickets.filter(t => t.status !== 'resolved');
-  const resolvedTickets = tickets.filter(t => t.status === 'resolved');
+  const resolvedTickets = tickets.filter(t => t.status === 'resolved').sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   const filteredPool = poolTickets.filter(t => {
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
@@ -647,7 +647,7 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
       return t.subject.toLowerCase().includes(q) || t.callerName.toLowerCase().includes(q) || t.callerCompany.toLowerCase().includes(q);
     }
     return true;
-  });
+  }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   // Stats
   const stats = {
@@ -1201,9 +1201,19 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
             {t.status !== 'resolved' && (
               <div>
                 <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Notlar</h4>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" value={noteText} onChange={e => setNoteText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                    placeholder="Not ekle..."
+                    className={`flex-1 ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
+                  <button onClick={handleAddNote} disabled={!noteText.trim()}
+                    className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+                    <Send size={16} />
+                  </button>
+                </div>
                 {t.notes.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {t.notes.map(n => (
+                  <div className="space-y-2">
+                    {[...t.notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(n => (
                       <div key={n.id} className={`p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
                         <div className="flex items-center justify-between mb-1">
                           <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{n.userName}</span>
@@ -1214,16 +1224,6 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <input type="text" value={noteText} onChange={e => setNoteText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                    placeholder="Not ekle..."
-                    className={`flex-1 ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
-                  <button onClick={handleAddNote} disabled={!noteText.trim()}
-                    className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
-                    <Send size={16} />
-                  </button>
-                </div>
               </div>
             )}
           </div>

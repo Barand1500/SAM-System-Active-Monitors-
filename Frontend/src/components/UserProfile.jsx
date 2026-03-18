@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import {
-  User, Mail, Phone, Calendar, Briefcase, Building2, Award, Save, X, Upload, Edit3, Loader2
+  User, Mail, Phone, Calendar, Briefcase, Building2, Award, Save, X, Upload, Edit3, Loader2,
+  Lock, Eye, EyeOff, KeyRound, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { validateEmail, validatePhone, validateRequired } from '../utils/validation';
 import { userAPI, departmentAPI } from '../services/api';
+import api from '../services/api';
 
 // Helper: Backend dosya URL'sini tam adrese çevir
 const getImageUrl = (path) => {
@@ -33,6 +35,56 @@ const UserProfile = ({ isDark }) => {
   const [newSkill, setNewSkill] = useState('');
   const [photoPreview, setPhotoPreview] = useState(null);
   const [departments, setDepartments] = useState([]);
+
+  // Şifre değiştirme state
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [pwChanging, setPwChanging] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+
+  const getPasswordStrength = (password) => {
+    if (!password) return { level: 0, label: '', color: '' };
+    let score = 0;
+    if (password.length >= 4) score++;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (score <= 1) return { level: 1, label: 'Çok Zayıf', color: 'bg-red-500' };
+    if (score === 2) return { level: 2, label: 'Zayıf', color: 'bg-orange-500' };
+    if (score === 3) return { level: 3, label: 'Orta', color: 'bg-yellow-500' };
+    if (score === 4) return { level: 4, label: 'Güçlü', color: 'bg-emerald-500' };
+    return { level: 5, label: 'Çok Güçlü', color: 'bg-emerald-600' };
+  };
+
+  const pwStrength = getPasswordStrength(newPassword);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    if (!currentPassword) { setPwError('Mevcut şifrenizi giriniz'); return; }
+    if (!newPassword) { setPwError('Yeni şifre giriniz'); return; }
+    if (newPassword !== confirmPassword) { setPwError('Yeni şifreler eşleşmiyor'); return; }
+    setPwChanging(true);
+    try {
+      await api.put('/auth/change-password', { currentPassword, newPassword });
+      setPwSuccess('Şifreniz başarıyla değiştirildi. Yeni şifreniz e-postanıza gönderildi.');
+      addToast({ type: 'success', title: 'Başarılı', message: 'Şifreniz değiştirildi ve e-postanıza gönderildi.' });
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Şifre değiştirilemedi';
+      setPwError(msg);
+    } finally {
+      setPwChanging(false);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -486,6 +538,127 @@ const UserProfile = ({ isDark }) => {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Şifre Değiştirme */}
+      <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
+        <button
+          onClick={() => { setShowPasswordSection(!showPasswordSection); setPwError(''); setPwSuccess(''); }}
+          className="w-full flex items-center justify-between"
+        >
+          <h3 className={`text-lg font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <KeyRound size={20} />
+            Şifre Değiştir
+          </h3>
+          <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {showPasswordSection ? 'Gizle' : 'Göster'}
+          </span>
+        </button>
+
+        {showPasswordSection && (
+          <form onSubmit={handleChangePassword} className="mt-5 space-y-4 max-w-md">
+            {pwError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+                <AlertCircle size={16} className="text-red-500 shrink-0" />
+                <p className="text-red-600 text-sm">{pwError}</p>
+              </div>
+            )}
+            {pwSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                <p className="text-emerald-600 text-sm">{pwSuccess}</p>
+              </div>
+            )}
+
+            {/* Mevcut Şifre */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Mevcut Şifre</label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type={showCurrentPw ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  placeholder="Mevcut şifreniz"
+                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                />
+                <button type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showCurrentPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Yeni Şifre */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Yeni Şifre</label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type={showNewPw ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Yeni şifreniz"
+                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                />
+                <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {newPassword && (
+                <div className="mt-2">
+                  <div className="flex gap-1 mb-1">
+                    {[1,2,3,4,5].map(i => (
+                      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${i <= pwStrength.level ? pwStrength.color : isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                    ))}
+                  </div>
+                  <p className={`text-xs font-medium ${pwStrength.level <= 1 ? 'text-red-500' : pwStrength.level === 2 ? 'text-orange-500' : pwStrength.level === 3 ? 'text-yellow-600' : 'text-emerald-600'}`}>
+                    Şifre Gücü: {pwStrength.label}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Yeni Şifre Tekrar */}
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Yeni Şifre (Tekrar)</label>
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type={showConfirmPw ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Yeni şifrenizi tekrar girin"
+                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${confirmPassword && confirmPassword !== newPassword ? 'border-red-300' : isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                />
+                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {confirmPassword && confirmPassword !== newPassword && (
+                <p className="text-xs text-red-500 mt-1">Şifreler eşleşmiyor</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={pwChanging}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {pwChanging ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <>
+                  <KeyRound size={18} />
+                  Şifremi Değiştir
+                </>
+              )}
+            </button>
+
+            <p className={`text-xs text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              Yeni şifreniz e-posta adresinize de gönderilecektir.
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );

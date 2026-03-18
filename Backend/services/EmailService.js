@@ -32,13 +32,13 @@ class EmailService {
             <p style="color: #475569; font-size: 15px; margin-bottom: 8px;">Merhaba <strong>${userName}</strong>,</p>
             <p style="color: #475569; font-size: 14px; margin-bottom: 16px;">Hesabınız başarıyla oluşturuldu. Giriş bilgileriniz aşağıdadır:</p>
             <div style="background: #eef2ff; border-radius: 8px; padding: 16px; margin: 16px 0;">
+              ${companyCode ? `<p style="margin: 6px 0; color: #475569; font-size: 14px;"><strong>Şirket Kodu:</strong>
+                <span style="font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #059669; font-family: monospace; margin-left: 8px;">${companyCode}</span>
+              </p>` : ''}
               <p style="margin: 6px 0; color: #475569; font-size: 14px;"><strong>E-posta:</strong> ${email}</p>
               <p style="margin: 6px 0; color: #475569; font-size: 14px;"><strong>Şifre:</strong>
                 <span style="font-size: 20px; font-weight: bold; letter-spacing: 3px; color: #6366f1; font-family: monospace; margin-left: 8px;">${password}</span>
               </p>
-              ${companyCode ? `<p style="margin: 6px 0; color: #475569; font-size: 14px;"><strong>Şirket Kodu:</strong>
-                <span style="font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #059669; font-family: monospace; margin-left: 8px;">${companyCode}</span>
-              </p>` : ''}
             </div>
             <p style="color: #ef4444; font-size: 13px; margin-bottom: 8px;">⚠️ Güvenliğiniz için giriş yaptıktan sonra şifrenizi değiştirin.</p>
             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
