@@ -110,13 +110,29 @@ class SupportTicketController {
 
   async addMessage(req, res) {
     try {
+      // Dosya izinlerini ayarla (nginx okuyabilsin)
+      if (req.file) {
+        try { require('fs').chmodSync(req.file.path, 0o644); } catch (_) {}
+      }
+      const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || null);
       const message = await SupportTicketService.addMessage(
         req.params.id,
         req.user.id,
         req.body.messageText,
-        req.body.isInternal || false
+        req.body.isInternal || false,
+        imageUrl
       );
       res.status(201).json(message);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async deleteMessage(req, res) {
+    try {
+      const companyId = req.user.company_id || req.user.companyId;
+      await SupportTicketService.deleteMessage(req.params.messageId, req.params.id, companyId);
+      res.json({ message: 'Not silindi' });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

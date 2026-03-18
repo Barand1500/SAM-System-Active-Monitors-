@@ -46,7 +46,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── CORS Headers for Static Files ───────────────────────────────────────────
-app.use('/uploads', (req, res, next) => {
+const staticCors = (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -55,11 +55,13 @@ app.use('/uploads', (req, res, next) => {
     return res.sendStatus(200);
   }
   next();
-});
+};
+
 
 // ─── Uploads klasörü (yüklenen dosyalar) ─────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+const uploadsPath = path.join(__dirname, 'uploads');
+app.use('/uploads', staticCors, express.static(uploadsPath));
+app.use('/api/uploads', staticCors, express.static(uploadsPath));
 // ─── API Routes ──────────────────────────────────────────────────────────────
 const routes = require('./routes/index');  // ← routes hazır olunca aç
 app.use('/api', routes);

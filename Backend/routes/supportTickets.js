@@ -3,6 +3,7 @@ const router = express.Router();
 const SupportTicketController = require("../controllers/SupportTicketController");
 const { authenticate } = require("../middleware/authMiddleware");
 const companyIsolation = require("../middleware/companyIsolation");
+const upload = require("../middleware/upload");
 
 // Stats & Status (must be before /:id)
 router.get("/company/stats", authenticate, companyIsolation, SupportTicketController.getStats);
@@ -28,7 +29,8 @@ router.get("/:id/resolution-history", authenticate, companyIsolation, SupportTic
 router.put("/:id/assign", authenticate, companyIsolation, SupportTicketController.assign);
 
 // Messages
-router.post("/:id/messages", authenticate, companyIsolation, SupportTicketController.addMessage);
+router.post("/:id/messages", authenticate, companyIsolation, upload.single('noteImage'), SupportTicketController.addMessage);
+router.delete("/:id/messages/:messageId", authenticate, companyIsolation, SupportTicketController.deleteMessage);
 router.post("/:id/files", authenticate, companyIsolation, SupportTicketController.addFile);
 
 module.exports = router;

@@ -12,9 +12,9 @@ import api from '../services/api';
 // Helper: Backend dosya URL'sini tam adrese çevir
 const getImageUrl = (path) => {
   if (!path) return null;
+  if (path.startsWith('http')) return path;
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const baseUrl = API_URL.replace('/api', ''); // Remove /api
-  if (path.startsWith('http')) return path; // Already full URL
+  const baseUrl = API_URL.replace('/api', '');
   if (path.startsWith('/')) return baseUrl + path;
   return baseUrl + '/' + path;
 };
@@ -542,123 +542,103 @@ const UserProfile = ({ isDark }) => {
 
       {/* Şifre Değiştirme */}
       <div className={`rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'} p-6`}>
-        <button
-          onClick={() => { setShowPasswordSection(!showPasswordSection); setPwError(''); setPwSuccess(''); }}
-          className="w-full flex items-center justify-between"
-        >
-          <h3 className={`text-lg font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            <KeyRound size={20} />
-            Şifre Değiştir
-          </h3>
-          <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            {showPasswordSection ? 'Gizle' : 'Göster'}
-          </span>
-        </button>
+        <h3 className={`text-lg font-bold flex items-center gap-2 mb-5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <Lock size={20} />
+          Şifre Değiştir
+        </h3>
 
-        {showPasswordSection && (
-          <form onSubmit={handleChangePassword} className="mt-5 space-y-4 max-w-md">
-            {pwError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
-                <AlertCircle size={16} className="text-red-500 shrink-0" />
-                <p className="text-red-600 text-sm">{pwError}</p>
-              </div>
-            )}
-            {pwSuccess && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                <p className="text-emerald-600 text-sm">{pwSuccess}</p>
-              </div>
-            )}
+        {pwError && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
+            {pwError}
+          </div>
+        )}
+        {pwSuccess && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+            {pwSuccess}
+          </div>
+        )}
 
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Mevcut Şifre */}
             <div>
-              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Mevcut Şifre</label>
+              <label className={`block text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Mevcut Şifre</label>
               <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showCurrentPw ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={e => setCurrentPassword(e.target.value)}
-                  placeholder="Mevcut şifreniz"
-                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-2 pr-10 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                 />
-                <button type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                  {showCurrentPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button type="button" onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
             {/* Yeni Şifre */}
             <div>
-              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Yeni Şifre</label>
+              <label className={`block text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Yeni Şifre</label>
               <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showNewPw ? 'text' : 'password'}
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Yeni şifreniz"
-                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-2 pr-10 rounded-lg border ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                 />
-                <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                  {showNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button type="button" onClick={() => setShowNewPw(!showNewPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
               {newPassword && (
-                <div className="mt-2">
-                  <div className="flex gap-1 mb-1">
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex gap-0.5 flex-1">
                     {[1,2,3,4,5].map(i => (
-                      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${i <= pwStrength.level ? pwStrength.color : isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
+                      <div key={i} className={`h-1 flex-1 rounded-full ${i <= pwStrength.level ? pwStrength.color : isDark ? 'bg-slate-600' : 'bg-slate-200'}`} />
                     ))}
                   </div>
-                  <p className={`text-xs font-medium ${pwStrength.level <= 1 ? 'text-red-500' : pwStrength.level === 2 ? 'text-orange-500' : pwStrength.level === 3 ? 'text-yellow-600' : 'text-emerald-600'}`}>
-                    Şifre Gücü: {pwStrength.label}
-                  </p>
+                  <span className={`text-[10px] font-medium ${pwStrength.level <= 2 ? 'text-red-500' : pwStrength.level === 3 ? 'text-yellow-600' : 'text-emerald-600'}`}>{pwStrength.label}</span>
                 </div>
               )}
             </div>
 
             {/* Yeni Şifre Tekrar */}
             <div>
-              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Yeni Şifre (Tekrar)</label>
+              <label className={`block text-xs font-semibold uppercase mb-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Yeni Şifre (Tekrar)</label>
               <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showConfirmPw ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Yeni şifrenizi tekrar girin"
-                  className={`w-full rounded-xl px-4 py-3 pl-11 pr-12 border ${confirmPassword && confirmPassword !== newPassword ? 'border-red-300' : isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-2 pr-10 rounded-lg border ${confirmPassword && confirmPassword !== newPassword ? 'border-red-300' : isDark ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400'} focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                 />
-                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                  {showConfirmPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
               {confirmPassword && confirmPassword !== newPassword && (
-                <p className="text-xs text-red-500 mt-1">Şifreler eşleşmiyor</p>
+                <p className="text-[11px] text-red-500 mt-1">Şifreler eşleşmiyor</p>
               )}
             </div>
+          </div>
 
+          <div className="flex items-center justify-between pt-2">
+            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+              Yeni şifreniz e-posta adresinize de gönderilecektir.
+            </p>
             <button
               type="submit"
               disabled={pwChanging}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
             >
-              {pwChanging ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <>
-                  <KeyRound size={18} />
-                  Şifremi Değiştir
-                </>
-              )}
+              {pwChanging ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Kaydet
             </button>
-
-            <p className={`text-xs text-center ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-              Yeni şifreniz e-posta adresinize de gönderilecektir.
-            </p>
-          </form>
-        )}
+          </div>
+        </form>
       </div>
     </div>
   );

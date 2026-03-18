@@ -188,7 +188,13 @@ export const supportTicketAPI = {
   updateStatus: (id, data) => apiClient.put(`/support-tickets/${id}/status`, data),
   getByStatus: (status) => apiClient.get(`/support-tickets/status/${status}`),
   assign: (id, userId) => apiClient.put(`/support-tickets/${id}/assign`, { userId }),
-  addMessage: (id, data) => apiClient.post(`/support-tickets/${id}/messages`, data),
+  addMessage: (id, data) => {
+    if (data instanceof FormData) {
+      return apiClient.post(`/support-tickets/${id}/messages`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+    }
+    return apiClient.post(`/support-tickets/${id}/messages`, data);
+  },
+  deleteMessage: (ticketId, messageId) => apiClient.delete(`/support-tickets/${ticketId}/messages/${messageId}`),
   getStats: () => apiClient.get('/support-tickets/company/stats'),
   reopen: (id, data) => apiClient.put(`/support-tickets/${id}/reopen`, data),
   getResolutionHistory: (id) => apiClient.get(`/support-tickets/${id}/resolution-history`)

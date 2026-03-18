@@ -21,8 +21,14 @@ module.exports = (sequelize, DataTypes) => {
 
     messageText: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
       field: "message_text"
+    },
+
+    imageUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: "image_url"
     },
 
     isInternal: {

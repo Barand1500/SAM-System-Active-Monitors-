@@ -4,7 +4,8 @@ import {
   Eye, UserPlus, CheckCircle2, X, ChevronRight, MessageSquare,
   Send, Search, Filter, Headphones, LogOut, FileText,
   AlertTriangle, Info, Wrench, HelpCircle, BarChart3,
-  MapPin, ArrowLeft, Save, Loader2, RotateCcw, History
+  MapPin, ArrowLeft, Save, Loader2, RotateCcw, History,
+  ImagePlus, Download, ZoomIn, Trash2
 } from 'lucide-react';
 import { supportTicketAPI, contactAPI } from '../services/api';
 
@@ -37,6 +38,7 @@ const backendToFrontendTicket = (t) => ({
     userId: m.userId,
     userName: m.User ? `${m.User.firstName} ${m.User.lastName}` : 'Bilinmeyen',
     text: m.messageText,
+    imageUrl: m.imageUrl || m.image_url || null,
     at: m.createdAt || m.created_at
   })),
   helpers: [],
@@ -596,12 +598,29 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     }));
   };
 
-  const addNote = async (ticketId, text) => {
+  const addNote = async (ticketId, text, imageFile = null) => {
     try {
-      await supportTicketAPI.addMessage(ticketId, { messageText: text, isInternal: true });
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('messageText', text || '');
+        formData.append('isInternal', 'true');
+        formData.append('noteImage', imageFile);
+        await supportTicketAPI.addMessage(ticketId, formData);
+      } else {
+        await supportTicketAPI.addMessage(ticketId, { messageText: text, isInternal: true });
+      }
       await fetchTickets();
     } catch (err) {
       console.error('Not ekleme hatası:', err);
+    }
+  };
+
+  const deleteNote = async (ticketId, messageId) => {
+    try {
+      await supportTicketAPI.deleteMessage(ticketId, messageId);
+      await fetchTickets();
+    } catch (err) {
+      console.error('Not silme hatası:', err);
     }
   };
 
@@ -746,6 +765,10 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     const t = tickets.find(tk => tk.id === selectedTicket?.id);
     if (!t) return null;
     const [noteText, setNoteText] = useState('');
+    const [noteImage, setNoteImage] = useState(null);
+    const [noteImagePreview, setNoteImagePreview] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [previewImage, setPreviewImage] = useState(null);
     const [resolveText, setResolveText] = useState('');
     const [showResolve, setShowResolve] = useState(false);
     const [showReopen, setShowReopen] = useState(false);
@@ -769,9 +792,41 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     };
 
     const handleAddNote = () => {
-      if (!noteText.trim()) return;
-      addNote(t.id, noteText.trim());
+      if (!noteText.trim() && !noteImage) return;
+      addNote(t.id, noteText.trim(), noteImage);
       setNoteText('');
+      setNoteImage(null);
+      setNoteImagePreview(null);
+    };
+
+    const handleNoteImageSelect = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) return;
+      if (file.size > 10 * 1024 * 1024) return;
+      setNoteImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setNoteImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    };
+
+    const getFullImageUrl = (url) => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const baseUrl = API_URL.replace('/api', '');
+      if (url.startsWith('/')) return baseUrl + url;
+      return baseUrl + '/' + url;
+    };
+
+    const handleDownloadImage = (url, fileName) => {
+      const a = document.createElement('a');
+      a.href = getFullImageUrl(url);
+      a.download = fileName || 'resim.jpg';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     };
 
     const handleResolve = () => {
@@ -1201,29 +1256,93 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
             {t.status !== 'resolved' && (
               <div>
                 <h4 className={`text-sm font-semibold mb-3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Notlar</h4>
-                <div className="flex gap-2 mb-3">
-                  <input type="text" value={noteText} onChange={e => setNoteText(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                    placeholder="Not ekle..."
-                    className={`flex-1 ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
-                  <button onClick={handleAddNote} disabled={!noteText.trim()}
-                    className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
-                    <Send size={16} />
-                  </button>
+                <div className="mb-3">
+                  {noteImagePreview && (
+                    <div className="relative inline-block mb-2">
+                      <img src={noteImagePreview} alt="Seçilen" className="h-20 rounded-lg border border-slate-200" />
+                      <button onClick={() => { setNoteImage(null); setNoteImagePreview(null); }}
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input type="text" value={noteText} onChange={e => setNoteText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                      placeholder="Not ekle..."
+                      className={`flex-1 ${inputClass} border rounded-xl px-4 py-2.5 text-sm`} />
+                    <label className={`p-2.5 rounded-xl cursor-pointer transition-colors ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
+                      <ImagePlus size={16} />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleNoteImageSelect} />
+                    </label>
+                    <button onClick={handleAddNote} disabled={!noteText.trim() && !noteImage}
+                      className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+                      <Send size={16} />
+                    </button>
+                  </div>
                 </div>
                 {t.notes.length > 0 && (
                   <div className="space-y-2">
                     {[...t.notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(n => (
-                      <div key={n.id} className={`p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                      <div key={n.id} className={`p-3 rounded-xl relative group ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{n.userName}</span>
-                          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{new Date(n.at).toLocaleString('tr-TR')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{n.userName}</span>
+                            <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{new Date(n.at).toLocaleString('tr-TR')}</span>
+                          </div>
+                          {deleteConfirm === n.id ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-500'}`}>Silinsin mi?</span>
+                              <button onClick={() => { deleteNote(t.id, n.id); setDeleteConfirm(null); }}
+                                className="px-2 py-0.5 text-xs bg-red-500 text-white rounded-md hover:bg-red-600">Evet</button>
+                              <button onClick={() => setDeleteConfirm(null)}
+                                className={`px-2 py-0.5 text-xs rounded-md ${isDark ? 'bg-slate-600 text-slate-300 hover:bg-slate-500' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>Hayır</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setDeleteConfirm(n.id)}
+                              className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-100 ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-400 hover:bg-red-50'}`}
+                              title="Notu sil">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
-                        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{n.text}</p>
+                        {n.text && <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{n.text}</p>}
+                        {n.imageUrl && (
+                          <div className="mt-2 flex items-start gap-2">
+                            <div className="relative inline-block group/img cursor-pointer" onClick={() => setPreviewImage(n.imageUrl)}>
+                              <img src={getFullImageUrl(n.imageUrl)} alt="Not resmi" className="h-20 w-20 object-cover rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors" />
+                              <div className="absolute inset-0 bg-black/0 hover:bg-black/20 rounded-lg transition-colors flex items-center justify-center">
+                                <ZoomIn size={16} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-lg" />
+                              </div>
+                            </div>
+                            <button onClick={() => handleDownloadImage(n.imageUrl)}
+                              className={`p-1.5 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-indigo-400 hover:bg-slate-600' : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100'}`}
+                              title="İndir">
+                              <Download size={14} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Resim Önizleme Modal */}
+            {previewImage && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4" onClick={() => setPreviewImage(null)}>
+                <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <img src={getFullImageUrl(previewImage)} alt="Önizleme" className="max-w-full max-h-[85vh] object-contain rounded-xl" />
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    <button onClick={() => handleDownloadImage(previewImage)} className="p-2 bg-white/90 text-slate-700 rounded-xl hover:bg-white shadow-lg" title="İndir">
+                      <Download size={18} />
+                    </button>
+                    <button onClick={() => setPreviewImage(null)} className="p-2 bg-white/90 text-slate-700 rounded-xl hover:bg-white shadow-lg" title="Kapat">
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

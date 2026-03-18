@@ -298,9 +298,9 @@ const AdminPanel = ({ isDark, departments: initialDepartments }) => {
   // Helper: Backend dosya URL'sini tam adrese çevir
   const getImageUrl = (path) => {
     if (!path) return null;
+    if (path.startsWith('http')) return path;
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
     const baseUrl = API_URL.replace('/api', '');
-    if (path.startsWith('http')) return path;
     if (path.startsWith('/')) return baseUrl + path;
     return baseUrl + '/' + path;
   };

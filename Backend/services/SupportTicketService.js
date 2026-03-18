@@ -26,13 +26,34 @@ class SupportTicketService {
     return ticketRepo.delete(id, company_id);
   }
 
-  async addMessage(ticketId, userId, messageText, isInternal = false) {
+  async addMessage(ticketId, userId, messageText, isInternal = false, imageUrl = null) {
     return TicketMessage.create({
       ticketId,
       userId,
-      messageText,
+      messageText: messageText || null,
+      imageUrl,
       isInternal
     });
+  }
+
+  async deleteMessage(messageId, ticketId, companyId) {
+    const ticket = await SupportTicket.findByPk(ticketId);
+    if (!ticket || ticket.companyId != companyId) {
+      throw new Error('Destek talebi bulunamadı');
+    }
+    const message = await TicketMessage.findOne({ where: { id: messageId, ticketId } });
+    if (!message) {
+      throw new Error('Not bulunamadı');
+    }
+    // Varsa ilişkili dosyayı sil
+    if (message.imageUrl) {
+      const fs = require('fs');
+      const path = require('path');
+      const filePath = path.join(__dirname, '..', message.imageUrl);
+      try { fs.unlinkSync(filePath); } catch (_) {}
+    }
+    await message.destroy();
+    return true;
   }
 
   async addFile(ticketId, messageId, fileData) {

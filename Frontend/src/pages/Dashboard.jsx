@@ -220,9 +220,9 @@ const backendToFrontendTask = (bt) => {
 // Helper: Backend dosya URL'sini tam adrese çevir
 const getImageUrl = (imgPath) => {
   if (!imgPath) return null;
+  if (imgPath.startsWith('http')) return imgPath;
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   const baseUrl = API_URL.replace('/api', '');
-  if (imgPath.startsWith('http')) return imgPath;
   if (imgPath.startsWith('/')) return baseUrl + imgPath;
   return baseUrl + '/' + imgPath;
 };

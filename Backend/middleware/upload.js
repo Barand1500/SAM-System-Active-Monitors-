@@ -1,14 +1,22 @@
 const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs");
+
+const uploadsDir = path.join(__dirname, "..", "uploads");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "..", "uploads"));
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueName = crypto.randomBytes(16).toString("hex") + path.extname(file.originalname);
     cb(null, uniqueName);
+    // Dosya kaydedildikten sonra izni 644 yap (nginx okuyabilsin)
+    const filePath = path.join(uploadsDir, uniqueName);
+    setTimeout(() => {
+      try { fs.chmodSync(filePath, 0o644); } catch (_) {}
+    }, 100);
   }
 });
 
