@@ -58,6 +58,7 @@ const SupportTicket = require("./SupportTicket")(sequelize, DataTypes);
 const TicketMessage = require("./TicketMessage")(sequelize, DataTypes);
 const TicketFile = require("./TicketFile")(sequelize, DataTypes);
 const TicketCategory = require("./TicketCategory")(sequelize, DataTypes);
+const TicketResolutionHistory = require("./TicketResolutionHistory")(sequelize, DataTypes);
 
 const PersonalNote = require("./PersonalNote")(sequelize, DataTypes);
 const Contact = require("./Contact")(sequelize, DataTypes);
@@ -321,6 +322,15 @@ TicketFile.belongsTo(User, { foreignKey: "uploaded_by" });
 TicketCategory.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
 Company.hasMany(TicketCategory, { foreignKey: "company_id", onDelete: "CASCADE" });
 
+// TICKET RESOLUTION HISTORY
+TicketResolutionHistory.belongsTo(SupportTicket, { foreignKey: "ticket_id", onDelete: "CASCADE" });
+SupportTicket.hasMany(TicketResolutionHistory, { foreignKey: "ticket_id", onDelete: "CASCADE" });
+
+TicketResolutionHistory.belongsTo(Company, { foreignKey: "company_id", onDelete: "CASCADE" });
+
+TicketResolutionHistory.belongsTo(User, { foreignKey: "resolved_by", as: "resolver" });
+TicketResolutionHistory.belongsTo(User, { foreignKey: "reopened_by", as: "reopener" });
+
 
 // EXPORT
 module.exports = {
@@ -383,6 +393,7 @@ module.exports = {
   TicketMessage,
   TicketFile,
   TicketCategory,
+  TicketResolutionHistory,
 
   PersonalNote,
   Contact,

@@ -1,5 +1,5 @@
 const ticketRepo = require("../repositories/SupportTicketRepository");
-const { SupportTicket, TicketMessage, TicketFile } = require("../models");
+const { SupportTicket, TicketMessage, TicketFile, TicketResolutionHistory } = require("../models");
 
 class SupportTicketService {
   async create(data) {
@@ -76,6 +76,54 @@ class SupportTicketService {
       return false;
     }
     return ticket.createdBy == userId || ticket.assignedTo == userId;
+  }
+
+  async reopenTicket(id, companyId, userId, reopenReason) {
+    const ticket = await SupportTicket.findByPk(id);
+    if (!ticket || ticket.companyId != companyId) {
+      throw new Error("Destek talebi bulunamadı");
+    }
+    if (ticket.status !== "resolved" && ticket.status !== "closed") {
+      throw new Error("Sadece çözülmüş veya kapatılmış talepler tekrar açılabilir");
+    }
+
+    // Çözüm süresini hesapla
+    const resolvedAt = ticket.resolvedAt ? new Date(ticket.resolvedAt) : new Date();
+    const createdAt = new Date(ticket.createdAt);
+    const durationSeconds = Math.floor((resolvedAt - createdAt) / 1000);
+
+    // Mevcut çözümü history'ye kaydet
+    await TicketResolutionHistory.create({
+      ticketId: ticket.id,
+      companyId: ticket.companyId,
+      cycleNumber: (ticket.reopenCount || 0) + 1,
+      resolvedBy: ticket.assignedTo,
+      resolution: ticket.resolution,
+      resolvedAt: ticket.resolvedAt,
+      reopenedBy: userId,
+      reopenedAt: new Date(),
+      reopenReason: reopenReason || null,
+      durationSeconds: durationSeconds > 0 ? durationSeconds : 0
+    });
+
+    // Ticket'i tekrar aç
+    await ticket.update({
+      status: "open",
+      resolution: null,
+      resolvedAt: null,
+      assignedTo: null,
+      reopenCount: (ticket.reopenCount || 0) + 1
+    });
+
+    return ticketRepo.findWithMessages(id);
+  }
+
+  async getResolutionHistory(id, companyId) {
+    const ticket = await SupportTicket.findByPk(id);
+    if (!ticket || ticket.companyId != companyId) {
+      throw new Error("Destek talebi bulunamadı");
+    }
+    return ticketRepo.getResolutionHistory(id);
   }
 }
 

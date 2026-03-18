@@ -157,6 +157,42 @@ class SupportTicketController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async reopen(req, res) {
+    try {
+      const { reopenReason } = req.body;
+      const ticket = await SupportTicketService.reopenTicket(
+        req.params.id,
+        req.user.company_id,
+        req.user.id,
+        reopenReason
+      );
+      await createForCompany(req, {
+        title: 'Destek talebi tekrar açıldı',
+        message: ticket?.title ? `Destek tekrar açıldı: ${ticket.title}` : 'Bir destek talebi tekrar açıldı.',
+        type: 'ticket',
+        referenceType: 'support_ticket',
+        referenceId: ticket?.id,
+        excludeUserId: req.user.id,
+      });
+      await logAudit(req, 'ticket_reopened', 'UPDATE', `Destek talebi tekrar açıldı: #${req.params.id}`, req.params.id);
+      res.json(ticket);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getResolutionHistory(req, res) {
+    try {
+      const history = await SupportTicketService.getResolutionHistory(
+        req.params.id,
+        req.user.company_id
+      );
+      res.json(history);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new SupportTicketController();

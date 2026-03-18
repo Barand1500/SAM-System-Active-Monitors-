@@ -189,7 +189,9 @@ export const supportTicketAPI = {
   getByStatus: (status) => apiClient.get(`/support-tickets/status/${status}`),
   assign: (id, userId) => apiClient.put(`/support-tickets/${id}/assign`, { userId }),
   addMessage: (id, data) => apiClient.post(`/support-tickets/${id}/messages`, data),
-  getStats: () => apiClient.get('/support-tickets/company/stats')
+  getStats: () => apiClient.get('/support-tickets/company/stats'),
+  reopen: (id, data) => apiClient.put(`/support-tickets/${id}/reopen`, data),
+  getResolutionHistory: (id) => apiClient.get(`/support-tickets/${id}/resolution-history`)
 };
 
 // ============== CUSTOMER (CRM) ENDPOINTS ==============

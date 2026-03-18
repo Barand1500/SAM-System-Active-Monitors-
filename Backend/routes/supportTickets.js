@@ -18,6 +18,12 @@ router.delete("/:id", authenticate, companyIsolation, SupportTicketController.de
 // Status Management
 router.put("/:id/status", authenticate, companyIsolation, SupportTicketController.updateStatus);
 
+// Reopen (tekrar aç)
+router.put("/:id/reopen", authenticate, companyIsolation, SupportTicketController.reopen);
+
+// Resolution History (geçmiş çözümler)
+router.get("/:id/resolution-history", authenticate, companyIsolation, SupportTicketController.getResolutionHistory);
+
 // Assignment
 router.put("/:id/assign", authenticate, companyIsolation, SupportTicketController.assign);
 

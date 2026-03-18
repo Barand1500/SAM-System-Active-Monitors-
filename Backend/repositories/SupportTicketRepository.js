@@ -1,5 +1,5 @@
 const BaseRepository = require("./BaseRepository");
-const { SupportTicket, TicketMessage, TicketFile, TicketCategory, User } = require("../models");
+const { SupportTicket, TicketMessage, TicketFile, TicketCategory, TicketResolutionHistory, User } = require("../models");
 
 class SupportTicketRepository extends BaseRepository {
   constructor() {
@@ -75,6 +75,17 @@ class SupportTicketRepository extends BaseRepository {
     return this.model.findAll({
       where: { companyId, status },
       order: [["created_at", "DESC"]]
+    });
+  }
+
+  async getResolutionHistory(ticketId) {
+    return TicketResolutionHistory.findAll({
+      where: { ticketId },
+      include: [
+        { model: User, as: "resolver", attributes: ["id", "firstName", "lastName", "email"] },
+        { model: User, as: "reopener", attributes: ["id", "firstName", "lastName", "email"] }
+      ],
+      order: [["cycle_number", "ASC"]]
     });
   }
 }

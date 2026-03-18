@@ -4,7 +4,7 @@ import {
   Eye, UserPlus, CheckCircle2, X, ChevronRight, MessageSquare,
   Send, Search, Filter, Headphones, LogOut, FileText,
   AlertTriangle, Info, Wrench, HelpCircle, BarChart3,
-  MapPin, ArrowLeft, Save, Loader2
+  MapPin, ArrowLeft, Save, Loader2, RotateCcw, History
 } from 'lucide-react';
 import { supportTicketAPI, contactAPI } from '../services/api';
 
@@ -31,6 +31,7 @@ const backendToFrontendTicket = (t) => ({
   assignedAt: t.updatedAt || t.updated_at,
   resolution: t.resolution,
   resolvedAt: t.resolvedAt || t.resolved_at || (t.status === 'resolved' ? (t.updatedAt || t.updated_at) : null),
+  reopenCount: t.reopenCount || t.reopen_count || 0,
   notes: (t.TicketMessages || []).map(m => ({
     id: m.id,
     userId: m.userId,
@@ -614,6 +615,26 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     }
   };
 
+  const reopenTicket = async (ticketId, reopenReason) => {
+    try {
+      await supportTicketAPI.reopen(ticketId, { reopenReason });
+      await fetchTickets();
+      setSelectedTicket(null);
+    } catch (err) {
+      console.error('Ticket tekrar açma hatası:', err);
+    }
+  };
+
+  const fetchResolutionHistory = async (ticketId) => {
+    try {
+      const res = await supportTicketAPI.getResolutionHistory(ticketId);
+      return res.data || [];
+    } catch (err) {
+      console.error('Geçmiş yükleme hatası:', err);
+      return [];
+    }
+  };
+
   // Filtering
   const poolTickets = tickets.filter(t => t.status !== 'resolved');
   const resolvedTickets = tickets.filter(t => t.status === 'resolved');
@@ -673,6 +694,11 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
           <div className="flex items-center gap-2 shrink-0">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${st.bgLight} ${st.textColor}`}>{st.label}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${pri.color}`}>{pri.label}</span>
+            {ticket.reopenCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
+                {ticket.reopenCount}x
+              </span>
+            )}
           </div>
         </div>
         {/* Description preview */}
@@ -722,6 +748,11 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
     const [noteText, setNoteText] = useState('');
     const [resolveText, setResolveText] = useState('');
     const [showResolve, setShowResolve] = useState(false);
+    const [showReopen, setShowReopen] = useState(false);
+    const [reopenReason, setReopenReason] = useState('');
+    const [resolutionHistory, setResolutionHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
     const cat = categories.find(c => c.id === t.category) || categories[4];
     const pri = priorities.find(p => p.id === t.priority);
     const isMine = t.assignee?.id === user.id;
@@ -748,6 +779,30 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
       resolveTicket(t.id, resolveText.trim());
     };
 
+    const handleReopen = () => {
+      reopenTicket(t.id, reopenReason.trim() || null);
+    };
+
+    const loadHistory = async () => {
+      if (showHistory) { setShowHistory(false); return; }
+      setHistoryLoading(true);
+      const h = await fetchResolutionHistory(t.id);
+      setResolutionHistory(h);
+      setShowHistory(true);
+      setHistoryLoading(false);
+    };
+
+    const fmtDuration = (seconds) => {
+      if (!seconds || seconds <= 0) return '–';
+      const mins = Math.floor(seconds / 60);
+      if (mins < 1) return 'Az önce';
+      if (mins < 60) return `${mins} dk`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs} sa ${mins % 60} dk`;
+      const days = Math.floor(hrs / 24);
+      return `${days} gün ${hrs % 24} sa`;
+    };
+
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className={`w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border ${cardClass} shadow-2xl`}>
@@ -764,6 +819,11 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statuses[t.status].bgLight} ${statuses[t.status].textColor}`}>{statuses[t.status].label}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${pri.color}`}>{pri.label}</span>
                     <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>#{t.id}</span>
+                    {t.reopenCount > 0 && (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isDark ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
+                        <RotateCcw size={10} className="inline mr-1" />{t.reopenCount}x açıldı
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -797,6 +857,26 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                   </button>
                 </>
               )}
+              {t.status === 'resolved' && (
+                <>
+                  <button onClick={() => setShowReopen(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-medium rounded-xl hover:from-amber-600 hover:to-orange-700 flex items-center gap-1.5">
+                    <RotateCcw size={15} /> Tekrar Aç
+                  </button>
+                  <button onClick={loadHistory} disabled={historyLoading}
+                    className={`px-4 py-2 text-sm font-medium rounded-xl flex items-center gap-1.5 ${showHistory ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    {historyLoading ? <Loader2 size={15} className="animate-spin" /> : <History size={15} />}
+                    Geçmiş {t.reopenCount > 0 && <span className={`ml-1 px-1.5 py-0.5 rounded-md text-xs font-bold ${showHistory ? 'bg-white/20' : isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>{t.reopenCount}</span>}
+                  </button>
+                </>
+              )}
+              {t.reopenCount > 0 && t.status !== 'resolved' && (
+                <button onClick={loadHistory} disabled={historyLoading}
+                  className={`px-4 py-2 text-sm font-medium rounded-xl flex items-center gap-1.5 ${showHistory ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  {historyLoading ? <Loader2 size={15} className="animate-spin" /> : <History size={15} />}
+                  Geçmiş <span className={`ml-1 px-1.5 py-0.5 rounded-md text-xs font-bold ${showHistory ? 'bg-white/20' : isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>{t.reopenCount}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -815,6 +895,97 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                     Tamamla ve Raporla
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Reopen form */}
+            {showReopen && (
+              <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
+                <h4 className={`font-semibold text-sm mb-2 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>Talebi Tekrar Aç</h4>
+                <p className={`text-xs mb-3 ${isDark ? 'text-amber-300/60' : 'text-amber-600'}`}>Mevcut çözüm geçmişe kaydedilecek ve talep tekrar destek havuzuna düşecektir.</p>
+                <textarea value={reopenReason} onChange={e => setReopenReason(e.target.value)}
+                  rows={2} placeholder="Tekrar açma sebebini yazabilirsiniz (opsiyonel)..."
+                  className={`w-full ${inputClass} border rounded-xl px-4 py-2.5 text-sm resize-none mb-3`} />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowReopen(false)} className={`px-4 py-2 text-sm rounded-xl ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>İptal</button>
+                  <button onClick={handleReopen}
+                    className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-medium rounded-xl hover:from-amber-600 hover:to-orange-700">
+                    Tekrar Aç
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Resolution History */}
+            {showHistory && (
+              <div className={`rounded-xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50/50 border-indigo-200'}`}>
+                <div className={`px-4 py-3 border-b ${isDark ? 'border-indigo-500/20' : 'border-indigo-200'} flex items-center gap-2`}>
+                  <History size={16} className={isDark ? 'text-indigo-400' : 'text-indigo-600'} />
+                  <h4 className={`font-semibold text-sm ${isDark ? 'text-indigo-300' : 'text-indigo-700'}`}>Çözüm Geçmişi</h4>
+                  <span className={`px-1.5 py-0.5 rounded-md text-xs font-bold ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>{resolutionHistory.length}</span>
+                </div>
+                {resolutionHistory.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Henüz geçmiş çözüm kaydı yok</p>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-3">
+                    {resolutionHistory.map((h, i) => (
+                      <div key={h.id} className={`p-4 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-slate-200'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>{h.cycleNumber || h.cycle_number}</span>
+                            <span className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{i + 1}. Çözüm Döngüsü</span>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
+                            {fmtDuration(h.durationSeconds || h.duration_seconds)}
+                          </span>
+                        </div>
+                        {/* Resolution */}
+                        {h.resolution && (
+                          <div className={`mb-3 p-3 rounded-lg ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
+                            <p className={`text-xs font-medium mb-1 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Çözüm</p>
+                            <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{h.resolution}</p>
+                          </div>
+                        )}
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Çözen</p>
+                            <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {h.resolver ? `${h.resolver.firstName} ${h.resolver.lastName}` : '–'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Çözüm Tarihi</p>
+                            <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {h.resolvedAt || h.resolved_at ? new Date(h.resolvedAt || h.resolved_at).toLocaleString('tr-TR') : '–'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Tekrar Açan</p>
+                            <p className={`text-sm font-medium ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                              {h.reopener ? `${h.reopener.firstName} ${h.reopener.lastName}` : '–'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Tekrar Açılma</p>
+                            <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {h.reopenedAt || h.reopened_at ? new Date(h.reopenedAt || h.reopened_at).toLocaleString('tr-TR') : '–'}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Reopen Reason */}
+                        {(h.reopenReason || h.reopen_reason) && (
+                          <div className={`mt-3 p-3 rounded-lg ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
+                            <p className={`text-xs font-medium mb-1 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Tekrar Açma Sebebi</p>
+                            <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{h.reopenReason || h.reopen_reason}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1122,6 +1293,11 @@ const SupportSystem = ({ user, isBoss, canManage, isDark }) => {
                   Çözüm: {resolveTime}
                 </span>
               </div>
+              {t.reopenCount > 0 && (
+                <div className={`flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-700'}`}>
+                  <RotateCcw size={12} /> {t.reopenCount} kez tekrar açıldı
+                </div>
+              )}
               {t.resolution && (
                 <p className={`text-sm mb-3 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   <span className="font-medium">Çözüm: </span>{t.resolution}

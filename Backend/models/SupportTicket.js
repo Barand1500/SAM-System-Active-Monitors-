@@ -98,6 +98,12 @@ module.exports = (sequelize, DataTypes) => {
       field: "closed_at"
     },
 
+    reopenCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      field: "reopen_count"
+    },
+
   }, {
     tableName: "support_tickets",
     timestamps: true,
